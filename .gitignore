@@ -27,14 +27,23 @@ logs/
 .cache/
 tmp/
 
-# Secrets and credentials (if accidentally added)
+# Secrets and credentials
 *.pem
 *.key
+*.p12
+*.pfx
+*.jks
+*.keystore
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.template
 secrets/
 credentials/
+**/api_keys*
+**/tokens*
+**/*secret*
+!**/*secret*.md
 home/.claude/mcp.json
 
 # Node (if any scripts use it)
