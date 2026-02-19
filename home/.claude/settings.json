@@ -1,0 +1,169 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-4-6[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6[1m]"
+  },
+  "permissions": {
+    "allow": [
+      "Edit",
+      "MultiEdit",
+      "Write",
+      "Skill(agent-browser)",
+      "Skill(agent-native-architecture)",
+      "Skill(designing-clean-architecture)",
+      "Skill(commit)",
+      "Skill(compound-docs)",
+      "Skill(continuity)",
+      "Skill(create-agent-skills)",
+      "Skill(doc-generator)",
+      "Skill(file-todos)",
+      "Skill(frontend-design)",
+      "Skill(git-worktree)",
+      "Skill(handoff)",
+      "Skill(index-knowledge)",
+      "Skill(prd)",
+      "Skill(prd-implementation)",
+      "Skill(prd-task)",
+      "Skill(react-best-practices)",
+      "Skill(test-driven-development)",
+      "Skill(web-design-guidelines)",
+      "Skill(workflows:*)",
+      "Skill(prompt:*)",
+      "WebSearch",
+      "WebFetch",
+      "Bash(git:*)",
+      "Bash(pnpm:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(yarn:*)",
+      "Bash(node:*)",
+      "Bash(go:*)",
+      "Bash(make:*)",
+      "Bash(docker:*)",
+      "Bash(docker-compose:*)",
+      "Bash(supabase db diff:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash($HOME/.claude/hooks/*)",
+      "Bash(~/.claude/hooks/*)",
+      "Bash($HOME/.claude/scripts/*)",
+      "Bash(~/.claude/scripts/*)",
+      "Bash(bash:$HOME/.claude/scripts/* *)",
+      "Bash(bash:~/.claude/scripts/* *)",
+      "Bash(bash ~/.claude/scripts/generate-reasoning.sh:*)",
+      "Bash(cat:$HOME/.claude/*)",
+      "Bash(cat:~/.claude/*)",
+      "Bash(chmod:*)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(echo:*)",
+      "Bash(tee:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(diff:*)",
+      "Bash(which:*)",
+      "Bash(pwd:*)",
+      "Bash(cd:*)",
+      "Bash(source:*)",
+      "Bash(export:*)",
+      "Bash(env:*)",
+      "Bash(set:*)",
+      "Bash(uv run:*)",
+      "Bash(continuity:*)",
+      "Bash(mcp-exec:*)",
+      "Bash(mcp-generate:*)",
+      "Bash(mcp-discover:*)",
+      "Bash(rp-cli:*)",
+      "Bash(sqlite3:*)",
+      "Bash(pipx:*)",
+      "Bash(uvx:*)",
+      "Bash(pytest:*)",
+      "Bash(qlty:*)",
+      "Bash(rm -rf /tmp:*)",
+      "mcp__firecrawl__*",
+      "mcp__github__*",
+      "mcp__perplexity__*",
+      "mcp__nia__*",
+      "mcp__morph__*",
+      "mcp__ast-grep__*",
+      "mcp__repoprompt__*",
+      "mcp__git__*",
+      "mcp__fetch__*",
+      "mcp__qlty__*",
+      "mcp__ide__getDiagnostics",
+      "Read($HOME/.claude/**)",
+      "Read(~/.claude/**)",
+      "Glob($HOME/.claude/**)",
+      "Glob(~/.claude/**)"
+    ],
+    "deny": [
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(rm -rf *)",
+      "Bash(git push:*)",
+      "Bash(git reset --hard:*)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.development)",
+      "Read(**/.env.production)",
+      "Read(**/.env.staging)",
+      "Read(**/*.env)",
+      "Read(**/secrets/**)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $HOME/.claude/hooks/dist/skill-activation-prompt.mjs"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/typescript-stop-gate.sh",
+            "timeout": 50
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/typescript-preflight.sh",
+            "timeout": 40
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "$HOME/.claude/hooks/src/statusline.sh"
+  },
+  "spinnerTipsEnabled": false
+}

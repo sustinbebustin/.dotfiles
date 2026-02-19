@@ -1,0 +1,19 @@
+# Core
+brew "git"
+brew "stow"
+brew "zsh"
+
+# Shell
+brew "starship"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
+
+# Terminal
+brew "tmux"
+
+# CLI tools
+brew "ast-grep"
+brew "eza"
+brew "gh"
+brew "jq"
+brew "ripgrep"

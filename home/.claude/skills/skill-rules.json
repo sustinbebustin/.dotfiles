@@ -1,0 +1,146 @@
+{
+    "version": "1.0",
+    "description": "Skill activation triggers for Claude Code. Controls when skills automatically suggest or block actions.",
+    "skills": {
+        "doc-generator": {
+            "type": "documentation",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Generate or update technical documentation files (README.md, api.md, auth.md, architecture.md, database.md) by analyzing the codebase. Use ONLY when the user explicitly asks to create, update, or audit documentation. Do NOT use for general writing tasks, code comments, or inline documentation.",
+            "promptTriggers": {
+                "keywords": [
+                    "document",
+                    "documentation",
+                    "create readme",
+                    "write readme",
+                    "update readme",
+                    "api docs",
+                    "api documentation",
+                    "auth docs",
+                    "architecture docs",
+                    "database docs",
+                    "generate docs",
+                    "write docs",
+                    "technical docs",
+                    "document the api",
+                    "document this feature",
+                    "README.md",
+                    "api.md",
+                    "architecture.md"
+                ],
+                "intentPatterns": [
+                    "(create|write|generate|update).*?(readme|documentation|docs)",
+                    "document.*?(api|auth|architecture|database|feature|codebase)",
+                    "(api|auth|architecture|database).*?documentation",
+                    "(technical|project).*?docs",
+                    "(write|create|generate).*?(readme|api|auth|architecture).*?docs"
+                ]
+            }
+        },
+        "create-agent-skills": {
+            "type": "meta",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Create, audit, or improve Claude Code Skills (SKILL.md files). Use ONLY when the user explicitly asks to: create a new skill, write a SKILL.md file, audit an existing skill against best practices, or understand skill structure/frontmatter. Do NOT use for general agent creation, prompt writing, or documentation tasks.",
+            "promptTriggers": {
+                "keywords": [
+                    "create skill",
+                    "write skill",
+                    "new skill",
+                    "skill structure",
+                    "SKILL.md",
+                    "skill best practices",
+                    "skill authoring",
+                    "skill design",
+                    "skill file",
+                    "skill template",
+                    "skill format",
+                    "agent skill",
+                    "claude skill",
+                    "skill frontmatter",
+                    "skill description"
+                ],
+                "intentPatterns": [
+                    "(create|write|build|make|design).*?skill",
+                    "(new|add).*?skill",
+                    "skill.*?(structure|format|template|best practices)",
+                    "SKILL\\.md",
+                    "(how|what).*?(write|create|structure).*?skill",
+                    "(skill|skills).*?(authoring|design|guidelines)"
+                ]
+            }
+        }
+    },
+    "agents": {
+        "code-review": {
+            "type": "quality",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Pre-commit code review agent for staged git changes - checks clean architecture, bugs, debug statements",
+            "promptTriggers": {
+                "keywords": [
+                    "review code",
+                    "code review",
+                    "review changes",
+                    "review staged",
+                    "check code",
+                    "before commit",
+                    "pre-commit",
+                    "review my changes",
+                    "quality check",
+                    "check for bugs"
+                ],
+                "intentPatterns": [
+                    "(review|check).*?(code|changes|staged)",
+                    "(before|pre).*?commit",
+                    "(code|quality).*?review",
+                    "(check|look for).*?(bugs|issues|problems)",
+                    "(review|analyze).*?(staged|changes)"
+                ]
+            }
+        },
+        "meta:agent-generator": {
+            "type": "meta",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Generates XML-optimized agent files (orchestrator and subagents) following research-backed patterns. Use when creating new agents or agent systems.",
+            "promptTriggers": {
+                "keywords": [
+                    "create agent",
+                    "generate agent",
+                    "new agent",
+                    "agent file",
+                    "agent system",
+                    "orchestrator",
+                    "subagent",
+                    "agent generator",
+                    "xml agent",
+                    "agent architecture",
+                    "agent template",
+                    "build agent"
+                ],
+                "intentPatterns": [
+                    "(create|generate|build|make).*?agent",
+                    "(new|add).*?agent",
+                    "agent.*?(file|system|architecture)",
+                    "(orchestrator|subagent).*?(create|generate|design)",
+                    "(xml|optimized).*?agent",
+                    "agent.*?(template|pattern)"
+                ]
+            }
+        }
+    },
+    "notes": {
+        "enforcement_types": {
+            "suggest": "Skill suggestion appears but doesn't block execution",
+            "block": "Requires skill to be used before proceeding (guardrail)",
+            "warn": "Shows warning but allows proceeding"
+        },
+        "priority_levels": {
+            "critical": "Highest - Always trigger when matched",
+            "high": "Important - Trigger for most matches",
+            "medium": "Moderate - Trigger for clear matches",
+            "low": "Optional - Trigger only for explicit matches"
+        }
+    }
+}

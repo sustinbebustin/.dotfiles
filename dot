@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+info() { printf '\033[0;34m[info]\033[0m %s\n' "$1"; }
+ok()   { printf '\033[0;32m[ok]\033[0m %s\n' "$1"; }
+err()  { printf '\033[0;31m[error]\033[0m %s\n' "$1" >&2; }
+
+# --- Homebrew ---
+if command -v brew &>/dev/null; then
+    ok "Homebrew already installed"
+else
+    info "Installing Homebrew..."
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    # Load brew into current session
+    if [ -f /opt/homebrew/bin/brew ]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [ -f /usr/local/bin/brew ]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+    elif [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    fi
+    ok "Homebrew installed"
+fi
+
+# --- Packages ---
+info "Installing packages..."
+brew bundle --file="$DOTFILES_DIR/packages/Brewfile"
+ok "Packages installed"
+
+# --- Global npm packages ---
+info "Installing global npm packages..."
+npm install -g @dmmulroy/overseer
+ok "Global npm packages installed"
+
+# --- Stow ---
+info "Stowing dotfiles..."
+stow --dir="$DOTFILES_DIR" --target="$HOME" home
+ok "Dotfiles linked"
+
+# --- Default shell ---
+ZSH_PATH="$(command -v zsh)"
+if [ "$SHELL" != "$ZSH_PATH" ]; then
+    info "Setting zsh as default shell..."
+    if ! grep -qF "$ZSH_PATH" /etc/shells; then
+        echo "$ZSH_PATH" | sudo tee -a /etc/shells >/dev/null
+    fi
+    chsh -s "$ZSH_PATH"
+    ok "Default shell set to zsh"
+else
+    ok "zsh is already the default shell"
+fi
+
+echo ""
+ok "Setup complete. Open a new terminal to start using your config."

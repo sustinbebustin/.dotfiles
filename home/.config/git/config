@@ -1,0 +1,17 @@
+[filter "lfs"]
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+[user]
+	name = sustinbebustin
+	email = 999@sustinbebustin.com
+[alias]
+	co = checkout
+	br = branch
+	st = status
+	ci = commit
+	unstage = reset HEAD --
+	last = log -1 HEAD
+[init]
+	defaultBranch = main

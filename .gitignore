@@ -1,0 +1,67 @@
+# Zsh generated files
+home/.config/zsh/.zcompdump*
+home/.config/zsh/.zsh_history
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editor/IDE
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+tmp/
+
+# Secrets and credentials (if accidentally added)
+*.pem
+*.key
+.env
+.env.local
+.env.*.local
+secrets/
+credentials/
+home/.claude/mcp.json
+
+# Node (if any scripts use it)
+node_modules/
+
+# Python (if any scripts use it)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+venv/
+.venv/
+
+# Build outputs
+dist/
+!.claude/hooks/dist
+!home/.claude/hooks/dist
+build/
+*.o
+*.a
+
+# Continuity local data (regenerate with continuity index)
+.continuity/
+
+.envrc
+*/**/tmux/plugins/*
+backups/
+packages/failed_packages_*.txt

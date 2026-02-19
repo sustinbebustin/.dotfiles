@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "your-context7-api-key"
+      }
+    },
+    "grep_app": {
+      "type": "remote",
+      "url": "https://mcp.grep.app"
+    },
+    "opensrc": {
+      "command": "npx",
+      "args": ["-y", "opensrc-mcp"]
+    },
+    "overseer": {
+      "command": "npx",
+      "args": ["-y", "@dmmulroy/overseer", "mcp"]
+    }
+  }
+}
