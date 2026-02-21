@@ -1,57 +1,554 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+readonly VERSION="2.0.0"
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly DOTFILES_DIR
+readonly PACKAGES_DIR="${DOTFILES_DIR}/packages"
+readonly BREWFILE="${PACKAGES_DIR}/Brewfile"
+
+# --- Output helpers ---
 
 info() { printf '\033[0;34m[info]\033[0m %s\n' "$1"; }
 ok()   { printf '\033[0;32m[ok]\033[0m %s\n' "$1"; }
+warn() { printf '\033[0;33m[warn]\033[0m %s\n' "$1"; }
 err()  { printf '\033[0;31m[error]\033[0m %s\n' "$1" >&2; }
 
-# --- Homebrew ---
-if command -v brew &>/dev/null; then
-    ok "Homebrew already installed"
-else
+command_exists() { command -v "$1" &>/dev/null; }
+
+confirm() {
+    local prompt="${1:-Continue?}" default="${2:-n}"
+    if [[ "$default" == "y" ]]; then
+        prompt="$prompt [Y/n]: "
+    else
+        prompt="$prompt [y/N]: "
+    fi
+    read -r -p "$prompt" response
+    case "$response" in
+        [yY][eE][sS]|[yY]) return 0 ;;
+        "") [[ "$default" == "y" ]] && return 0 || return 1 ;;
+        *) return 1 ;;
+    esac
+}
+
+# --- Core operations ---
+
+install_homebrew() {
+    if command_exists brew; then
+        ok "Homebrew already installed"
+        return 0
+    fi
+
     info "Installing Homebrew..."
     NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-    # Load brew into current session
-    if [ -f /opt/homebrew/bin/brew ]; then
+    if [[ -f /opt/homebrew/bin/brew ]]; then
         eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [ -f /usr/local/bin/brew ]; then
+    elif [[ -f /usr/local/bin/brew ]]; then
         eval "$(/usr/local/bin/brew shellenv)"
-    elif [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+    elif [[ -f /home/linuxbrew/.linuxbrew/bin/brew ]]; then
         eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
     fi
     ok "Homebrew installed"
-fi
+}
 
-# --- Packages ---
-info "Installing packages..."
-brew bundle --file="$DOTFILES_DIR/packages/Brewfile"
-ok "Packages installed"
-
-# --- Global npm packages ---
-info "Installing global npm packages..."
-npm install -g @dmmulroy/overseer
-ok "Global npm packages installed"
-
-# --- Stow ---
-info "Stowing dotfiles..."
-stow --dir="$DOTFILES_DIR" --target="$HOME" home
-ok "Dotfiles linked"
-
-# --- Default shell ---
-ZSH_PATH="$(command -v zsh)"
-if [ "$SHELL" != "$ZSH_PATH" ]; then
-    info "Setting zsh as default shell..."
-    if ! grep -qF "$ZSH_PATH" /etc/shells; then
-        echo "$ZSH_PATH" | sudo tee -a /etc/shells >/dev/null
+install_packages() {
+    if [[ ! -f "$BREWFILE" ]]; then
+        err "Brewfile not found at $BREWFILE"
+        return 1
     fi
-    chsh -s "$ZSH_PATH"
-    ok "Default shell set to zsh"
-else
-    ok "zsh is already the default shell"
-fi
 
-echo ""
-ok "Setup complete. Open a new terminal to start using your config."
+    info "Installing packages from Brewfile..."
+    if brew bundle --file="$BREWFILE"; then
+        ok "All packages installed"
+        return 0
+    fi
+
+    warn "brew bundle failed, installing individually..."
+    local failed=()
+    local count=0
+
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+
+        if [[ "$line" =~ ^brew[[:space:]]+\"([^\"]+)\" ]]; then
+            local pkg="${BASH_REMATCH[1]}"
+            if brew install "$pkg" 2>/dev/null; then
+                ((++count))
+            else
+                failed+=("brew:$pkg")
+            fi
+        elif [[ "$line" =~ ^cask[[:space:]]+\"([^\"]+)\" ]]; then
+            local pkg="${BASH_REMATCH[1]}"
+            if brew install --cask "$pkg" 2>/dev/null; then
+                ((++count))
+            else
+                failed+=("cask:$pkg")
+            fi
+        fi
+    done < "$BREWFILE"
+
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        warn "Failed to install ${#failed[@]} packages:"
+        printf "  - %s\n" "${failed[@]}"
+        local failed_file="${PACKAGES_DIR}/failed_packages_$(date +%Y%m%d_%H%M%S).txt"
+        printf "%s\n" "${failed[@]}" > "$failed_file"
+        info "Failures saved to $failed_file"
+    fi
+
+    ok "Installed $count packages"
+}
+
+install_npm_globals() {
+    info "Installing global npm packages..."
+    npm install -g @dmmulroy/overseer
+    ok "Global npm packages installed"
+}
+
+setup_shell() {
+    local zsh_path
+    zsh_path="$(command -v zsh)"
+
+    if [[ "$SHELL" == "$zsh_path" ]]; then
+        ok "zsh is already the default shell"
+        return 0
+    fi
+
+    info "Setting zsh as default shell..."
+    if ! grep -qF "$zsh_path" /etc/shells; then
+        echo "$zsh_path" | sudo tee -a /etc/shells >/dev/null
+    fi
+    chsh -s "$zsh_path"
+    ok "Default shell set to zsh"
+}
+
+backup_conflicts() {
+    local files_to_backup=()
+
+    while IFS= read -r -d '' file; do
+        local rel="${file#"${DOTFILES_DIR}/home"/}"
+        local target="${HOME}/${rel}"
+        if [[ -e "$target" && ! -L "$target" ]]; then
+            files_to_backup+=("$rel")
+        fi
+    done < <(find "${DOTFILES_DIR}/home" -type f -print0)
+
+    if [[ ${#files_to_backup[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    warn "These existing files would be replaced:"
+    printf "  %s\n" "${files_to_backup[@]}"
+
+    if confirm "Back them up first?" "y"; then
+        local backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
+        mkdir -p "$backup_dir"
+        for file in "${files_to_backup[@]}"; do
+            local src="${HOME}/${file}"
+            local dst="${backup_dir}/${file}"
+            mkdir -p "$(dirname "$dst")"
+            cp -p "$src" "$dst"
+        done
+        ok "Backups created in $backup_dir"
+    fi
+}
+
+# --- Commands ---
+
+cmd_init() {
+    info "Initializing dotfiles"
+    install_homebrew
+    install_packages
+    install_npm_globals
+    backup_conflicts
+    cmd_stow
+    setup_shell
+    echo ""
+    ok "Setup complete. Open a new terminal to start using your config."
+}
+
+cmd_stow() {
+    if ! command_exists stow; then
+        err "GNU Stow is not installed (brew install stow)"
+        return 1
+    fi
+    info "Stowing dotfiles..."
+    stow -R --dir="$DOTFILES_DIR" --target="$HOME" home
+    ok "Dotfiles linked"
+}
+
+cmd_update() {
+    info "Updating dotfiles"
+
+    info "Pulling latest changes..."
+    if git -C "$DOTFILES_DIR" pull; then
+        ok "Repository updated"
+    else
+        err "Failed to pull latest changes"
+        return 1
+    fi
+
+    if confirm "Update Homebrew packages?" "y"; then
+        info "Updating Homebrew..."
+        brew update && brew upgrade
+        ok "Packages updated"
+    fi
+
+    cmd_stow
+}
+
+cmd_doctor() {
+    info "Running diagnostics"
+    local issues=0
+
+    # Core tools
+    local tools=(brew stow zsh git tmux node npm bun)
+    for tool in "${tools[@]}"; do
+        if command_exists "$tool"; then
+            ok "$tool installed"
+        else
+            warn "$tool not found"
+            ((++issues))
+        fi
+    done
+
+    # Default shell
+    if [[ "$SHELL" == *"zsh"* ]]; then
+        ok "zsh is default shell"
+    else
+        warn "zsh is not default shell (currently $SHELL)"
+        ((++issues))
+    fi
+
+    # Broken symlinks in home (top 3 levels)
+    local broken=0
+    while IFS= read -r -d '' link; do
+        if [[ ! -e "$link" ]]; then
+            ((++broken))
+        fi
+    done < <(find "$HOME" -maxdepth 3 -type l -print0 2>/dev/null)
+
+    if [[ $broken -eq 0 ]]; then
+        ok "No broken symlinks"
+    else
+        warn "Found $broken broken symlinks"
+        ((++issues))
+    fi
+
+    # SSH key
+    if [[ -f "$HOME/.ssh/id_ed25519.pub" || -f "$HOME/.ssh/id_rsa.pub" ]]; then
+        ok "SSH key exists"
+    else
+        warn "No SSH key found"
+    fi
+
+    # Dotfiles dir in PATH
+    if echo "$PATH" | grep -q "$DOTFILES_DIR"; then
+        ok "dot is in PATH"
+    else
+        warn "dot not in PATH -- run 'dot link' to fix"
+    fi
+
+    echo ""
+    if [[ $issues -eq 0 ]]; then
+        ok "All checks passed"
+    else
+        warn "Found $issues issue(s)"
+    fi
+}
+
+cmd_package() {
+    local subcmd="${1:-list}"
+    shift || true
+
+    case "$subcmd" in
+        add)    cmd_package_add "$@" ;;
+        remove) cmd_package_remove "$@" ;;
+        list)   cmd_package_list ;;
+        -h|--help|help) cmd_package_help ;;
+        *)
+            err "Unknown package subcommand: $subcmd"
+            cmd_package_help
+            return 1
+            ;;
+    esac
+}
+
+cmd_package_add() {
+    local name="${1:-}" type="${2:-auto}"
+
+    if [[ -z "$name" ]]; then
+        err "Usage: dot package add <name> [brew|cask]"
+        return 1
+    fi
+
+    # Auto-detect type
+    if [[ "$type" == "auto" ]]; then
+        if brew info --json=v2 --formula "$name" &>/dev/null; then
+            type="brew"
+        elif brew info --json=v2 --cask "$name" &>/dev/null; then
+            type="cask"
+        else
+            warn "Package '$name' not found, defaulting to brew formula"
+            type="brew"
+        fi
+    fi
+
+    local entry="${type} \"${name}\""
+
+    # Check if already in Brewfile
+    if grep -qF "$entry" "$BREWFILE" 2>/dev/null; then
+        warn "'$name' already in Brewfile"
+        return 0
+    fi
+
+    # Install
+    info "Installing $name..."
+    if [[ "$type" == "cask" ]]; then
+        brew install --cask "$name"
+    else
+        brew install "$name"
+    fi
+
+    # Add to Brewfile in sorted position within same type
+    local tmp
+    tmp=$(mktemp)
+    local inserted=false
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$inserted" == false && "$line" =~ ^${type}[[:space:]]+\"([^\"]+)\" ]]; then
+            local existing="${BASH_REMATCH[1]}"
+            if [[ "$name" < "$existing" ]]; then
+                echo "$entry" >> "$tmp"
+                inserted=true
+            fi
+        fi
+        echo "$line" >> "$tmp"
+    done < "$BREWFILE"
+
+    if [[ "$inserted" == false ]]; then
+        echo "$entry" >> "$tmp"
+    fi
+
+    mv "$tmp" "$BREWFILE"
+    ok "Added '$name' ($type) to Brewfile"
+}
+
+cmd_package_remove() {
+    local name="${1:-}"
+
+    if [[ -z "$name" ]]; then
+        err "Usage: dot package remove <name>"
+        return 1
+    fi
+
+    local escaped
+    escaped=$(printf '%s' "$name" | sed 's/[.[*^$()+?{|\\]/\\&/g')
+
+    if ! grep -q "^\(brew\|cask\)[[:space:]]*\"${escaped}\"" "$BREWFILE" 2>/dev/null; then
+        warn "'$name' not found in Brewfile"
+        return 0
+    fi
+
+    # Remove from Brewfile
+    local tmp
+    tmp=$(mktemp)
+    grep -v "^\(brew\|cask\)[[:space:]]*\"${escaped}\"" "$BREWFILE" > "$tmp"
+    mv "$tmp" "$BREWFILE"
+    ok "Removed '$name' from Brewfile"
+
+    if confirm "Also uninstall '$name' from system?" "n"; then
+        brew uninstall "$name" 2>/dev/null || brew uninstall --cask "$name" 2>/dev/null || warn "Could not uninstall '$name'"
+    fi
+}
+
+cmd_package_list() {
+    if [[ ! -f "$BREWFILE" ]]; then
+        err "Brewfile not found"
+        return 1
+    fi
+
+    local installed_formulas installed_casks
+    installed_formulas=$(brew list --formula 2>/dev/null || true)
+    installed_casks=$(brew list --cask 2>/dev/null || true)
+
+    local brew_pkgs=() cask_pkgs=()
+
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+
+        if [[ "$line" =~ ^brew[[:space:]]+\"([^\"]+)\" ]]; then
+            brew_pkgs+=("${BASH_REMATCH[1]}")
+        elif [[ "$line" =~ ^cask[[:space:]]+\"([^\"]+)\" ]]; then
+            cask_pkgs+=("${BASH_REMATCH[1]}")
+        fi
+    done < "$BREWFILE"
+
+    if [[ ${#brew_pkgs[@]} -gt 0 ]]; then
+        echo "Formulas (${#brew_pkgs[@]}):"
+        for pkg in "${brew_pkgs[@]}"; do
+            if echo "$installed_formulas" | grep -q "^${pkg}$"; then
+                ok "  $pkg"
+            else
+                err "  $pkg (not installed)"
+            fi
+        done
+    fi
+
+    if [[ ${#cask_pkgs[@]} -gt 0 ]]; then
+        echo "Casks (${#cask_pkgs[@]}):"
+        for pkg in "${cask_pkgs[@]}"; do
+            if echo "$installed_casks" | grep -q "^${pkg}$"; then
+                ok "  $pkg"
+            else
+                err "  $pkg (not installed)"
+            fi
+        done
+    fi
+}
+
+cmd_package_help() {
+    cat <<EOF
+dot package - Brewfile management
+
+USAGE: dot package <subcommand> [args]
+
+SUBCOMMANDS:
+    add <name> [brew|cask]  Install and add to Brewfile (auto-detects type)
+    remove <name>           Remove from Brewfile, optionally uninstall
+    list                    Show packages with install status
+    help                    This message
+EOF
+}
+
+cmd_retry_failed() {
+    local failed_file
+    failed_file=$(find "$PACKAGES_DIR" -name "failed_packages_*.txt" -type f 2>/dev/null | sort -r | head -1)
+
+    if [[ -z "$failed_file" || ! -f "$failed_file" ]]; then
+        info "No failed packages to retry"
+        return 0
+    fi
+
+    info "Retrying from $failed_file..."
+    local success=0 total=0
+
+    while IFS= read -r entry; do
+        ((++total))
+        if [[ "$entry" =~ ^brew:(.+)$ ]]; then
+            if brew install "${BASH_REMATCH[1]}" 2>/dev/null; then
+                ok "Installed ${BASH_REMATCH[1]}"
+                ((++success))
+            else
+                warn "Still failing: ${BASH_REMATCH[1]}"
+            fi
+        elif [[ "$entry" =~ ^cask:(.+)$ ]]; then
+            if brew install --cask "${BASH_REMATCH[1]}" 2>/dev/null; then
+                ok "Installed ${BASH_REMATCH[1]}"
+                ((++success))
+            else
+                warn "Still failing: ${BASH_REMATCH[1]}"
+            fi
+        fi
+    done < "$failed_file"
+
+    info "Retried $total, succeeded $success"
+    if [[ $success -eq $total ]]; then
+        rm "$failed_file"
+        ok "All failures resolved"
+    fi
+}
+
+cmd_link() {
+    local target_dir="${HOME}/.local/bin"
+    mkdir -p "$target_dir"
+
+    local link_path="${target_dir}/dot"
+    [[ -L "$link_path" ]] && rm "$link_path"
+
+    ln -s "${DOTFILES_DIR}/dot" "$link_path"
+    ok "Linked dot -> $link_path"
+    info "Ensure $target_dir is in your PATH"
+}
+
+cmd_unlink() {
+    local paths=("${HOME}/.local/bin/dot" "/usr/local/bin/dot")
+    local found=false
+
+    for p in "${paths[@]}"; do
+        if [[ -L "$p" ]]; then
+            rm "$p"
+            ok "Removed $p"
+            found=true
+        fi
+    done
+
+    if [[ "$found" == false ]]; then
+        warn "No dot symlink found"
+    fi
+}
+
+cmd_edit() {
+    exec "${EDITOR:-nvim}" "$DOTFILES_DIR"
+}
+
+cmd_help() {
+    cat <<EOF
+dot v${VERSION} - dotfiles management
+
+USAGE: dot [command] [args]
+
+COMMANDS:
+    init            Full bootstrap (brew, packages, stow, shell)
+    stow            Re-stow dotfiles (symlink home/ -> ~)
+    update          Pull latest, update packages, re-stow
+    doctor          Check tools, symlinks, shell health
+    package         Brewfile management (add/remove/list)
+    retry-failed    Retry failed package installations
+    link            Symlink dot into PATH (~/.local/bin)
+    unlink          Remove dot symlink
+    edit            Open dotfiles in \$EDITOR
+    help            This message
+
+OPTIONS:
+    --version       Show version
+    -h, --help      This message
+EOF
+}
+
+# --- Main ---
+
+main() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --version) echo "dot v${VERSION}"; exit 0 ;;
+            -h|--help) cmd_help; exit 0 ;;
+            *) break ;;
+        esac
+    done
+
+    local cmd="${1:-help}"
+    shift || true
+
+    case "$cmd" in
+        init)         cmd_init "$@" ;;
+        stow)         cmd_stow "$@" ;;
+        update)       cmd_update "$@" ;;
+        doctor)       cmd_doctor "$@" ;;
+        package)      cmd_package "$@" ;;
+        retry-failed) cmd_retry_failed "$@" ;;
+        link)         cmd_link "$@" ;;
+        unlink)       cmd_unlink "$@" ;;
+        edit)         cmd_edit "$@" ;;
+        help)         cmd_help ;;
+        *)
+            err "Unknown command: $cmd"
+            echo "Run 'dot help' for usage"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

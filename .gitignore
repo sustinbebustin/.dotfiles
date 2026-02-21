@@ -48,6 +48,7 @@ home/.claude/mcp.json
 
 # Node (if any scripts use it)
 node_modules/
+bun.lock
 
 # Python (if any scripts use it)
 __pycache__/
@@ -74,3 +75,4 @@ build/
 */**/tmux/plugins/*
 backups/
 packages/failed_packages_*.txt
+.dotfiles/
