@@ -1,20 +1,5 @@
 # .zprofile - Executed for login shells
-
-# Initialize Homebrew (platform-aware)
-if [ -f /opt/homebrew/bin/brew ]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-elif [ -f /usr/local/bin/brew ]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-elif [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-fi
-
-# User bin directories
-export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
-
-if [ ! -d "$HOME/.local/bin" ]; then
-    mkdir -p "$HOME/.local/bin"
-fi
+# Homebrew init and base PATH setup moved to .zshenv (runs for all shell types)
 
 # libpq (PostgreSQL) - only if installed
 if [ -d "$HOMEBREW_PREFIX/opt/libpq" ]; then
