@@ -76,3 +76,4 @@ build/
 backups/
 packages/failed_packages_*.txt
 home/.config/ngrok
+home/.config/opencode/package-lock.json
