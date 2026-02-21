@@ -122,7 +122,7 @@
     "edit": "allow",
     "webfetch": "ask"
   },
-  "theme": "Dracula",
+  "theme": "dracula",
   "provider": {
     "openai": {
       "models": {
@@ -146,6 +146,26 @@
       }
     }
   },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    },
+    "grep_app": {
+      "type": "remote",
+      "url": "https://mcp.grep.app",
+      "enabled": true
+    },
+    "opensrc": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "opensrc-mcp"
+      ],
+      "enabled": true
+    },
     "overseer": {
       "type": "local",
       "command": [
@@ -157,3 +177,4 @@
       "enabled": true
     }
   }
+}

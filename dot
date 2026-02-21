@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly VERSION="2.0.0"
-DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 readonly DOTFILES_DIR
 readonly PACKAGES_DIR="${DOTFILES_DIR}/packages"
 readonly BREWFILE="${PACKAGES_DIR}/Brewfile"
@@ -221,18 +221,23 @@ cmd_doctor() {
         ((++issues))
     fi
 
-    # Broken symlinks in home (top 3 levels)
+    # Broken stow symlinks (only links pointing into dotfiles dir)
     local broken=0
+    local broken_list=()
     while IFS= read -r -d '' link; do
-        if [[ ! -e "$link" ]]; then
+        local target
+        target=$(readlink "$link" 2>/dev/null || true)
+        if [[ "$target" == *".dotfiles"* && ! -e "$link" ]]; then
             ((++broken))
+            broken_list+=("$link")
         fi
     done < <(find "$HOME" -maxdepth 3 -type l -print0 2>/dev/null)
 
     if [[ $broken -eq 0 ]]; then
-        ok "No broken symlinks"
+        ok "No broken stow symlinks"
     else
-        warn "Found $broken broken symlinks"
+        warn "Found $broken broken stow symlinks:"
+        printf "  %s\n" "${broken_list[@]}"
         ((++issues))
     fi
 
@@ -243,9 +248,9 @@ cmd_doctor() {
         warn "No SSH key found"
     fi
 
-    # Dotfiles dir in PATH
-    if echo "$PATH" | grep -q "$DOTFILES_DIR"; then
-        ok "dot is in PATH"
+    # dot command available
+    if command_exists dot; then
+        ok "dot command available"
     else
         warn "dot not in PATH -- run 'dot link' to fix"
     fi

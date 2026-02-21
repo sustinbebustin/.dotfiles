@@ -75,4 +75,3 @@ build/
 */**/tmux/plugins/*
 backups/
 packages/failed_packages_*.txt
-.dotfiles/
