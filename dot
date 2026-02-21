@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly VERSION="2.0.0"
-DOTFILES_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" && pwd)"
 readonly DOTFILES_DIR
 readonly PACKAGES_DIR="${DOTFILES_DIR}/packages"
 readonly BREWFILE="${PACKAGES_DIR}/Brewfile"
