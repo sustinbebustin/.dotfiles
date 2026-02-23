@@ -183,8 +183,8 @@ Open Questions:
 ### Write Spec to File (MANDATORY)
 
 1. Derive filename from feature/decision name (kebab-case)
-2. Write spec to `specs/<filename>.md`
-3. Confirm: `Spec written to: specs/<filename>.md`
+2. Write spec to `.docs/specs/<filename>.md`
+3. Confirm: `Spec written to: .docs/specs/<filename>.md`
 
 ---
 
