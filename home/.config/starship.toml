@@ -9,9 +9,24 @@ $cmd_duration\
 $line_break\
 $character"""
 
+# Dracula Pro palette
+palette = "dracula-pro"
+
+[palettes.dracula-pro]
+purple = "#9580FF"
+pink = "#FF80BF"
+red = "#FF9580"
+orange = "#FFCA80"
+yellow = "#FFFF80"
+green = "#8AFF80"
+cyan = "#80FFEA"
+foreground = "#F8F8F2"
+comment = "#7970A9"
+
 [directory]
 truncation_length = 3
 truncate_to_repo = true
+style = "bold purple"
 
 [git_branch]
 format = "[$branch]($style) "
@@ -24,7 +39,7 @@ style = "bold yellow"
 [cmd_duration]
 min_time = 2_000
 format = "[$duration]($style) "
-style = "bold white"
+style = "comment"
 
 [character]
 success_symbol = "[>](bold green)"

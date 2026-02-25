@@ -164,5 +164,6 @@
     "type": "command",
     "command": "$HOME/.claude/hooks/src/statusline.sh"
   },
-  "spinnerTipsEnabled": false
+  "spinnerTipsEnabled": false,
+  "model": "opus[1m]"
 }
