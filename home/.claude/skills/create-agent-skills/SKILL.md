@@ -97,22 +97,16 @@ Access individual args: `$ARGUMENTS[0]` or shorthand `$0`, `$1`, `$2`.
 
 ### Dynamic Context Injection
 
-The `` !`command` `` syntax runs shell commands before content is sent to Claude:
+Skill files can run shell commands at load time by prefixing a backtick-wrapped command with an exclamation mark (no space between them). The command output replaces the directive in the content sent to Claude.
 
-```yaml
----
-name: pr-summary
-description: Summarize changes in a pull request
-context: fork
-agent: Explore
----
+**Syntax:** exclamation mark + backtick + shell command + backtick
 
-## Context
-- PR diff: !`gh pr diff`
-- Changed files: !`gh pr diff --name-only`
+**Example usage in a skill file:**
+- Inject a PR diff: use the syntax with `gh pr diff`
+- Inject changed files: use the syntax with `gh pr diff --name-only`
+- Inject git log: use the syntax with `git log --oneline -10`
 
-Summarize this pull request...
-```
+NOTE: Cannot show literal examples here -- the skill parser executes the syntax even inside code blocks. See the [official docs](https://code.claude.com/docs/en/skills) for copy-pasteable examples.
 
 ### Running in a Subagent
 
