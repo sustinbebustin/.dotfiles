@@ -13,7 +13,21 @@
 	ci = commit
 	unstage = reset HEAD --
 	last = log -1 HEAD
+[push]
+	autoSetupRemote = true
+	default = current
 [pull]
 	rebase = true
+[rebase]
+	autoStash = true
+	autoSquash = true
+[merge]
+	conflictstyle = zdiff3
+[diff]
+	algorithm = histogram
+[rerere]
+	enabled = true
+[fetch]
+	prune = true
 [init]
 	defaultBranch = main
