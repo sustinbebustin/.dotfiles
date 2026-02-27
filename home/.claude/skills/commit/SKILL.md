@@ -2,25 +2,32 @@
 name: commit
 description: Git commit workflow combining atomic commits (scope/granularity) with conventional commits (message format). Use when committing code changes, reviewing commit history, or when guidance is needed on how to structure commits for clarity and reversibility.
 allowed-tools: Bash
-disable-model-invocation: true
+argument_hint: [subdir]
 ---
 
 # Git Commit Skill
 
 Create clean, meaningful commits by combining **atomic commits** (one logical change per commit) with **conventional commits** (standardized message format).
 
-## Process
+## Scope
 
-1. **Gather current state** -- run these commands to understand what's changed:
-   - `git status`
-   - `git diff --staged`
-   - `git diff`
-   - `git log --oneline -5`
-2. **Assess atomicity** -- can this be split into independent logical changes?
-3. **Stage selectively** -- use `git add -p` or specific files to isolate changes
-4. **Write message** -- follow conventional format below
-5. **Verify** -- run `git diff --staged` before committing
-6. **Commit** -- create the commit
+Argument: `$ARGUMENTS`
+
+- If argument provided -> only commit in that subdirectory
+- If empty and cwd is a git repo -> commit in current repo
+- If empty and cwd is NOT a git repo -> find git repos one level down, commit where there are changes
+
+## Current State
+
+!`arg="$ARGUMENTS"; if [ -n "$arg" ]; then echo "### $arg"; echo "**Status:**"; git -C "$arg" status 2>/dev/null || echo "not a git repo"; echo ""; echo "**Staged diff:**"; git -C "$arg" diff --staged 2>/dev/null; echo ""; echo "**Unstaged diff:**"; git -C "$arg" diff 2>/dev/null; echo ""; echo "**Recent commits:**"; git -C "$arg" log --oneline -5 2>/dev/null; elif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then echo "**Status:**"; git status; echo ""; echo "**Staged diff:**"; git diff --staged; echo ""; echo "**Unstaged diff:**"; git diff; echo ""; echo "**Recent commits:**"; git log --oneline -5; else found=0; for dir in */; do if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then found=1; echo "### ${dir%/}"; echo "**Status:**"; git -C "$dir" status; echo ""; echo "**Staged diff:**"; git -C "$dir" diff --staged; echo ""; echo "**Unstaged diff:**"; git -C "$dir" diff; echo ""; echo "**Recent commits:**"; git -C "$dir" log --oneline -5; echo ""; fi; done; if [ "$found" = "0" ]; then echo "No git repos found in current directory or subdirectories"; fi; fi`
+
+## Commit Workflow
+
+1. **Assess atomicity** -- can this be split into independent logical changes?
+2. **Stage selectively** -- use `git add -p` or specific files to isolate changes
+3. **Write message** -- follow conventional format below
+4. **Verify** -- run `git diff --staged` before committing
+5. **Commit** -- create the commit
 
 ## Atomic Commit Principles
 
@@ -123,7 +130,7 @@ require X-API-Key header.
 # Commit 1
 refactor(utils): extract date formatting helpers
 
-# Commit 2  
+# Commit 2
 feat(reports): add monthly summary export
 ```
 
@@ -142,7 +149,7 @@ ci:       CI config
 chore:    Maintenance
 ```
 
-Breaking change syntax: add an exclamation point. 
+Breaking change syntax: add an exclamation point.
 
 ## Authorship
 
@@ -175,10 +182,10 @@ After committing, assess whether CLAUDE.md files need updates.
 
 ### Update Process
 
-1. **Check scope** — Did the commit touch module boundaries, conventions, or structure?
-2. **Identify files** — Which CLAUDE.md files cover the affected areas?
-3. **Minimal edits** — Update only the specific sections affected
-4. **Commit separately** — Use `docs(claude): update knowledge base` for CLAUDE.md changes
+1. **Check scope** -- Did the commit touch module boundaries, conventions, or structure?
+2. **Identify files** -- Which CLAUDE.md files cover the affected areas?
+3. **Minimal edits** -- Update only the specific sections affected
+4. **Commit separately** -- Use `docs(claude): update knowledge base` for CLAUDE.md changes
 
 ### Full Regeneration
 
