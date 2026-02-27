@@ -13,5 +13,7 @@
 	ci = commit
 	unstage = reset HEAD --
 	last = log -1 HEAD
+[pull]
+	rebase = true
 [init]
 	defaultBranch = main
