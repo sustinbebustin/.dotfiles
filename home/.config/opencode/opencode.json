@@ -122,7 +122,6 @@
     "edit": "allow",
     "webfetch": "ask"
   },
-  "theme": "dracula",
   "provider": {
     "openai": {
       "models": {
@@ -169,10 +168,10 @@
     "overseer": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
-        "@dmmulroy/overseer",
-        "mcp"
+        "/home/austin/dev/overseer/overseer/target/release/os",
+        "mcp",
+        "--cwd",
+        "/home/austin/dev/overseer"
       ],
       "enabled": true
     }
