@@ -153,7 +153,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-tts.sh"
+            "command": "$HOME/.claude/hooks/stop-tts.sh"
           }
         ]
       }
@@ -164,7 +164,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-env-files.sh"
+            "command": "$HOME/.claude/hooks/block-env-files.sh"
           }
         ]
       }
@@ -175,7 +175,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/notification.sh"
+            "command": "$HOME/.claude/hooks/notification.sh"
           }
         ]
       }
