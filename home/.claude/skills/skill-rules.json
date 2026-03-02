@@ -69,6 +69,41 @@
                     "(skill|skills).*?(authoring|design|guidelines)"
                 ]
             }
+        },
+        "handoff": {
+            "type": "workflow",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Session continuity management - create handoffs, resume from handoffs, and maintain ledger state. Use when ending sessions, starting new sessions, before /clear, or managing context across sessions.",
+            "promptTriggers": {
+                "keywords": [
+                    "handoff",
+                    "create handoff",
+                    "resume handoff",
+                    "end session",
+                    "wrap up",
+                    "done for today",
+                    "pick this up later",
+                    "continue work",
+                    "where did I leave off",
+                    "update ledger",
+                    "save state",
+                    "before clear",
+                    "high context",
+                    "context usage",
+                    "session state",
+                    "ledger"
+                ],
+                "intentPatterns": [
+                    "(create|make|write).*?handoff",
+                    "(resume|continue|pick up).*?(handoff|session|work)",
+                    "(end|wrap up|done).*?session",
+                    "(save|update|check).*?(state|ledger)",
+                    "(before|prepare).*?clear",
+                    "context.*?(high|usage|70)",
+                    "(where|what).*?(left off|last session)"
+                ]
+            }
         }
     },
     "agents": {
