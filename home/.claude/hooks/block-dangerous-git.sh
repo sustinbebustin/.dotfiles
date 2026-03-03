@@ -20,7 +20,7 @@ normalized=$(echo "$command" | tr '\n' ' ' | sed 's/  */ /g; s/^ //')
 
 # Push (any variant)
 if echo "$normalized" | grep -qE '\bgit\s+push\b'; then
-    echo '{"decision": "block", "reason": "[BLOCKED] git push - remote modifications not allowed"}'
+    echo '{"decision": "ask", "reason": "git push detected - allow?"}'
     exit 0
 fi
 
