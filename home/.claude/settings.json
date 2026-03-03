@@ -165,6 +165,15 @@
             "command": "$HOME/.claude/hooks/block-env-files.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/block-dangerous-git.sh"
+          }
+        ]
       }
     ],
     "Notification": [
