@@ -164,16 +164,6 @@
         "opensrc-mcp"
       ],
       "enabled": true
-    },
-    "overseer": {
-      "type": "local",
-      "command": [
-        "/home/austin/dev/overseer/overseer/target/release/os",
-        "mcp",
-        "--cwd",
-        "/home/austin/dev/overseer"
-      ],
-      "enabled": true
     }
   }
 }
