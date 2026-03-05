@@ -5,7 +5,7 @@ description: React and Next.js performance optimization guidelines from Vercel E
 
 # Vercel React Best Practices
 
-Comprehensive performance optimization guide for React and Next.js applications, maintained by Vercel. Contains 57 rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
+Comprehensive performance optimization guide for React and Next.js applications, maintained by Vercel. Contains 63 rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
 
 ## When to Apply
 
@@ -63,6 +63,8 @@ Reference these guidelines when:
 - `client-event-listeners` - Deduplicate global event listeners
 - `client-passive-event-listeners` - Use passive listeners for scroll
 - `client-localstorage-schema` - Version and minimize localStorage data
+- `client-fetch-race-condition` - Ignore stale fetch responses with cleanup
+- `client-use-sync-external-store` - Use useSyncExternalStore for subscriptions
 
 ### 5. Re-render Optimization (MEDIUM)
 
@@ -78,6 +80,10 @@ Reference these guidelines when:
 - `rerender-move-effect-to-event` - Put interaction logic in event handlers
 - `rerender-transitions` - Use startTransition for non-urgent updates
 - `rerender-use-ref-transient-values` - Use refs for transient frequent values
+- `rerender-key-reset` - Reset component state via key prop
+- `rerender-no-effect-chains` - Don't chain effects that trigger each other
+- `rerender-notify-parent-in-handler` - Notify parent in handler, not effect
+- `rerender-share-logic-between-handlers` - Extract shared logic, don't use effects
 
 ### 6. Rendering Performance (MEDIUM)
 

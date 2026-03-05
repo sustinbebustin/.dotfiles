@@ -14,7 +14,7 @@ January 2026
 
 ## Abstract
 
-Comprehensive performance optimization guide for React and Next.js applications, designed for AI agents and LLMs. Contains 40+ rules across 8 categories, prioritized by impact from critical (eliminating waterfalls, reducing bundle size) to incremental (advanced patterns). Each rule includes detailed explanations, real-world examples comparing incorrect vs. correct implementations, and specific impact metrics to guide automated refactoring and code generation.
+Comprehensive performance optimization guide for React and Next.js applications, designed for AI agents and LLMs. Contains 50+ rules across 8 categories, prioritized by impact from critical (eliminating waterfalls, reducing bundle size) to incremental (advanced patterns). Each rule includes detailed explanations, real-world examples comparing incorrect vs. correct implementations, and specific impact metrics to guide automated refactoring and code generation.
 
 ---
 
@@ -45,6 +45,8 @@ Comprehensive performance optimization guide for React and Next.js applications,
    - 4.2 [Use Passive Event Listeners for Scrolling Performance](#42-use-passive-event-listeners-for-scrolling-performance)
    - 4.3 [Use SWR for Automatic Deduplication](#43-use-swr-for-automatic-deduplication)
    - 4.4 [Version and Minimize localStorage Data](#44-version-and-minimize-localstorage-data)
+   - 4.5 [Handle Fetch Race Conditions with Cleanup](#45-handle-fetch-race-conditions-with-cleanup)
+   - 4.6 [Use useSyncExternalStore for Subscriptions](#46-use-usesyncexternalstore-for-subscriptions)
 5. [Re-render Optimization](#5-re-render-optimization) — **MEDIUM**
    - 5.1 [Calculate Derived State During Rendering](#51-calculate-derived-state-during-rendering)
    - 5.2 [Defer State Reads to Usage Point](#52-defer-state-reads-to-usage-point)
@@ -58,6 +60,10 @@ Comprehensive performance optimization guide for React and Next.js applications,
    - 5.10 [Use Lazy State Initialization](#510-use-lazy-state-initialization)
    - 5.11 [Use Transitions for Non-Urgent Updates](#511-use-transitions-for-non-urgent-updates)
    - 5.12 [Use useRef for Transient Values](#512-use-useref-for-transient-values)
+   - 5.13 [Reset State with Key Prop](#513-reset-state-with-key-prop)
+   - 5.14 [Avoid Effect Chains](#514-avoid-effect-chains)
+   - 5.15 [Notify Parent in Event Handler](#515-notify-parent-in-event-handler)
+   - 5.16 [Share Logic Between Event Handlers](#516-share-logic-between-event-handlers)
 6. [Rendering Performance](#6-rendering-performance) — **MEDIUM**
    - 6.1 [Animate SVG Wrapper Instead of SVG Element](#61-animate-svg-wrapper-instead-of-svg-element)
    - 6.2 [CSS content-visibility for Long Lists](#62-css-content-visibility-for-long-lists)
@@ -1275,6 +1281,110 @@ function cachePrefs(user: FullUser) {
 
 **Benefits:** Schema evolution via versioning, reduced storage size, prevents storing tokens/PII/internal flags.
 
+### 4.5 Handle Fetch Race Conditions with Cleanup
+
+**Impact: MEDIUM-HIGH (prevents stale data from overwriting current results)**
+
+When fetching data in an effect, add a cleanup function that ignores stale responses. Without cleanup, rapid prop/state changes (e.g., typing in a search box) can cause older responses to arrive after newer ones, displaying wrong data.
+
+**Incorrect: no cleanup, race condition**
+
+```tsx
+function SearchResults({ query }: { query: string }) {
+  const [results, setResults] = useState<Result[]>([])
+
+  useEffect(() => {
+    fetchResults(query).then(json => {
+      setResults(json)
+    })
+  }, [query])
+
+  return <ul>{results.map(r => <li key={r.id}>{r.title}</li>)}</ul>
+}
+```
+
+Typing "hello" fires fetches for "h", "he", "hel", "hell", "hello". If "hell" responds after "hello", stale results overwrite current ones.
+
+**Correct: ignore stale responses**
+
+```tsx
+function SearchResults({ query }: { query: string }) {
+  const [results, setResults] = useState<Result[]>([])
+
+  useEffect(() => {
+    let ignore = false
+    fetchResults(query).then(json => {
+      if (!ignore) {
+        setResults(json)
+      }
+    })
+    return () => {
+      ignore = true
+    }
+  }, [query])
+
+  return <ul>{results.map(r => <li key={r.id}>{r.title}</li>)}</ul>
+}
+```
+
+When `query` changes, React runs the previous effect's cleanup, setting `ignore = true`. Only the most recent fetch updates state. Better yet, extract into a custom hook or use a framework's built-in data fetching (SWR, React Query, Next.js server components).
+
+Reference: [https://react.dev/learn/you-might-not-need-an-effect#fetching-data](https://react.dev/learn/you-might-not-need-an-effect#fetching-data)
+
+### 4.6 Use useSyncExternalStore for Subscriptions
+
+**Impact: MEDIUM (eliminates manual subscription boilerplate and tearing bugs)**
+
+When subscribing to external data sources (browser APIs, third-party stores, global state outside React), use `useSyncExternalStore` instead of manual `addEventListener` + `useState` + `useEffect`. It handles subscription lifecycle, avoids tearing during concurrent renders, and supports server-side rendering.
+
+**Incorrect: manual subscription in effect**
+
+```tsx
+function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(true)
+
+  useEffect(() => {
+    function update() {
+      setIsOnline(navigator.onLine)
+    }
+    update()
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    return () => {
+      window.removeEventListener('online', update)
+      window.removeEventListener('offline', update)
+    }
+  }, [])
+
+  return isOnline
+}
+```
+
+**Correct: useSyncExternalStore**
+
+```tsx
+function subscribe(callback: () => void) {
+  window.addEventListener('online', callback)
+  window.addEventListener('offline', callback)
+  return () => {
+    window.removeEventListener('online', callback)
+    window.removeEventListener('offline', callback)
+  }
+}
+
+function useOnlineStatus() {
+  return useSyncExternalStore(
+    subscribe,
+    () => navigator.onLine,
+    () => true
+  )
+}
+```
+
+The three arguments: (1) subscribe function that returns an unsubscribe function, (2) client snapshot getter, (3) server snapshot getter. React will not resubscribe as long as the same `subscribe` function reference is passed -- hoist it outside the component.
+
+Reference: [https://react.dev/reference/react/useSyncExternalStore](https://react.dev/reference/react/useSyncExternalStore)
+
 ---
 
 ## 5. Re-render Optimization
@@ -1801,6 +1911,227 @@ function Tracker() {
   )
 }
 ```
+
+### 5.13 Reset State with Key Prop
+
+**Impact: MEDIUM (avoids stale state and unnecessary effect-driven resets)**
+
+When a component should reset all its state in response to a prop change (e.g., switching between entities), pass a `key` derived from that prop. React unmounts and remounts the component, clearing all state. Do not use useEffect to manually reset state variables.
+
+**Incorrect: effect-driven reset**
+
+```tsx
+function EditContact({ contact }: { contact: Contact }) {
+  const [name, setName] = useState(contact.name)
+  const [email, setEmail] = useState(contact.email)
+
+  useEffect(() => {
+    setName(contact.name)
+    setEmail(contact.email)
+  }, [contact])
+
+  return (
+    <>
+      <input value={name} onChange={e => setName(e.target.value)} />
+      <input value={email} onChange={e => setEmail(e.target.value)} />
+    </>
+  )
+}
+```
+
+This renders once with stale state, then re-renders after the effect fires. Every piece of state inside the component needs a corresponding reset in the effect.
+
+**Correct: key-based reset**
+
+```tsx
+function EditContactWrapper({ contact }: { contact: Contact }) {
+  return <EditContact contact={contact} key={contact.id} />
+}
+
+function EditContact({ contact }: { contact: Contact }) {
+  const [name, setName] = useState(contact.name)
+  const [email, setEmail] = useState(contact.email)
+
+  return (
+    <>
+      <input value={name} onChange={e => setName(e.target.value)} />
+      <input value={email} onChange={e => setEmail(e.target.value)} />
+    </>
+  )
+}
+```
+
+React treats components with different keys as entirely different instances. All state resets automatically, including nested child state.
+
+Reference: [https://react.dev/learn/you-might-not-need-an-effect#resetting-all-state-when-a-prop-changes](https://react.dev/learn/you-might-not-need-an-effect#resetting-all-state-when-a-prop-changes)
+
+### 5.14 Avoid Effect Chains
+
+**Impact: MEDIUM (eliminates cascading re-renders and fragile state coupling)**
+
+Do not chain effects where each sets state that triggers the next. This causes cascading re-renders (one per effect in the chain) and creates brittle code that breaks when requirements change. Instead, derive what you can during render and compute next state in event handlers.
+
+**Incorrect: chain of effects**
+
+```tsx
+function Game() {
+  const [card, setCard] = useState<Card | null>(null)
+  const [goldCardCount, setGoldCardCount] = useState(0)
+  const [round, setRound] = useState(1)
+  const [isGameOver, setIsGameOver] = useState(false)
+
+  useEffect(() => {
+    if (card !== null && card.gold) {
+      setGoldCardCount(c => c + 1)
+    }
+  }, [card])
+
+  useEffect(() => {
+    if (goldCardCount > 3) {
+      setRound(r => r + 1)
+      setGoldCardCount(0)
+    }
+  }, [goldCardCount])
+
+  useEffect(() => {
+    if (round > 5) {
+      setIsGameOver(true)
+    }
+  }, [round])
+}
+```
+
+Worst case: `setCard` -> render -> `setGoldCardCount` -> render -> `setRound` -> render -> `setIsGameOver` -> render. Four renders for one user action.
+
+**Correct: derive + compute in handler**
+
+```tsx
+function Game() {
+  const [card, setCard] = useState<Card | null>(null)
+  const [goldCardCount, setGoldCardCount] = useState(0)
+  const [round, setRound] = useState(1)
+
+  const isGameOver = round > 5
+
+  function handlePlaceCard(nextCard: Card) {
+    if (isGameOver) throw new Error('Game already ended.')
+
+    setCard(nextCard)
+    if (nextCard.gold) {
+      if (goldCardCount < 3) {
+        setGoldCardCount(goldCardCount + 1)
+      } else {
+        setGoldCardCount(0)
+        setRound(round + 1)
+      }
+    }
+  }
+}
+```
+
+`isGameOver` is derived during render. All state transitions happen in a single event handler -- React batches the updates into one render.
+
+Reference: [https://react.dev/learn/you-might-not-need-an-effect#chains-of-computations](https://react.dev/learn/you-might-not-need-an-effect#chains-of-computations)
+
+### 5.15 Notify Parent in Event Handler
+
+**Impact: MEDIUM (avoids extra render pass from effect-driven parent updates)**
+
+When a child component needs to notify its parent of state changes, call the parent callback in the same event handler that updates local state. Do not use useEffect to watch state and call `onChange` -- this causes an extra render pass.
+
+**Incorrect: effect notifies parent too late**
+
+```tsx
+function Toggle({ onChange }: { onChange: (isOn: boolean) => void }) {
+  const [isOn, setIsOn] = useState(false)
+
+  useEffect(() => {
+    onChange(isOn)
+  }, [isOn, onChange])
+
+  function handleClick() {
+    setIsOn(!isOn)
+  }
+
+  return <button onClick={handleClick}>{isOn ? 'On' : 'Off'}</button>
+}
+```
+
+**Correct: notify in handler, React batches both updates**
+
+```tsx
+function Toggle({ onChange }: { onChange: (isOn: boolean) => void }) {
+  const [isOn, setIsOn] = useState(false)
+
+  function updateToggle(nextIsOn: boolean) {
+    setIsOn(nextIsOn)
+    onChange(nextIsOn)
+  }
+
+  function handleClick() {
+    updateToggle(!isOn)
+  }
+
+  return <button onClick={handleClick}>{isOn ? 'On' : 'Off'}</button>
+}
+```
+
+React batches state updates from the same event handler, so both the child and parent re-render in a single pass. Also consider a fully controlled component where the parent owns the state entirely.
+
+Reference: [https://react.dev/learn/you-might-not-need-an-effect#notifying-parent-components-about-state-changes](https://react.dev/learn/you-might-not-need-an-effect#notifying-parent-components-about-state-changes)
+
+### 5.16 Share Logic Between Event Handlers
+
+**Impact: MEDIUM (prevents effect re-runs on unrelated state changes and duplicate side effects)**
+
+When multiple event handlers need the same side effect, extract a shared function and call it from each handler. Do not model the action as a state change observed by an effect -- this causes the effect to fire on page load, refresh, and any unrelated state change that satisfies the condition.
+
+**Incorrect: effect watches state for event-specific logic**
+
+```tsx
+function ProductPage({ product, addToCart }: Props) {
+  useEffect(() => {
+    if (product.isInCart) {
+      showNotification(`Added ${product.name} to cart!`)
+    }
+  }, [product])
+
+  function handleBuyClick() {
+    addToCart(product)
+  }
+
+  function handleCheckoutClick() {
+    addToCart(product)
+    navigateTo('/checkout')
+  }
+}
+```
+
+If the cart is persisted across page loads, `product.isInCart` is `true` on mount and the notification fires on every page visit.
+
+**Correct: shared helper called from handlers**
+
+```tsx
+function ProductPage({ product, addToCart }: Props) {
+  function buyProduct() {
+    addToCart(product)
+    showNotification(`Added ${product.name} to cart!`)
+  }
+
+  function handleBuyClick() {
+    buyProduct()
+  }
+
+  function handleCheckoutClick() {
+    buyProduct()
+    navigateTo('/checkout')
+  }
+}
+```
+
+The key question: should this code run because the component was **displayed**, or because the user **did something**? If it's a user action, it belongs in an event handler.
+
+Reference: [https://react.dev/learn/you-might-not-need-an-effect#sharing-logic-between-event-handlers](https://react.dev/learn/you-might-not-need-an-effect#sharing-logic-between-event-handlers)
 
 ---
 
