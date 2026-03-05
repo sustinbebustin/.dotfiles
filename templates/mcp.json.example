@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "overseer": {
+      "type": "stdio",
+      "command": "/home/austin/dev/overseer/overseer/target/release/os",
+      "args": [
+        "mcp",
+        "--cwd",
+        "{PROJECT_DIR}"
+      ]
+    }
+  }
+}

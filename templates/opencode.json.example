@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": true,
+  "mcp": {
+    "overseer": {
+      "type": "local",
+      "command": [
+        "/home/austin/dev/overseer/overseer/target/release/os",
+        "mcp",
+        "--cwd",
+        "/home/austin/dev/citadel"
+      ],
+      "enabled": true
+    }
+  }
+}

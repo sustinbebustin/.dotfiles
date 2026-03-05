@@ -533,8 +533,69 @@ cmd_unlink() {
 }
 
 cmd_overseer() {
+    local subcmd="${1:-build}"
+    shift || true
+
+    case "$subcmd" in
+        build)  cmd_overseer_build ;;
+        mcp)    cmd_overseer_mcp ;;
+        -h|--help|help) cmd_overseer_help ;;
+        *)
+            err "Unknown overseer subcommand: $subcmd"
+            cmd_overseer_help
+            return 1
+            ;;
+    esac
+}
+
+cmd_overseer_build() {
     install_rust
     install_overseer
+}
+
+cmd_overseer_mcp() {
+    local overseer_bin="${HOME}/dev/overseer/overseer/target/release/os"
+    local templates_dir="${DOTFILES_DIR}/templates"
+    local project_dir="$PWD"
+
+    if [[ ! -x "$overseer_bin" ]]; then
+        err "Overseer binary not found at $overseer_bin"
+        err "Run 'dot overseer build' first"
+        return 1
+    fi
+
+    # .mcp.json for Claude Code
+    local mcp_target="${project_dir}/.mcp.json"
+    if [[ -e "$mcp_target" ]]; then
+        warn "$mcp_target already exists, skipping"
+    else
+        sed "s|{PROJECT_DIR}|${project_dir}|g" "${templates_dir}/mcp.json.example" > "$mcp_target"
+        ok "Created $mcp_target"
+    fi
+
+    # .opencode/opencode.json for OpenCode
+    local opencode_dir="${project_dir}/.opencode"
+    local opencode_target="${opencode_dir}/opencode.json"
+    if [[ -e "$opencode_target" ]]; then
+        warn "$opencode_target already exists, skipping"
+    else
+        mkdir -p "$opencode_dir"
+        sed "s|/home/austin/dev/citadel|${project_dir}|g" "${templates_dir}/opencode.json.example" > "$opencode_target"
+        ok "Created $opencode_target"
+    fi
+}
+
+cmd_overseer_help() {
+    cat <<EOF
+dot overseer - Overseer task manager
+
+USAGE: dot overseer <subcommand>
+
+SUBCOMMANDS:
+    build           Build/rebuild overseer from source (default)
+    mcp             Install per-project MCP configs in \$PWD
+    help            This message
+EOF
 }
 
 cmd_edit() {
@@ -556,7 +617,7 @@ COMMANDS:
     retry-failed    Retry failed package installations
     link            Symlink dot into PATH (~/.local/bin)
     unlink          Remove dot symlink
-    overseer        Build/rebuild overseer from source
+    overseer        Overseer management (build/mcp)
     edit            Open dotfiles in \$EDITOR
     help            This message
 
