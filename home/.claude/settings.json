@@ -205,8 +205,5 @@
     "command": "$HOME/.claude/hooks/src/statusline.sh"
   },
   "spinnerTipsEnabled": false,
-  "effortLevel": "high",
-  "enabledPlugins": {
-    "gopls-lsp@claude-plugins-official": true
-  }
+  "effortLevel": "high"
 }
