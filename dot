@@ -102,8 +102,43 @@ install_packages() {
 
 install_npm_globals() {
     info "Installing global npm packages..."
-    npm install -g @dmmulroy/overseer
+    npm install -g opensrc
     ok "Global npm packages installed"
+}
+
+install_rust() {
+    if command_exists cargo; then
+        ok "Rust already installed"
+        return 0
+    fi
+
+    info "Installing Rust via rustup..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source "${HOME}/.cargo/env"
+    ok "Rust installed"
+}
+
+install_overseer() {
+    local overseer_dir="${HOME}/dev/overseer"
+    local bin_dir="${HOME}/.local/bin"
+
+    if [[ ! -d "$overseer_dir" ]]; then
+        info "Cloning overseer..."
+        mkdir -p "${HOME}/dev"
+        git clone https://github.com/sustinbebustin/overseer.git "$overseer_dir"
+    fi
+
+    info "Building overseer CLI..."
+    (cd "${overseer_dir}/overseer" && cargo build --release)
+
+    info "Building overseer host..."
+    (cd "${overseer_dir}/host" && npm install && npm run build)
+
+    mkdir -p "$bin_dir"
+    ln -sf "${overseer_dir}/overseer/target/release/os" "${bin_dir}/os"
+    ln -sf "${overseer_dir}/host/dist/index.js" "${bin_dir}/overseer-host"
+    chmod +x "${bin_dir}/overseer-host"
+    ok "Overseer installed"
 }
 
 setup_shell() {
@@ -161,6 +196,8 @@ cmd_init() {
     install_homebrew
     install_packages
     install_npm_globals
+    install_rust
+    install_overseer
     backup_conflicts
     cmd_stow
     setup_shell
@@ -203,7 +240,7 @@ cmd_doctor() {
     local issues=0
 
     # Core tools
-    local tools=(brew stow zsh git tmux node npm bun)
+    local tools=(brew stow zsh git tmux node npm bun cargo os)
     for tool in "${tools[@]}"; do
         if command_exists "$tool"; then
             ok "$tool installed"
@@ -495,6 +532,11 @@ cmd_unlink() {
     fi
 }
 
+cmd_overseer() {
+    install_rust
+    install_overseer
+}
+
 cmd_edit() {
     exec "${EDITOR:-nvim}" "$DOTFILES_DIR"
 }
@@ -514,6 +556,7 @@ COMMANDS:
     retry-failed    Retry failed package installations
     link            Symlink dot into PATH (~/.local/bin)
     unlink          Remove dot symlink
+    overseer        Build/rebuild overseer from source
     edit            Open dotfiles in \$EDITOR
     help            This message
 
@@ -546,6 +589,7 @@ main() {
         retry-failed) cmd_retry_failed "$@" ;;
         link)         cmd_link "$@" ;;
         unlink)       cmd_unlink "$@" ;;
+        overseer)     cmd_overseer "$@" ;;
         edit)         cmd_edit "$@" ;;
         help)         cmd_help ;;
         *)
