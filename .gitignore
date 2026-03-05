@@ -92,3 +92,4 @@ home/.pi/agent/*
 !home/.pi/agent/prelude/**
 !home/.pi/agent/skills/
 !home/.pi/agent/skills/**
+!home/.pi/agent/agents/
