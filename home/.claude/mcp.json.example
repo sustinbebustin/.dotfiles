@@ -14,10 +14,6 @@
     "opensrc": {
       "command": "npx",
       "args": ["-y", "opensrc-mcp"]
-    },
-    "overseer": {
-      "command": "npx",
-      "args": ["-y", "@dmmulroy/overseer", "mcp"]
     }
   }
 }

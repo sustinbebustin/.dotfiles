@@ -106,41 +106,6 @@ install_npm_globals() {
     ok "Global npm packages installed"
 }
 
-install_rust() {
-    if command_exists cargo; then
-        ok "Rust already installed"
-        return 0
-    fi
-
-    info "Installing Rust via rustup..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    source "${HOME}/.cargo/env"
-    ok "Rust installed"
-}
-
-install_overseer() {
-    local overseer_dir="${HOME}/dev/overseer"
-    local bin_dir="${HOME}/.local/bin"
-
-    if [[ ! -d "$overseer_dir" ]]; then
-        info "Cloning overseer..."
-        mkdir -p "${HOME}/dev"
-        git clone https://github.com/sustinbebustin/overseer.git "$overseer_dir"
-    fi
-
-    info "Building overseer CLI..."
-    (cd "${overseer_dir}/overseer" && cargo build --release)
-
-    info "Building overseer host..."
-    (cd "${overseer_dir}/host" && npm install && npm run build)
-
-    mkdir -p "$bin_dir"
-    ln -sf "${overseer_dir}/overseer/target/release/os" "${bin_dir}/os"
-    ln -sf "${overseer_dir}/host/dist/index.js" "${bin_dir}/overseer-host"
-    chmod +x "${bin_dir}/overseer-host"
-    ok "Overseer installed"
-}
-
 setup_shell() {
     local zsh_path
     zsh_path="$(command -v zsh)"
@@ -196,10 +161,6 @@ cmd_init() {
     install_homebrew
     install_packages
     install_npm_globals
-    if confirm "Install Overseer? (MCP task manager for multi-session AI workflows)" "n"; then
-        install_rust
-        install_overseer
-    fi
     backup_conflicts
     cmd_stow
     setup_shell
@@ -242,7 +203,7 @@ cmd_doctor() {
     local issues=0
 
     # Core tools
-    local tools=(brew stow zsh git tmux node npm bun cargo os)
+    local tools=(brew stow zsh git tmux node npm bun)
     for tool in "${tools[@]}"; do
         if command_exists "$tool"; then
             ok "$tool installed"
@@ -534,72 +495,6 @@ cmd_unlink() {
     fi
 }
 
-cmd_overseer() {
-    local subcmd="${1:-build}"
-    shift || true
-
-    case "$subcmd" in
-        build)  cmd_overseer_build ;;
-        mcp)    cmd_overseer_mcp ;;
-        -h|--help|help) cmd_overseer_help ;;
-        *)
-            err "Unknown overseer subcommand: $subcmd"
-            cmd_overseer_help
-            return 1
-            ;;
-    esac
-}
-
-cmd_overseer_build() {
-    install_rust
-    install_overseer
-}
-
-cmd_overseer_mcp() {
-    local overseer_bin="${HOME}/dev/overseer/overseer/target/release/os"
-    local templates_dir="${DOTFILES_DIR}/templates"
-    local project_dir="$PWD"
-
-    if [[ ! -x "$overseer_bin" ]]; then
-        err "Overseer binary not found at $overseer_bin"
-        err "Run 'dot overseer build' first"
-        return 1
-    fi
-
-    # .mcp.json for Claude Code
-    local mcp_target="${project_dir}/.mcp.json"
-    if [[ -e "$mcp_target" ]]; then
-        warn "$mcp_target already exists, skipping"
-    else
-        sed "s|{PROJECT_DIR}|${project_dir}|g" "${templates_dir}/mcp.json.example" > "$mcp_target"
-        ok "Created $mcp_target"
-    fi
-
-    # .opencode/opencode.json for OpenCode
-    local opencode_dir="${project_dir}/.opencode"
-    local opencode_target="${opencode_dir}/opencode.json"
-    if [[ -e "$opencode_target" ]]; then
-        warn "$opencode_target already exists, skipping"
-    else
-        mkdir -p "$opencode_dir"
-        sed "s|/home/austin/dev/citadel|${project_dir}|g" "${templates_dir}/opencode.json.example" > "$opencode_target"
-        ok "Created $opencode_target"
-    fi
-}
-
-cmd_overseer_help() {
-    cat <<EOF
-dot overseer - Overseer task manager
-
-USAGE: dot overseer <subcommand>
-
-SUBCOMMANDS:
-    build           Build/rebuild overseer from source (default)
-    mcp             Install per-project MCP configs in \$PWD
-    help            This message
-EOF
-}
-
 cmd_edit() {
     exec "${EDITOR:-nvim}" "$DOTFILES_DIR"
 }
@@ -619,7 +514,6 @@ COMMANDS:
     retry-failed    Retry failed package installations
     link            Symlink dot into PATH (~/.local/bin)
     unlink          Remove dot symlink
-    overseer        Overseer management (build/mcp)
     edit            Open dotfiles in \$EDITOR
     help            This message
 
@@ -652,7 +546,6 @@ main() {
         retry-failed) cmd_retry_failed "$@" ;;
         link)         cmd_link "$@" ;;
         unlink)       cmd_unlink "$@" ;;
-        overseer)     cmd_overseer "$@" ;;
         edit)         cmd_edit "$@" ;;
         help)         cmd_help ;;
         *)

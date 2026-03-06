@@ -30,7 +30,7 @@ Single script, runs top-to-bottom:
 
 1. Install Homebrew (Apple Silicon / Intel / Linux)
 2. `brew bundle --file=packages/Brewfile`
-3. `npm install -g @dmmulroy/overseer`
+3. `npm install -g opensrc`
 4. `stow --dir=. --target=$HOME home`
 5. Set zsh as default shell
 
@@ -122,7 +122,7 @@ Everything else (nvm, bun, cargo) managed outside Homebrew.
 
 ## OpenCode (Parallel AI Config)
 
-`home/.config/opencode/` mirrors the Claude framework: agents, commands, skills, custom tools. Configured with Dracula theme and Overseer MCP integration.
+`home/.config/opencode/` mirrors the Claude framework: agents, commands, skills, custom tools. Configured with Dracula theme.
 
 ## Key Patterns
 

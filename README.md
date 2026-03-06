@@ -18,9 +18,8 @@ Open a new terminal to start using the config.
 1. Installs Homebrew (if missing)
 2. Installs packages from `packages/Brewfile`
 3. Installs global npm packages
-4. Installs Rust and builds Overseer from source
-5. Symlinks `home/` into `$HOME` via Stow
-6. Sets zsh as default shell
+4. Symlinks `home/` into `$HOME` via Stow
+5. Sets zsh as default shell
 
 ## Structure
 
@@ -39,7 +38,6 @@ Open a new terminal to start using the config.
 │   │   ├── ripgrep/             # rg defaults
 │   │   └── opencode/            # opencode.ai config
 │   └── .claude/                 # Claude Code framework
-├── templates/                   # per-project config templates
 └── docs/                        # documentation
 ```
 
