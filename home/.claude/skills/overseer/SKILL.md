@@ -1,10 +1,6 @@
 ---
 name: overseer
 description: Manage tasks via Overseer codemode MCP. Use when tracking multi-session work, breaking down implementation, or persisting context for handoffs.
-license: MIT
-metadata:
-  author: sustinbebustinulroy
-  version: "1.0.0"
 ---
 
 # Agent Coordination with Overseer
