@@ -1,199 +1,197 @@
 ---
 name: overseer-team
-description: Orchestrate task implementation using Overseer MCP and Claude Code teams. Processes tasks sequentially - orchestrator manages lifecycle/VCS while teammates implement.
+description: Orchestrate Overseer task implementation with subagents. Fetches ready tasks, starts them (VCS), spawns implementer, completes them (auto-commit + merge). Sequential, 1 task at a time.
 disable-model-invocation: true
 argument-hint: [milestone-id]
-allowed-tools: mcp__overseer__execute, Bash(git *), TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskGet, TaskList, TaskOutput, TaskStop, SendMessage, Read
+allowed-tools: mcp__overseer__execute, Read, Agent
 ---
 
 # Overseer Team Orchestrator
 
-You are the **orchestrator**. You manage the Overseer task lifecycle while teammates do the implementation work. You never write code yourself - you coordinate.
+You are the **orchestrator**. You manage the Overseer task lifecycle via MCP while subagents implement. You never write code yourself.
 
-## Your Responsibilities
+## Roles
 
-1. **Task lifecycle** - start/complete tasks via Overseer MCP
-2. **VCS management** - ensure clean branches, commits, and merges
-3. **Teammate spawning** - create workers with full task context
-4. **Quality gate** - verify teammate output before completing tasks
-5. **Progress reporting** - update the user on status
+| Role | Agent | Responsibilities |
+|------|-------|------------------|
+| **Orchestrator** | You | Overseer MCP calls, progress reporting, prompt construction, quality gate |
+| **Implementer** | Subagent (`general-purpose`) | Code changes, test execution, verification |
+
+**Separation of concerns:**
+- Only YOU call `mcp__overseer__execute` (start, complete, nextReady, etc.)
+- Only the implementer edits files and runs tests
+- `tasks.complete()` handles all VCS: `git add -A`, commit, fast-forward merge to base_ref, bookmark cleanup
 
 ## Startup
 
-```javascript
-// 1. Find work - use milestone ID arg if provided, otherwise get all ready
-const task = await tasks.nextReady($ARGUMENTS);
-if (!task) return "No ready tasks found";
-```
-
-If no argument provided, show milestone list first:
+If `$ARGUMENTS` contains a milestone ID, use it directly. Otherwise list milestones for the user:
 
 ```javascript
 const milestones = await tasks.list({ type: "milestone" });
-// Display milestones with progress for user to choose
 for (const m of milestones) {
   const p = await tasks.progress(m.id);
   console.log(`${m.id}: ${m.description} (${p.completed}/${p.total})`);
 }
 ```
 
+Ask the user which milestone to work on, then proceed to the main loop.
+
 ## Main Loop
 
-For each ready task, execute this cycle:
+Repeat until no ready tasks remain:
 
-### Step 1: Fetch Next Ready Task
+### 1. Fetch Next Ready Task
 
 ```javascript
 const task = await tasks.nextReady(milestoneId);
 if (!task) {
-  // All done - report final progress
-  const progress = await tasks.progress(milestoneId);
-  return `Complete: ${progress.completed}/${progress.total} tasks done`;
+  const p = await tasks.progress(milestoneId);
+  return `Done: ${p.completed}/${p.total} tasks completed`;
 }
 ```
 
-### Step 2: Start Task (Overseer MCP)
+Report to user: task description, depth, blocker status.
 
-This creates the VCS bookmark and records start commit.
+### 2. Start Task
 
 ```javascript
 await tasks.start(task.id);
+// Creates branch task/{id}, checks it out, records base_ref
 ```
 
-### Step 3: Spawn Teammate
+If this fails with `DirtyWorkingCopy`, inform the user to clean the working tree first.
 
-Use the Task tool with `subagent_type: "general-purpose"` to spawn an implementer. Build the prompt from the task's full context chain.
+### 3. Build Implementer Prompt
 
-Construct the teammate prompt with:
-- Task description and context (own + parent + milestone)
-- Learnings from completed siblings (bubbled to parent)
-- Clear completion criteria from context
-- Instruction to report what was done, decisions made, and verification evidence
-
-**The teammate prompt must include:**
+Construct a prompt from the `TaskWithContext` fields. Include ALL available context so the implementer can work autonomously:
 
 ```
-You are implementing a task. Here is your full context:
+You are implementing a single task. Work directly in the current repo.
 
 ## Task
-Description: {task.description}
-Context: {task.context.own}
+{task.description}
+
+## Context
+{task.context.own}
 
 ## Parent Context
-{task.context.parent || "N/A"}
+{task.context.parent or "N/A"}
 
 ## Milestone Context
-{task.context.milestone || "N/A"}
+{task.context.milestone or "N/A"}
 
 ## Learnings from Prior Work
-{format learnings from task.learnings}
+{formatted learnings from task.learnings.own, .parent, .milestone}
 
-## Instructions
-1. Implement the task as described in the context
-2. Run tests to verify your work
-3. Do NOT commit - the orchestrator handles commits
-4. When done, output a summary including:
-   - What you implemented (files changed, approach taken)
-   - Key decisions and why
-   - Verification evidence (test counts, manual testing)
-   - Any learnings for future tasks
+## Rules
+- Do NOT run git commit, git add, or any VCS commands
+- Do NOT call mcp__overseer__execute
+- DO implement the task fully as described
+- DO run tests and verify your work
+- DO output a structured summary when done (see Output Format)
+
+## Output Format
+When complete, output:
+
+### Implementation
+- Files changed and what was done in each
+- Approach taken and key decisions
+
+### Verification
+- Test results with counts (e.g., "All 42 tests passing, 3 new")
+- Build status
+- Manual testing performed
+
+### Learnings
+- Anything discovered that would help future tasks
 ```
 
-Spawn the teammate synchronously (do NOT use `run_in_background`):
+### 4. Spawn Implementer
+
+Use the Agent tool synchronously (no `run_in_background`):
 
 ```
-Task({
+Agent({
   subagent_type: "general-purpose",
-  description: task.description,
-  prompt: <constructed prompt above>
+  description: "<short task summary>",
+  prompt: <constructed prompt>
 })
 ```
 
-### Step 4: Review Teammate Output
+The subagent works in the main repo on the task branch that `tasks.start()` checked out.
 
-After the teammate returns, review their output:
+### 5. Review Output
 
-- Did they address all requirements from the task context?
-- Is there verification evidence (tests passing, build succeeding)?
+Check the implementer's output:
+- Are all requirements from task context addressed?
+- Is there verification evidence (test counts, build status)?
 - Are there learnings to capture?
 
-If the output is insufficient, you may spawn another teammate to fix issues before proceeding.
+If output is insufficient, spawn another subagent to fix issues before proceeding.
 
-### Step 5: Commit Changes
+### 6. Complete Task
 
-Stage and commit the teammate's changes. Use conventional commit format. Describe the work, not the task ID.
-
-```bash
-git add <specific files from teammate output>
-git commit -m "$(cat <<'EOF'
-feat(scope): description of what was implemented
-
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
-EOF
-)"
-```
-
-### Step 6: Complete Task (Overseer MCP)
-
-Complete the task with result and learnings extracted from the teammate's output.
+Extract result summary and learnings from the implementer output, then complete:
 
 ```javascript
 await tasks.complete(task.id, {
-  result: "<summary from teammate output including verification>",
+  result: "<implementation summary + verification evidence from subagent>",
   learnings: ["<extracted learnings>"]
 });
+// Auto: git add -A, commit, ff-merge to base_ref, bookmark cleanup
 ```
 
-This handles the VCS integration (fast-forward merge to base_ref, bookmark cleanup).
+Report completion to user with progress update.
 
-### Step 7: Loop
+### 7. Loop
 
-Go back to Step 1 for the next ready task.
+Go back to step 1.
 
 ## Error Recovery
 
-### Teammate Fails or Produces Bad Output
+### Integration Gate Failure (`TaskIntegrationRequired`)
+`base_ref` (e.g., `main`) diverged since `tasks.start()`. The fast-forward merge failed.
+
+1. Spawn a subagent to rebase: `git rebase <base_ref>`
+2. Retry `tasks.complete()`
+
+### Implementer Produces Bad Output
 1. Do NOT complete the task
-2. Check git status for partial work
-3. Either spawn a new teammate to fix, or update task context with failure notes and move on
+2. Spawn another subagent with the original context + failure notes
+3. If still failing, update task context with notes and inform user
 
-### Overseer Complete Fails (e.g., merge conflict)
-1. Check the error - likely fast-forward merge failure
-2. Resolve the conflict manually or with a teammate
-3. Retry completion
-
-### No VCS Repository
-- CRUD operations work without VCS
-- start/complete require VCS - fail fast and inform user
+### Start Fails (`DirtyWorkingCopy`)
+Working copy must be clean for `tasks.start()`. Inform user to stash or commit first.
 
 ## Rules
 
-- **Never write code yourself** - always delegate to teammates
-- **Never skip verification** - teammate must provide test evidence
-- **Never commit task IDs** - describe the work in commits
-- **Always use conventional commits** - feat/fix/refactor/chore
-- **Complete tasks immediately** after verifying teammate output
+- **Never write code** - delegate to subagents
+- **Never do VCS manually** - `tasks.start()` and `tasks.complete()` handle everything
+- **Never skip verification** - subagent must provide test evidence before you complete
+- **Never put task IDs in commits** - `tasks.complete()` writes the commit message automatically
+- **Complete immediately** after reviewing subagent output
 - **One task at a time** - finish current before starting next
-- **Capture learnings** - they bubble to parent and help future tasks
+- **Capture all learnings** - they bubble to parent and help future tasks
 
-## Overseer API Quick Reference
+## API Quick Reference
 
-See @file references/api.md for full API.
+See @file references/api.md for full types and methods.
 
-Key methods:
-- `tasks.nextReady(milestoneId?)` - get deepest ready leaf with full context
-- `tasks.start(id)` - create VCS bookmark, record start commit
-- `tasks.complete(id, { result, learnings })` - commit, merge, cleanup bookmark
-- `tasks.get(id)` - get task with full context chain
-- `tasks.list({ ready, parentId, type })` - list/filter tasks
-- `tasks.progress(rootId?)` - aggregate counts
+| Method | What it does |
+|--------|-------------|
+| `tasks.nextReady(milestoneId?)` | Deepest ready leaf with full context |
+| `tasks.start(id)` | Create branch `task/{id}`, checkout, record base_ref |
+| `tasks.complete(id, { result, learnings })` | git add -A, commit, ff-merge to base_ref, cleanup bookmark |
+| `tasks.get(id)` | Task with full context chain + learnings |
+| `tasks.list({ type, ready, parentId })` | Filter/list tasks |
+| `tasks.progress(rootId?)` | Aggregate counts |
 
 ## Reference Files
 
 | File | Purpose |
 |------|---------|
-| `references/api.md` | Overseer MCP codemode API types/methods |
-| `references/workflow.md` | Start -> implement -> complete workflow |
-| `references/hierarchies.md` | Milestone/task/subtask organization |
+| `references/api.md` | Full Overseer MCP codemode API |
+| `references/workflow.md` | Start -> implement -> complete lifecycle |
+| `references/verification.md` | Verification checklist |
 | `references/examples.md` | Good/bad context and result examples |
-| `references/verification.md` | Verification checklist and process |
+| `references/hierarchies.md` | Milestone/task/subtask organization |
