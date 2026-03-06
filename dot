@@ -196,8 +196,10 @@ cmd_init() {
     install_homebrew
     install_packages
     install_npm_globals
-    install_rust
-    install_overseer
+    if confirm "Install Overseer? (MCP task manager for multi-session AI workflows)" "n"; then
+        install_rust
+        install_overseer
+    fi
     backup_conflicts
     cmd_stow
     setup_shell
