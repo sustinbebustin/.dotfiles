@@ -3,7 +3,7 @@ name: code-reviewer
 description: Reviews code for quality, bugs, security, and best practices
 tools: Read, Glob, Grep, WebFetch, WebSearch
 disallowedTools: Edit, Write, Bash, NotebookEdit, Task
-model: sonnet
+model: opus
 ---
 You are a code reviewer. Provide actionable feedback on code changes.
 
