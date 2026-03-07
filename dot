@@ -15,6 +15,7 @@ warn() { printf '\033[0;33m[warn]\033[0m %s\n' "$1"; }
 err()  { printf '\033[0;31m[error]\033[0m %s\n' "$1" >&2; }
 
 command_exists() { command -v "$1" &>/dev/null; }
+step() { printf '\033[0;34m[%d/%d]\033[0m %s\n' "$1" "$2" "$3"; }
 
 confirm() {
     local prompt="${1:-Continue?}" default="${2:-n}"
@@ -40,14 +41,28 @@ install_homebrew() {
     fi
 
     info "Installing Homebrew..."
-    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    local brew_log
+    brew_log=$(mktemp)
+    if ! NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" &>"$brew_log"; then
+        err "Homebrew installation failed"
+        echo "--- Last 20 lines of output ---"
+        tail -20 "$brew_log"
+        echo "---"
+        info "Troubleshooting:"
+        info "  - Check disk space: df -h"
+        info "  - Check network: curl -fsSL https://github.com"
+        info "  - Manual install: https://brew.sh"
+        rm -f "$brew_log"
+        return 1
+    fi
+    rm -f "$brew_log"
 
     if [[ -f /opt/homebrew/bin/brew ]]; then
-        eval "$(/opt/homebrew/bin/brew shellenv)"
+        eval "$(/opt/homebrew/bin/brew shellenv)" || true
     elif [[ -f /usr/local/bin/brew ]]; then
-        eval "$(/usr/local/bin/brew shellenv)"
+        eval "$(/usr/local/bin/brew shellenv)" || true
     elif [[ -f /home/linuxbrew/.linuxbrew/bin/brew ]]; then
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" || true
     fi
     ok "Homebrew installed"
 }
@@ -157,12 +172,19 @@ backup_conflicts() {
 # --- Commands ---
 
 cmd_init() {
+    local total=6
     info "Initializing dotfiles"
+    step 1 $total "Installing Homebrew"
     install_homebrew
+    step 2 $total "Installing packages"
     install_packages
+    step 3 $total "Installing npm globals"
     install_npm_globals
+    step 4 $total "Backing up conflicts"
     backup_conflicts
+    step 5 $total "Stowing dotfiles"
     cmd_stow
+    step 6 $total "Setting up shell"
     setup_shell
     echo ""
     ok "Setup complete. Open a new terminal to start using your config."
@@ -209,6 +231,7 @@ cmd_doctor() {
             ok "$tool installed"
         else
             warn "$tool not found"
+            info "  -> brew install $tool"
             ((++issues))
         fi
     done
@@ -218,6 +241,7 @@ cmd_doctor() {
         ok "zsh is default shell"
     else
         warn "zsh is not default shell (currently $SHELL)"
+        info "  -> chsh -s \$(command -v zsh)"
         ((++issues))
     fi
 
@@ -238,6 +262,7 @@ cmd_doctor() {
     else
         warn "Found $broken broken stow symlinks:"
         printf "  %s\n" "${broken_list[@]}"
+        info "  -> dot stow"
         ((++issues))
     fi
 
@@ -246,6 +271,7 @@ cmd_doctor() {
         ok "SSH key exists"
     else
         warn "No SSH key found"
+        info "  -> dot gen-ssh-key"
     fi
 
     # dot command available
@@ -499,6 +525,122 @@ cmd_edit() {
     exec "${EDITOR:-nvim}" "$DOTFILES_DIR"
 }
 
+cmd_gen_ssh_key() {
+    local email="${1:-}"
+    if [[ -z "$email" ]]; then
+        email=$(git config user.email 2>/dev/null || true)
+    fi
+    if [[ -z "$email" ]]; then
+        err "No email provided and git user.email not set"
+        err "Usage: dot gen-ssh-key [email]"
+        return 1
+    fi
+
+    local key_path="$HOME/.ssh/id_ed25519"
+
+    if [[ -f "$key_path" ]]; then
+        warn "SSH key already exists at $key_path"
+        if ! confirm "Overwrite? (old key will be backed up)" "n"; then
+            return 0
+        fi
+        local backup="${key_path}.bak.$(date +%Y%m%d_%H%M%S)"
+        cp "$key_path" "$backup"
+        cp "${key_path}.pub" "${backup}.pub" 2>/dev/null || true
+        ok "Backed up existing key to $backup"
+    fi
+
+    info "Generating ed25519 SSH key for $email..."
+    mkdir -p "$HOME/.ssh"
+    ssh-keygen -t ed25519 -C "$email" -f "$key_path"
+
+    # Start ssh-agent if not running
+    if ! ssh-add -l &>/dev/null; then
+        eval "$(ssh-agent -s)" >/dev/null
+    fi
+    ssh-add "$key_path" 2>/dev/null
+
+    # Copy to clipboard if possible
+    local pubkey
+    pubkey=$(<"${key_path}.pub")
+    if command_exists wl-copy; then
+        echo "$pubkey" | wl-copy
+        ok "Public key copied to clipboard (wl-copy)"
+    elif command_exists xclip; then
+        echo "$pubkey" | xclip -selection clipboard
+        ok "Public key copied to clipboard (xclip)"
+    elif command_exists pbcopy; then
+        echo "$pubkey" | pbcopy
+        ok "Public key copied to clipboard (pbcopy)"
+    else
+        info "Public key (copy manually):"
+        echo "$pubkey"
+    fi
+
+    echo ""
+    info "Next steps:"
+    info "  GitHub:  https://github.com/settings/ssh/new"
+    info "  GitLab:  https://gitlab.com/-/user_settings/ssh_keys"
+}
+
+cmd_completions() {
+    local func_dir="${DOTFILES_DIR}/home/.config/zsh/functions"
+    mkdir -p "$func_dir"
+
+    cat > "${func_dir}/_dot" <<'COMP'
+#compdef dot
+
+_dot() {
+    local -a commands
+    commands=(
+        'init:Full bootstrap (brew, packages, stow, shell)'
+        'stow:Re-stow dotfiles (symlink home/ -> ~)'
+        'update:Pull latest, update packages, re-stow'
+        'doctor:Check tools, symlinks, shell health'
+        'package:Brewfile management (add/remove/list)'
+        'retry-failed:Retry failed package installations'
+        'link:Symlink dot into PATH'
+        'unlink:Remove dot symlink'
+        'edit:Open dotfiles in $EDITOR'
+        'gen-ssh-key:Generate ed25519 SSH key'
+        'completions:Generate zsh completions'
+        'help:Show help message'
+    )
+
+    local -a global_opts
+    global_opts=(
+        '--version[Show version]'
+        '(-h --help)'{-h,--help}'[Show help]'
+    )
+
+    if (( CURRENT == 2 )); then
+        _describe -t commands 'dot command' commands
+        _arguments -s $global_opts
+        return
+    fi
+
+    case "$words[2]" in
+        package)
+            local -a subcmds
+            subcmds=(
+                'add:Install and add to Brewfile'
+                'remove:Remove from Brewfile'
+                'list:Show packages with install status'
+                'help:Show package help'
+            )
+            if (( CURRENT == 3 )); then
+                _describe -t subcmds 'package subcommand' subcmds
+            fi
+            ;;
+    esac
+}
+
+_dot "$@"
+COMP
+
+    ok "Generated completions at ${func_dir}/_dot"
+    info "Run 'dot stow' then open a new shell to activate"
+}
+
 cmd_help() {
     cat <<EOF
 dot v${VERSION} - dotfiles management
@@ -515,6 +657,8 @@ COMMANDS:
     link            Symlink dot into PATH (~/.local/bin)
     unlink          Remove dot symlink
     edit            Open dotfiles in \$EDITOR
+    gen-ssh-key     Generate ed25519 SSH key
+    completions     Generate zsh completions
     help            This message
 
 OPTIONS:
@@ -547,6 +691,8 @@ main() {
         link)         cmd_link "$@" ;;
         unlink)       cmd_unlink "$@" ;;
         edit)         cmd_edit "$@" ;;
+        gen-ssh-key)  cmd_gen_ssh_key "$@" ;;
+        completions)  cmd_completions "$@" ;;
         help)         cmd_help ;;
         *)
             err "Unknown command: $cmd"

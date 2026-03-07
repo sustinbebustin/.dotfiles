@@ -1,0 +1,48 @@
+#compdef dot
+
+_dot() {
+    local -a commands
+    commands=(
+        'init:Full bootstrap (brew, packages, stow, shell)'
+        'stow:Re-stow dotfiles (symlink home/ -> ~)'
+        'update:Pull latest, update packages, re-stow'
+        'doctor:Check tools, symlinks, shell health'
+        'package:Brewfile management (add/remove/list)'
+        'retry-failed:Retry failed package installations'
+        'link:Symlink dot into PATH'
+        'unlink:Remove dot symlink'
+        'edit:Open dotfiles in $EDITOR'
+        'gen-ssh-key:Generate ed25519 SSH key'
+        'completions:Generate zsh completions'
+        'help:Show help message'
+    )
+
+    local -a global_opts
+    global_opts=(
+        '--version[Show version]'
+        '(-h --help)'{-h,--help}'[Show help]'
+    )
+
+    if (( CURRENT == 2 )); then
+        _describe -t commands 'dot command' commands
+        _arguments -s $global_opts
+        return
+    fi
+
+    case "$words[2]" in
+        package)
+            local -a subcmds
+            subcmds=(
+                'add:Install and add to Brewfile'
+                'remove:Remove from Brewfile'
+                'list:Show packages with install status'
+                'help:Show package help'
+            )
+            if (( CURRENT == 3 )); then
+                _describe -t subcmds 'package subcommand' subcmds
+            fi
+            ;;
+    esac
+}
+
+_dot "$@"

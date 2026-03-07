@@ -4,6 +4,7 @@
 bindkey '^[^?' backward-kill-word  # Option+Backspace: delete word
 
 # ===== Completions =====
+fpath=("$ZDOTDIR/functions" $fpath)
 autoload -Uz compinit
 compinit
 
