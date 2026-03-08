@@ -205,5 +205,6 @@
     "command": "$HOME/.claude/hooks/src/statusline.sh"
   },
   "spinnerTipsEnabled": false,
-  "effortLevel": "high"
+  "effortLevel": "high",
+  "alwaysThinkingEnabled": true
 }
