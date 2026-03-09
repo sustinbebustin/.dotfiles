@@ -2,3 +2,5 @@
 .overseer
 opensrc
 .mcp.json
+.docs
+.claude/plans
