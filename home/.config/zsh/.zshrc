@@ -30,7 +30,6 @@ path_prepend "$HOME/.opencode/bin"
 
 # ===== Node.js =====
 export NVM_DIR="$HOME/.nvm"
-# Load nvm from homebrew (macOS) or standard location
 if [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]; then
   \. "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
   [ -s "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
@@ -58,7 +57,6 @@ alias t="eza . --tree --level=1"
 alias tt="eza . --tree --level=2"
 alias ttt="eza . --tree --level=3"
 
-# macOS-only aliases
 if [[ "$OSTYPE" == "darwin"* ]]; then
   alias o="open ."
   alias code="open -a Cursor"
@@ -80,6 +78,16 @@ export LESS_TERMCAP_se=$'\e[0m'
 export LESS_TERMCAP_so=$'\e[1;38;2;248;248;242;48;2;69;65;88m'
 export LESS_TERMCAP_ue=$'\e[0m'
 export LESS_TERMCAP_us=$'\e[1;38;2;138;255;128m'
+
+# ===== Linux/Arch plugins =====
+if [[ "$OSTYPE" == "linux"* ]]; then
+  [ -f /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ] && \
+    source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+  [ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && \
+    source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+  [ -f /usr/share/fzf/key-bindings.zsh ] && \
+    source /usr/share/fzf/key-bindings.zsh
+fi
 
 # ===== Plugins (via homebrew) =====
 if [ -n "$HOMEBREW_PREFIX" ]; then
@@ -109,3 +117,18 @@ ZSH_AUTOSUGGESTION_HIGHLIGHT_STYLE='fg=#504C67'
 
 # ===== Prompt =====
 eval "$(starship init zsh)"
+
+# ===== History =====
+HISTFILE=~/.zsh_history
+HISTSIZE=50000
+SAVEHIST=50000
+setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_VERIFY
+
+# ===== Zoxide =====
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
+
+# ===== lsd aliases (Arch) =====
+if command -v lsd &>/dev/null; then
+  alias ls='lsd'
+  alias lt='lsd --tree'
+fi
