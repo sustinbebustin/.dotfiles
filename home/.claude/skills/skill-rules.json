@@ -70,6 +70,50 @@
                 ]
             }
         },
+        "frontend-design": {
+            "type": "design",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Create distinctive, production-grade frontend interfaces with high design quality. Use when the user asks to build web components, pages, or applications, or invokes any impeccable command (animate, audit, bolder, clarify, colorize, critique, delight, distill, extract, harden, normalize, onboard, optimize, polish, quieter, adapt, teach-impeccable).",
+            "promptTriggers": {
+                "keywords": [
+                    "frontend design",
+                    "web design",
+                    "UI design",
+                    "build a page",
+                    "build a component",
+                    "design system",
+                    "interface design",
+                    "impeccable",
+                    "/impeccable:animate",
+                    "/impeccable:audit",
+                    "/impeccable:bolder",
+                    "/impeccable:clarify",
+                    "/impeccable:colorize",
+                    "/impeccable:critique",
+                    "/impeccable:delight",
+                    "/impeccable:distill",
+                    "/impeccable:extract",
+                    "/impeccable:harden",
+                    "/impeccable:normalize",
+                    "/impeccable:onboard",
+                    "/impeccable:optimize",
+                    "/impeccable:polish",
+                    "/impeccable:quieter",
+                    "/impeccable:adapt",
+                    "/impeccable:teach-impeccable",
+                    "/frontend-design"
+                ],
+                "intentPatterns": [
+                    "(build|create|design|make).*?(page|component|interface|UI|frontend|website|web app)",
+                    "(improve|polish|refine|fix).*?(design|UI|interface|layout|styling)",
+                    "impeccable.*?(animate|audit|bolder|clarify|colorize|critique|delight|distill|extract|harden|normalize|onboard|optimize|polish|quieter|adapt)",
+                    "(animate|audit|bolder|clarify|colorize|critique|delight|distill|extract|harden|normalize|onboard|optimize|polish|quieter|adapt).*?(design|UI|interface|component)",
+                    "(make|design).*?(bold|quiet|simple|delightful|accessible|responsive)",
+                    "(design|visual|UI).*?(review|critique|audit|feedback)"
+                ]
+            }
+        },
         "handoff": {
             "type": "workflow",
             "enforcement": "suggest",

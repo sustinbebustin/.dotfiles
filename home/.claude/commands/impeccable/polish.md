@@ -8,7 +8,13 @@ args:
     required: false
 ---
 
-**First**: Use the frontend-design skill for design principles and anti-patterns.
+**STOP. Before doing anything else**, you MUST call the Skill tool to load the frontend-design skill. This skill contains critical design principles and anti-patterns that govern all decisions in this command. Skipping this step will produce generic AI slop.
+
+```
+skill({ name: 'frontend-design' })
+```
+
+Do NOT read code, do NOT gather context, do NOT plan changes until the skill has loaded and you have internalized all its DO's and DON'Ts.
 
 Perform a meticulous final pass to catch all the small details that separate good work from great work. The difference between shipped and polished.
 

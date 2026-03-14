@@ -23,9 +23,15 @@ Attempt to gather these from the current thread or codebase.
 
 Do NOT proceed until you have answers. Simplifying the wrong things destroys usability.
 
-### Use frontend-design skill
+### Load frontend-design skill (BLOCKING)
 
-Use the frontend-design skill for design principles and anti-patterns. Do NOT proceed until it has executed and you know all DO's and DON'Ts.
+**STOP. Before doing anything else**, you MUST call the Skill tool to load the frontend-design skill. This skill contains critical design principles and anti-patterns that govern all decisions in this command. Skipping this step will produce generic AI slop.
+
+```
+skill({ name: 'frontend-design' })
+```
+
+Do NOT read code, do NOT gather context, do NOT plan changes until the skill has loaded and you have internalized all its DO's and DON'Ts.
 
 ---
 

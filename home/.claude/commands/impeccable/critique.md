@@ -10,7 +10,13 @@ args:
 
 Conduct a holistic design critique, evaluating whether the interface actually works—not just technically, but as a designed experience. Think like a design director giving feedback.
 
-**First**: Use the frontend-design skill for design principles and anti-patterns.
+**STOP. Before doing anything else**, you MUST call the Skill tool to load the frontend-design skill. This skill contains critical design principles and anti-patterns that govern all decisions in this command. Skipping this step will produce generic AI slop.
+
+```
+skill({ name: 'frontend-design' })
+```
+
+Do NOT read code, do NOT gather context, do NOT plan changes until the skill has loaded and you have internalized all its DO's and DON'Ts.
 
 ## Design Critique
 
@@ -98,7 +104,7 @@ For each issue:
 - **What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)
-- **Command**: Which command to use (prefer: /animate, /quieter, /optimize, /adapt, /clarify, /distill, /delight, /onboard, /normalize, /audit, /harden, /polish, /extract, /bolder, /critique, /colorize — or other installed skills you're sure exist)
+- **Command**: Which command to use (prefer: /impeccable:animate, /impeccable:quieter, /impeccable:optimize, /impeccable:adapt, /impeccable:clarify, /impeccable:distill, /impeccable:delight, /impeccable:onboard, /impeccable:normalize, /impeccable:audit, /impeccable:harden, /impeccable:polish, /impeccable:extract, /impeccable:bolder, /impeccable:critique, /impeccable:colorize — or other installed skills you're sure exist)
 
 ### Minor Observations
 Quick notes on smaller issues worth addressing.
