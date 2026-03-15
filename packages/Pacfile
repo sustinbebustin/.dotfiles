@@ -38,19 +38,28 @@ xdg-desktop-portal-hyprland
 # Desktop utilities
 btop
 cava
+cliphist
 fastfetch
 grim
+hyprpolkitagent
+lazygit
 matugen
+nwg-look
 playerctl
 slurp
 thunar
 ttf-firacode-nerd
+udiskie
+wl-clip-persist
 wl-clipboard
 wlogout
+yazi
 
 # AUR
 [aur] elephant
+[aur] grimblast-git
 [aur] kanata
+[aur] paru-bin
 [aur] walker
 [aur] wl-screenrec
 [aur] xremap-hypr-bin
