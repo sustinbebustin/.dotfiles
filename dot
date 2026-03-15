@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly VERSION="2.0.0"
-DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd "$(dirname "$(readlink "${BASH_SOURCE[0]}")")" && pwd)"
+readonly VERSION="3.0.0"
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 readonly DOTFILES_DIR
 readonly PACKAGES_DIR="${DOTFILES_DIR}/packages"
 readonly BREWFILE="${PACKAGES_DIR}/Brewfile"
+readonly PACFILE="${PACKAGES_DIR}/Pacfile"
 
 # --- Output helpers ---
 
@@ -29,6 +30,33 @@ confirm() {
         [yY][eE][sS]|[yY]) return 0 ;;
         "") [[ "$default" == "y" ]] && return 0 || return 1 ;;
         *) return 1 ;;
+    esac
+}
+
+# --- Platform detection ---
+
+detect_platform() {
+    if [[ -f /etc/os-release ]] && grep -q '^ID=arch' /etc/os-release; then
+        echo "arch"
+    elif [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "macos"
+    else
+        echo "linux"
+    fi
+}
+readonly PLATFORM="$(detect_platform)"
+
+aur_helper() {
+    if command_exists yay; then echo "yay"
+    elif command_exists paru; then echo "paru"
+    else echo ""
+    fi
+}
+
+install_hint() {
+    case "$PLATFORM" in
+        arch)  echo "sudo pacman -S $1" ;;
+        *)     echo "brew install $1" ;;
     esac
 }
 
@@ -67,7 +95,7 @@ install_homebrew() {
     ok "Homebrew installed"
 }
 
-install_packages() {
+install_brew_packages() {
     if [[ ! -f "$BREWFILE" ]]; then
         err "Brewfile not found at $BREWFILE"
         return 1
@@ -113,6 +141,72 @@ install_packages() {
     fi
 
     ok "Installed $count packages"
+}
+
+install_pacman_packages() {
+    if [[ ! -f "$PACFILE" ]]; then
+        err "Pacfile not found at $PACFILE"
+        return 1
+    fi
+
+    local pacman_pkgs=() aur_pkgs=()
+
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+
+        if [[ "$line" =~ ^\[aur\][[:space:]]+(.+)$ ]]; then
+            aur_pkgs+=("${BASH_REMATCH[1]}")
+        else
+            pacman_pkgs+=("${line#"${line%%[![:space:]]*}"}")
+        fi
+    done < "$PACFILE"
+
+    local failed=()
+
+    if [[ ${#pacman_pkgs[@]} -gt 0 ]]; then
+        info "Installing ${#pacman_pkgs[@]} pacman packages..."
+        if ! sudo pacman -S --needed --noconfirm "${pacman_pkgs[@]}"; then
+            warn "Some pacman packages failed to install"
+            for pkg in "${pacman_pkgs[@]}"; do
+                if ! pacman -Qi "$pkg" &>/dev/null; then
+                    failed+=("pacman:$pkg")
+                fi
+            done
+        fi
+    fi
+
+    if [[ ${#aur_pkgs[@]} -gt 0 ]]; then
+        local helper
+        helper="$(aur_helper)"
+        if [[ -z "$helper" ]]; then
+            warn "No AUR helper found (yay or paru). Skipping AUR packages:"
+            printf "  - %s\n" "${aur_pkgs[@]}"
+            for pkg in "${aur_pkgs[@]}"; do
+                failed+=("aur:$pkg")
+            done
+        else
+            info "Installing ${#aur_pkgs[@]} AUR packages via $helper..."
+            if ! "$helper" -S --needed --noconfirm "${aur_pkgs[@]}"; then
+                warn "Some AUR packages failed to install"
+                for pkg in "${aur_pkgs[@]}"; do
+                    if ! pacman -Qi "$pkg" &>/dev/null; then
+                        failed+=("aur:$pkg")
+                    fi
+                done
+            fi
+        fi
+    fi
+
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        warn "Failed to install ${#failed[@]} packages:"
+        printf "  - %s\n" "${failed[@]}"
+        local failed_file="${PACKAGES_DIR}/failed_packages_$(date +%Y%m%d_%H%M%S).txt"
+        printf "%s\n" "${failed[@]}" > "$failed_file"
+        info "Failures saved to $failed_file"
+    fi
+
+    ok "Package installation complete"
 }
 
 install_npm_globals() {
@@ -172,31 +266,48 @@ backup_conflicts() {
 # --- Commands ---
 
 cmd_init() {
-    local total=6
-    info "Initializing dotfiles"
-    step 1 $total "Installing Homebrew"
-    install_homebrew
-    step 2 $total "Installing packages"
-    install_packages
-    step 3 $total "Installing npm globals"
-    install_npm_globals
-    step 4 $total "Backing up conflicts"
-    backup_conflicts
-    step 5 $total "Stowing dotfiles"
-    cmd_stow
-    step 6 $total "Setting up shell"
-    setup_shell
+    info "Initializing dotfiles (platform: $PLATFORM)"
+
+    case "$PLATFORM" in
+        arch)
+            local total=4
+            step 1 $total "Installing packages"
+            install_pacman_packages
+            step 2 $total "Backing up conflicts"
+            backup_conflicts
+            step 3 $total "Stowing dotfiles"
+            cmd_stow
+            step 4 $total "Setting up shell"
+            setup_shell
+            ;;
+        *)
+            local total=6
+            step 1 $total "Installing Homebrew"
+            install_homebrew
+            step 2 $total "Installing packages"
+            install_brew_packages
+            step 3 $total "Installing npm globals"
+            install_npm_globals
+            step 4 $total "Backing up conflicts"
+            backup_conflicts
+            step 5 $total "Stowing dotfiles"
+            cmd_stow
+            step 6 $total "Setting up shell"
+            setup_shell
+            ;;
+    esac
+
     echo ""
     ok "Setup complete. Open a new terminal to start using your config."
 }
 
 cmd_stow() {
     if ! command_exists stow; then
-        err "GNU Stow is not installed (brew install stow)"
+        err "GNU Stow is not installed ($(install_hint stow))"
         return 1
     fi
     info "Stowing dotfiles..."
-    stow -R --dir="$DOTFILES_DIR" --target="$HOME" home
+    stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" home
     ok "Dotfiles linked"
 }
 
@@ -211,27 +322,74 @@ cmd_update() {
         return 1
     fi
 
-    if confirm "Update Homebrew packages?" "y"; then
-        info "Updating Homebrew..."
-        brew update && brew upgrade
-        ok "Packages updated"
-    fi
+    case "$PLATFORM" in
+        arch)
+            if confirm "Update system packages?" "y"; then
+                info "Updating pacman packages..."
+                sudo pacman -Syu
+                local helper
+                helper="$(aur_helper)"
+                if [[ -n "$helper" ]]; then
+                    info "Updating AUR packages..."
+                    "$helper" -Syu
+                fi
+                ok "Packages updated"
+            fi
+            ;;
+        *)
+            if confirm "Update Homebrew packages?" "y"; then
+                info "Updating Homebrew..."
+                brew update && brew upgrade
+                ok "Packages updated"
+            fi
+            ;;
+    esac
 
     cmd_stow
 }
 
 cmd_doctor() {
-    info "Running diagnostics"
+    info "Running diagnostics (platform: $PLATFORM)"
     local issues=0
 
+    # Package manager
+    case "$PLATFORM" in
+        arch)
+            if command_exists pacman; then
+                ok "pacman available"
+            else
+                warn "pacman not found"
+                ((++issues))
+            fi
+            local helper
+            helper="$(aur_helper)"
+            if [[ -n "$helper" ]]; then
+                ok "AUR helper: $helper"
+            else
+                warn "No AUR helper found (yay or paru)"
+                info "  -> install yay or paru for AUR support"
+                ((++issues))
+            fi
+            ;;
+        *)
+            if command_exists brew; then
+                ok "Homebrew installed"
+            else
+                warn "Homebrew not found"
+                info "  -> dot init"
+                ((++issues))
+            fi
+            ;;
+    esac
+
     # Core tools
-    local tools=(brew stow zsh git tmux node npm bun)
+    local tools=(stow zsh git tmux)
     for tool in "${tools[@]}"; do
         if command_exists "$tool"; then
             ok "$tool installed"
         else
             warn "$tool not found"
-            info "  -> brew install $tool"
+            info "  -> $(install_hint "$tool")"
             ((++issues))
         fi
     done
@@ -307,6 +465,13 @@ cmd_package() {
 }
 
 cmd_package_add() {
+    case "$PLATFORM" in
+        arch) cmd_package_add_pacman "$@" ;;
+        *)    cmd_package_add_brew "$@" ;;
+    esac
+}
+
+cmd_package_add_brew() {
     local name="${1:-}" type="${2:-auto}"
 
     if [[ -z "$name" ]]; then
@@ -366,7 +531,109 @@ cmd_package_add() {
     ok "Added '$name' ($type) to Brewfile"
 }
 
+cmd_package_add_pacman() {
+    local name="${1:-}" type="${2:-auto}"
+
+    if [[ -z "$name" ]]; then
+        err "Usage: dot package add <name> [pacman|aur]"
+        return 1
+    fi
+
+    # Auto-detect type
+    if [[ "$type" == "auto" ]]; then
+        if pacman -Si "$name" &>/dev/null; then
+            type="pacman"
+        else
+            local helper
+            helper="$(aur_helper)"
+            if [[ -n "$helper" ]] && "$helper" -Si "$name" &>/dev/null; then
+                type="aur"
+            else
+                warn "Package '$name' not found in repos or AUR, defaulting to pacman"
+                type="pacman"
+            fi
+        fi
+    fi
+
+    local entry
+    if [[ "$type" == "aur" ]]; then
+        entry="[aur] ${name}"
+    else
+        entry="$name"
+    fi
+
+    # Check if already in Pacfile
+    if grep -qxF "$entry" "$PACFILE" 2>/dev/null; then
+        warn "'$name' already in Pacfile"
+        return 0
+    fi
+
+    # Install
+    info "Installing $name..."
+    if [[ "$type" == "aur" ]]; then
+        local helper
+        helper="$(aur_helper)"
+        if [[ -z "$helper" ]]; then
+            err "No AUR helper available to install '$name'"
+            return 1
+        fi
+        "$helper" -S --needed "$name"
+    else
+        sudo pacman -S --needed "$name"
+    fi
+
+    # Insert sorted into Pacfile
+    if [[ "$type" == "aur" ]]; then
+        # Insert among AUR entries (lines starting with [aur])
+        local tmp
+        tmp=$(mktemp)
+        local inserted=false
+        while IFS= read -r line; do
+            if [[ "$inserted" == false && "$line" =~ ^\[aur\] ]] && [[ "$entry" < "$line" || "$entry" == "$line" ]]; then
+                echo "$entry" >> "$tmp"
+                inserted=true
+            fi
+            echo "$line" >> "$tmp"
+        done < "$PACFILE"
+        if [[ "$inserted" == false ]]; then
+            echo "$entry" >> "$tmp"
+        fi
+        mv "$tmp" "$PACFILE"
+    else
+        # Insert among non-AUR, non-comment, non-empty lines in sorted position
+        local tmp
+        tmp=$(mktemp)
+        local inserted=false
+        while IFS= read -r line; do
+            if [[ "$inserted" == false ]] && [[ ! "$line" =~ ^[[:space:]]*# ]] && [[ -n "${line// }" ]] && [[ ! "$line" =~ ^\[aur\] ]] && [[ "$entry" < "$line" ]]; then
+                echo "$entry" >> "$tmp"
+                inserted=true
+            fi
+            echo "$line" >> "$tmp"
+        done < "$PACFILE"
+        if [[ "$inserted" == false ]]; then
+            # Insert before the AUR section if it exists
+            local aur_line
+            aur_line=$(grep -n '^\[aur\]' "$tmp" | head -1 | cut -d: -f1)
+            if [[ -n "$aur_line" ]]; then
+                sed -i "${aur_line}i\\${entry}" "$tmp"
+            else
+                echo "$entry" >> "$tmp"
+            fi
+        fi
+        mv "$tmp" "$PACFILE"
+    fi
+    ok "Added '$name' ($type) to Pacfile"
+}
+
 cmd_package_remove() {
+    case "$PLATFORM" in
+        arch) cmd_package_remove_pacman "$@" ;;
+        *)    cmd_package_remove_brew "$@" ;;
+    esac
+}
+
+cmd_package_remove_brew() {
     local name="${1:-}"
 
     if [[ -z "$name" ]]; then
@@ -394,7 +661,48 @@ cmd_package_remove() {
     fi
 }
 
+cmd_package_remove_pacman() {
+    local name="${1:-}"
+
+    if [[ -z "$name" ]]; then
+        err "Usage: dot package remove <name>"
+        return 1
+    fi
+
+    local found=false
+    local tmp
+    tmp=$(mktemp)
+
+    while IFS= read -r line; do
+        if [[ "$line" == "$name" || "$line" == "[aur] $name" ]]; then
+            found=true
+            continue
+        fi
+        echo "$line" >> "$tmp"
+    done < "$PACFILE"
+
+    if [[ "$found" == false ]]; then
+        warn "'$name' not found in Pacfile"
+        rm -f "$tmp"
+        return 0
+    fi
+
+    mv "$tmp" "$PACFILE"
+    ok "Removed '$name' from Pacfile"
+
+    if confirm "Also uninstall '$name' from system?" "n"; then
+        sudo pacman -R "$name" 2>/dev/null || warn "Could not uninstall '$name'"
+    fi
+}
+
 cmd_package_list() {
+    case "$PLATFORM" in
+        arch) cmd_package_list_pacman ;;
+        *)    cmd_package_list_brew ;;
+    esac
+}
+
+cmd_package_list_brew() {
     if [[ ! -f "$BREWFILE" ]]; then
         err "Brewfile not found"
         return 1
@@ -440,8 +748,66 @@ cmd_package_list() {
     fi
 }
 
+cmd_package_list_pacman() {
+    if [[ ! -f "$PACFILE" ]]; then
+        err "Pacfile not found"
+        return 1
+    fi
+
+    local installed
+    installed=$(pacman -Qq 2>/dev/null || true)
+
+    local pacman_pkgs=() aur_pkgs=()
+
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+
+        if [[ "$line" =~ ^\[aur\][[:space:]]+(.+)$ ]]; then
+            aur_pkgs+=("${BASH_REMATCH[1]}")
+        else
+            pacman_pkgs+=("${line#"${line%%[![:space:]]*}"}")
+        fi
+    done < "$PACFILE"
+
+    if [[ ${#pacman_pkgs[@]} -gt 0 ]]; then
+        echo "Pacman (${#pacman_pkgs[@]}):"
+        for pkg in "${pacman_pkgs[@]}"; do
+            if echo "$installed" | grep -qx "$pkg"; then
+                ok "  $pkg"
+            else
+                err "  $pkg (not installed)"
+            fi
+        done
+    fi
+
+    if [[ ${#aur_pkgs[@]} -gt 0 ]]; then
+        echo "AUR (${#aur_pkgs[@]}):"
+        for pkg in "${aur_pkgs[@]}"; do
+            if echo "$installed" | grep -qx "$pkg"; then
+                ok "  $pkg"
+            else
+                err "  $pkg (not installed)"
+            fi
+        done
+    fi
+}
+
 cmd_package_help() {
-    cat <<EOF
+    if [[ "$PLATFORM" == "arch" ]]; then
+        cat <<EOF
+dot package - Pacfile management
+
+USAGE: dot package <subcommand> [args]
+
+SUBCOMMANDS:
+    add <name> [pacman|aur]  Install and add to Pacfile (auto-detects type)
+    remove <name>            Remove from Pacfile, optionally uninstall
+    list                     Show packages with install status
+    help                     This message
+EOF
+    else
+        cat <<EOF
 dot package - Brewfile management
 
 USAGE: dot package <subcommand> [args]
@@ -452,6 +818,7 @@ SUBCOMMANDS:
     list                    Show packages with install status
     help                    This message
 EOF
+    fi
 }
 
 cmd_retry_failed() {
@@ -477,6 +844,22 @@ cmd_retry_failed() {
             fi
         elif [[ "$entry" =~ ^cask:(.+)$ ]]; then
             if brew install --cask "${BASH_REMATCH[1]}" 2>/dev/null; then
+                ok "Installed ${BASH_REMATCH[1]}"
+                ((++success))
+            else
+                warn "Still failing: ${BASH_REMATCH[1]}"
+            fi
+        elif [[ "$entry" =~ ^pacman:(.+)$ ]]; then
+            if sudo pacman -S --needed --noconfirm "${BASH_REMATCH[1]}" 2>/dev/null; then
+                ok "Installed ${BASH_REMATCH[1]}"
+                ((++success))
+            else
+                warn "Still failing: ${BASH_REMATCH[1]}"
+            fi
+        elif [[ "$entry" =~ ^aur:(.+)$ ]]; then
+            local helper
+            helper="$(aur_helper)"
+            if [[ -n "$helper" ]] && "$helper" -S --needed --noconfirm "${BASH_REMATCH[1]}" 2>/dev/null; then
                 ok "Installed ${BASH_REMATCH[1]}"
                 ((++success))
             else
@@ -592,11 +975,11 @@ cmd_completions() {
 _dot() {
     local -a commands
     commands=(
-        'init:Full bootstrap (brew, packages, stow, shell)'
+        'init:Full bootstrap (packages, stow, shell)'
         'stow:Re-stow dotfiles (symlink home/ -> ~)'
         'update:Pull latest, update packages, re-stow'
         'doctor:Check tools, symlinks, shell health'
-        'package:Brewfile management (add/remove/list)'
+        'package:Package management (add/remove/list)'
         'retry-failed:Retry failed package installations'
         'link:Symlink dot into PATH'
         'unlink:Remove dot symlink'
@@ -622,8 +1005,8 @@ _dot() {
         package)
             local -a subcmds
             subcmds=(
-                'add:Install and add to Brewfile'
-                'remove:Remove from Brewfile'
+                'add:Install and add to package list'
+                'remove:Remove from package list'
                 'list:Show packages with install status'
                 'help:Show package help'
             )
@@ -643,16 +1026,16 @@ COMP
 
 cmd_help() {
     cat <<EOF
-dot v${VERSION} - dotfiles management
+dot v${VERSION} - dotfiles management (platform: $PLATFORM)
 
 USAGE: dot [command] [args]
 
 COMMANDS:
-    init            Full bootstrap (brew, packages, stow, shell)
+    init            Full bootstrap (packages, stow, shell)
     stow            Re-stow dotfiles (symlink home/ -> ~)
     update          Pull latest, update packages, re-stow
     doctor          Check tools, symlinks, shell health
-    package         Brewfile management (add/remove/list)
+    package         Package management (add/remove/list)
     retry-failed    Retry failed package installations
     link            Symlink dot into PATH (~/.local/bin)
     unlink          Remove dot symlink
