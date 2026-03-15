@@ -15,6 +15,7 @@
   ],
   "modules-center": ["clock"],
   "modules-right": [
+    "custom/screenrecord",
     "tray",
     "memory",
     "cpu",
@@ -48,6 +49,15 @@
       "default": "󰊠",
       "empty": "󰑊",
     },
+  },
+
+  // ─── Screen recording ───
+  "custom/screenrecord": {
+    "exec": "~/.config/waybar/scripts/screenrecord-status.sh",
+    "return-type": "json",
+    "interval": 1,
+    "on-click": "~/.config/hypr/scripts/screenrecord.sh",
+    "tooltip": true,
   },
 
   // ─── Tray ───
