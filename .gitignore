@@ -73,6 +73,7 @@ build/
 
 .envrc
 */**/tmux/plugins/*
+!*/**/tmux/plugins/tpm
 backups/
 packages/failed_packages_*.txt
 home-common/.config/ngrok
