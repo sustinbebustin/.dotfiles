@@ -1,0 +1,55 @@
+# Core
+git
+openssh
+stow
+zsh
+
+# Shell
+fzf
+lsd
+starship
+zsh-autosuggestions
+zsh-syntax-highlighting
+
+# Terminal
+ghostty
+tmux
+
+# CLI tools
+ast-grep
+cowsay
+eza
+github-cli
+jq
+less
+ripgrep
+
+# Desktop (Hyprland)
+hyprland
+hypridle
+hyprlock
+hyprpaper
+hyprsunset
+swaync
+uwsm
+waybar
+xdg-desktop-portal-hyprland
+
+# Desktop utilities
+btop
+cava
+fastfetch
+grim
+matugen
+playerctl
+slurp
+thunar
+ttf-firacode-nerd
+wl-clipboard
+wlogout
+
+# AUR
+[aur] elephant
+[aur] walker
+[aur] wl-screenrec
+[aur] yay
