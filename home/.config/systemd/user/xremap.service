@@ -1,0 +1,13 @@
+[Unit]
+Description=xremap key remapper
+Documentation=https://github.com/xremap/xremap
+After=kanata.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/xremap --watch --device kanata %h/.config/xremap/config.yml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,85 @@
+# macOS-style Super-as-Cmd keybindings for Hyprland
+#
+# xremap intercepts at evdev level BEFORE Hyprland sees keys.
+# Only specific Super+key combos are remapped; everything else
+# passes through to Hyprland (workspaces, window management, etc.)
+
+keymap:
+  # ── Terminal applications ──────────────────────────────────────
+  # Ctrl+C = SIGINT in terminals, so copy/paste use Ctrl+Shift
+  - name: Terminal Super-as-Cmd
+    application:
+      only:
+        - com.mitchellh.ghostty
+        - kitty
+        - Alacritty
+        - foot
+        - org.wezfurlong.wezterm
+    remap:
+      # Copy / Paste / Cut
+      Super_L-c: Ctrl-Shift-c
+      Super_L-v: Ctrl-Shift-v
+      Super_L-x: Ctrl-Shift-x
+
+      # Editing
+      Super_L-a: Ctrl-Shift-a
+      Super_L-f: Ctrl-Shift-f
+      Super_L-z: Ctrl-Shift-z
+      Super_L-t: Ctrl-Shift-t
+      Super_L-w: Ctrl-Shift-w
+
+      # Line editing (readline / shell)
+      Super_L-BackSpace: Ctrl-u
+      Super_L-Left: Home
+      Super_L-Right: End
+
+      # Word navigation and deletion
+      Alt_L-Left: Ctrl-Left
+      Alt_L-Right: Ctrl-Right
+      Alt_L-BackSpace: Ctrl-w
+
+  # ── GUI applications (everything except terminals) ─────────────
+  - name: GUI Super-as-Cmd
+    application:
+      not:
+        - com.mitchellh.ghostty
+        - kitty
+        - Alacritty
+        - foot
+        - org.wezfurlong.wezterm
+    remap:
+      # Standard editing
+      Super_L-c: Ctrl-c
+      Super_L-v: Ctrl-v
+      Super_L-x: Ctrl-x
+      Super_L-z: Ctrl-z
+      Super_L-Shift-z: Ctrl-Shift-z
+      Super_L-a: Ctrl-a
+      Super_L-s: Ctrl-s
+      Super_L-f: Ctrl-f
+
+      # Tab management
+      Super_L-t: Ctrl-t
+      Super_L-w: Ctrl-w
+      Super_L-Shift-t: Ctrl-Shift-t
+
+      # Browser / app navigation
+      Super_L-l: Ctrl-l
+      Super_L-r: Ctrl-r
+      Super_L-n: Ctrl-n
+      Super_L-LeftBrace: Alt_L-Left
+      Super_L-RightBrace: Alt_L-Right
+
+      # Text navigation (Cmd+arrow = line/doc boundaries)
+      Super_L-Left: Home
+      Super_L-Right: End
+      Super_L-Up: Ctrl-Home
+      Super_L-Down: Ctrl-End
+
+      # Word navigation (Option+arrow = word jump)
+      Alt_L-Left: Ctrl-Left
+      Alt_L-Right: Ctrl-Right
+
+      # Deletion
+      Alt_L-BackSpace: Ctrl-BackSpace
+      Super_L-BackSpace: Ctrl-Shift-BackSpace

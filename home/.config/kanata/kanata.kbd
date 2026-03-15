@@ -1,0 +1,18 @@
+;; Caps Lock: tap = Escape, hold = Hyper (Ctrl+Shift+Alt+Super)
+;; Mirrors macOS Karabiner config.
+
+(defcfg
+  linux-dev-names-exclude ("xremap")
+)
+
+(defsrc
+  caps
+)
+
+(deflayer default
+  @hyper
+)
+
+(defalias
+  hyper (tap-hold 200 200 esc (multi lctl lsft lalt lmet))
+)

@@ -50,6 +50,8 @@ wlogout
 
 # AUR
 [aur] elephant
+[aur] kanata
 [aur] walker
 [aur] wl-screenrec
+[aur] xremap-hypr-bin
 [aur] yay
