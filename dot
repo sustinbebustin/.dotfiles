@@ -60,6 +60,15 @@ install_hint() {
     esac
 }
 
+stow_packages() {
+    local packages=("home-common")
+    case "$PLATFORM" in
+        arch)  packages+=("home-arch") ;;
+        macos) packages+=("home-macos") ;;
+    esac
+    printf '%s\n' "${packages[@]}"
+}
+
 # --- Core operations ---
 
 install_homebrew() {
@@ -234,14 +243,18 @@ setup_shell() {
 
 backup_conflicts() {
     local files_to_backup=()
+    local packages
+    mapfile -t packages < <(stow_packages)
 
-    while IFS= read -r -d '' file; do
-        local rel="${file#"${DOTFILES_DIR}/home"/}"
-        local target="${HOME}/${rel}"
-        if [[ -e "$target" && ! -L "$target" ]]; then
-            files_to_backup+=("$rel")
-        fi
-    done < <(find "${DOTFILES_DIR}/home" -type f -print0)
+    for pkg in "${packages[@]}"; do
+        while IFS= read -r -d '' file; do
+            local rel="${file#"${DOTFILES_DIR}/${pkg}"/}"
+            local target="${HOME}/${rel}"
+            if [[ -e "$target" && ! -L "$target" ]]; then
+                files_to_backup+=("$rel")
+            fi
+        done < <(find "${DOTFILES_DIR}/${pkg}" -type f -print0)
+    done
 
     if [[ ${#files_to_backup[@]} -eq 0 ]]; then
         return 0
@@ -306,8 +319,10 @@ cmd_stow() {
         err "GNU Stow is not installed ($(install_hint stow))"
         return 1
     fi
-    info "Stowing dotfiles..."
-    stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" home
+    local packages
+    mapfile -t packages < <(stow_packages)
+    info "Stowing dotfiles (${packages[*]})..."
+    stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "${packages[@]}"
     ok "Dotfiles linked"
 }
 
@@ -322,6 +337,11 @@ cmd_update() {
         return 1
     fi
 
+    # Re-exec with the freshly-pulled script so structural changes take effect
+    exec "$DOTFILES_DIR/dot" _update-post-pull "$@"
+}
+
+cmd_update_post_pull() {
     case "$PLATFORM" in
         arch)
             if confirm "Update system packages?" "y"; then
@@ -966,7 +986,7 @@ cmd_gen_ssh_key() {
 }
 
 cmd_completions() {
-    local func_dir="${DOTFILES_DIR}/home/.config/zsh/functions"
+    local func_dir="${DOTFILES_DIR}/home-common/.config/zsh/functions"
     mkdir -p "$func_dir"
 
     cat > "${func_dir}/_dot" <<'COMP'
@@ -976,7 +996,7 @@ _dot() {
     local -a commands
     commands=(
         'init:Full bootstrap (packages, stow, shell)'
-        'stow:Re-stow dotfiles (symlink home/ -> ~)'
+        'stow:Re-stow dotfiles'
         'update:Pull latest, update packages, re-stow'
         'doctor:Check tools, symlinks, shell health'
         'package:Package management (add/remove/list)'
@@ -1032,7 +1052,7 @@ USAGE: dot [command] [args]
 
 COMMANDS:
     init            Full bootstrap (packages, stow, shell)
-    stow            Re-stow dotfiles (symlink home/ -> ~)
+    stow            Re-stow dotfiles
     update          Pull latest, update packages, re-stow
     doctor          Check tools, symlinks, shell health
     package         Package management (add/remove/list)
@@ -1065,18 +1085,19 @@ main() {
     shift || true
 
     case "$cmd" in
-        init)         cmd_init "$@" ;;
-        stow)         cmd_stow "$@" ;;
-        update)       cmd_update "$@" ;;
-        doctor)       cmd_doctor "$@" ;;
-        package)      cmd_package "$@" ;;
-        retry-failed) cmd_retry_failed "$@" ;;
-        link)         cmd_link "$@" ;;
-        unlink)       cmd_unlink "$@" ;;
-        edit)         cmd_edit "$@" ;;
-        gen-ssh-key)  cmd_gen_ssh_key "$@" ;;
-        completions)  cmd_completions "$@" ;;
-        help)         cmd_help ;;
+        init)                cmd_init "$@" ;;
+        stow)                cmd_stow "$@" ;;
+        update)              cmd_update "$@" ;;
+        _update-post-pull)   cmd_update_post_pull "$@" ;;
+        doctor)              cmd_doctor "$@" ;;
+        package)             cmd_package "$@" ;;
+        retry-failed)        cmd_retry_failed "$@" ;;
+        link)                cmd_link "$@" ;;
+        unlink)              cmd_unlink "$@" ;;
+        edit)                cmd_edit "$@" ;;
+        gen-ssh-key)         cmd_gen_ssh_key "$@" ;;
+        completions)         cmd_completions "$@" ;;
+        help)                cmd_help ;;
         *)
             err "Unknown command: $cmd"
             echo "Run 'dot help' for usage"

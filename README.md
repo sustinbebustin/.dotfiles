@@ -1,11 +1,11 @@
 # dotfiles
 
-GNU Stow-based dotfiles for Arch Linux and macOS. Single `dot` script handles bootstrap, package management, and symlinks.
+GNU Stow-based dotfiles for Arch Linux and macOS. Single `dot` script handles bootstrap, package management, and symlinks. Configs are split into platform-specific stow packages so each machine only gets what it needs.
 
 ## Quickstart
 
 ```bash
-git clone --recursive https://github.com/sustinbebustin/dotfiles.git ~/.dotfiles
+git clone https://github.com/sustinbebustin/dotfiles.git ~/.dotfiles
 ~/.dotfiles/dot init
 ```
 
@@ -19,7 +19,7 @@ Open a new terminal to start using the config.
 
 1. Install packages from `packages/Pacfile` (pacman + AUR)
 2. Back up conflicting files
-3. Symlink `home/` into `$HOME` via Stow
+3. Stow `home-common/` and `home-arch/` into `$HOME`
 4. Set zsh as default shell
 
 **macOS:**
@@ -28,7 +28,7 @@ Open a new terminal to start using the config.
 2. Install packages from `packages/Brewfile`
 3. Install global npm packages
 4. Back up conflicting files
-5. Symlink `home/` into `$HOME` via Stow
+5. Stow `home-common/` and `home-macos/` into `$HOME`
 6. Set zsh as default shell
 
 ## Structure
@@ -39,25 +39,33 @@ Open a new terminal to start using the config.
 ├── packages/
 │   ├── Brewfile                     # Homebrew packages (macOS)
 │   └── Pacfile                      # pacman + AUR packages (Arch)
-├── home/                            # stow target -> $HOME
+├── home-common/                     # stow package -> $HOME (all platforms)
 │   ├── .zshenv
-│   ├── .config/
-│   │   ├── zsh/                     # shell config + completions
-│   │   ├── starship.toml            # prompt
-│   │   ├── git/                     # git config + aliases
-│   │   ├── ghostty/                 # terminal emulator
-│   │   ├── tmux/                    # tmux + TPM (submodule)
-│   │   ├── ripgrep/                 # rg defaults
-│   │   ├── hypr/                    # Hyprland + Hyprlock
-│   │   ├── waybar/                  # status bar + scripts
-│   │   ├── swaync/                  # notification center
-│   │   ├── walker/                  # app launcher
-│   │   ├── matugen/                 # Material You color theming
-│   │   ├── btop/                    # system monitor
-│   │   ├── cava/                    # audio visualizer
-│   │   ├── fastfetch/               # system info display
-│   │   └── karabiner/               # macOS key remapping
-│   └── .claude/                     # Claude Code config
+│   ├── .claude/                     # Claude Code config
+│   └── .config/
+│       ├── zsh/                     # shell config + completions
+│       ├── starship.toml            # prompt
+│       ├── git/                     # git config + aliases
+│       ├── ghostty/                 # terminal emulator
+│       ├── tmux/                    # tmux + TPM
+│       ├── ripgrep/                 # rg defaults
+│       ├── btop/                    # system monitor
+│       └── opencode/                # opencode.ai config
+├── home-arch/                       # stow package -> $HOME (Arch only)
+│   └── .config/
+│       ├── hypr/                    # Hyprland + Hyprlock + Hyprpaper
+│       ├── waybar/                  # status bar + scripts
+│       ├── swaync/                  # notification center
+│       ├── walker/                  # app launcher
+│       ├── matugen/                 # Material You color theming
+│       ├── cava/                    # audio visualizer
+│       ├── fastfetch/               # system info display
+│       ├── kanata/                  # keyboard remapper
+│       ├── xremap/                  # key remapper
+│       └── systemd/                 # user services
+├── home-macos/                      # stow package -> $HOME (macOS only)
+│   └── .config/
+│       └── karabiner/               # macOS key remapping
 └── docs/
 ```
 
