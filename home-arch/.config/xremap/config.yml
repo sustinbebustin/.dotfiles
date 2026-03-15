@@ -3,11 +3,16 @@
 # xremap intercepts at evdev level BEFORE Hyprland sees keys.
 # Only specific Super+key combos are remapped; everything else
 # passes through to Hyprland (workspaces, window management, etc.)
+#
+# exact_match: true ensures Super+Shift+X does NOT trigger a Super+X
+# rule. Every Super+Shift combo that should remap to apps needs an
+# explicit entry. Combos without an entry pass through to Hyprland.
 
 keymap:
   # ── Terminal applications ──────────────────────────────────────
   # Ctrl+C = SIGINT in terminals, so copy/paste use Ctrl+Shift
   - name: Terminal Super-as-Cmd
+    exact_match: true
     application:
       only:
         - com.mitchellh.ghostty
@@ -33,13 +38,22 @@ keymap:
       Super_L-Left: Home
       Super_L-Right: End
 
+      # Text selection (Cmd+Shift+arrow = select to line boundary)
+      Super_L-Shift-Left: Shift-Home
+      Super_L-Shift-Right: Shift-End
+
       # Word navigation and deletion
       Alt_L-Left: Ctrl-Left
       Alt_L-Right: Ctrl-Right
       Alt_L-BackSpace: Ctrl-w
 
+      # Word selection (Option+Shift+arrow = select word)
+      Alt_L-Shift-Left: Ctrl-Shift-Left
+      Alt_L-Shift-Right: Ctrl-Shift-Right
+
   # ── GUI applications (everything except terminals) ─────────────
   - name: GUI Super-as-Cmd
+    exact_match: true
     application:
       not:
         - com.mitchellh.ghostty
@@ -63,6 +77,12 @@ keymap:
       Super_L-w: Ctrl-w
       Super_L-Shift-t: Ctrl-Shift-t
 
+      # Shift combos (explicit under exact_match)
+      Super_L-Shift-c: Ctrl-Shift-c
+      Super_L-Shift-a: Ctrl-Shift-a
+      Super_L-Shift-r: Ctrl-Shift-r
+      Super_L-Shift-w: Ctrl-Shift-w
+
       # Browser / app navigation
       Super_L-l: Ctrl-l
       Super_L-r: Ctrl-r
@@ -76,9 +96,19 @@ keymap:
       Super_L-Up: Ctrl-Home
       Super_L-Down: Ctrl-End
 
+      # Text selection (Cmd+Shift+arrow = select to boundary)
+      Super_L-Shift-Left: Shift-Home
+      Super_L-Shift-Right: Shift-End
+      Super_L-Shift-Up: Ctrl-Shift-Home
+      Super_L-Shift-Down: Ctrl-Shift-End
+
       # Word navigation (Option+arrow = word jump)
       Alt_L-Left: Ctrl-Left
       Alt_L-Right: Ctrl-Right
+
+      # Word selection (Option+Shift+arrow = select word)
+      Alt_L-Shift-Left: Ctrl-Shift-Left
+      Alt_L-Shift-Right: Ctrl-Shift-Right
 
       # Deletion
       Alt_L-BackSpace: Ctrl-BackSpace

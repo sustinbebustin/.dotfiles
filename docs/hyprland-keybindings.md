@@ -41,7 +41,7 @@ Config: `~/.config/kanata/kanata.kbd`
 
 | Keybind                    | Action                    |
 |----------------------------|---------------------------|
-| Super + Shift + Arrow keys | Move window (l/r/u/d)     |
+| Hyper + Arrow keys         | Move window (l/r/u/d)     |
 
 ## Resize Windows
 
@@ -78,7 +78,6 @@ Workspaces 1-5 are persistent (always exist).
 | Shift + Print        | Screenshot full output (grimblast, copy+save) |
 | Super + Ctrl + Q     | Lock screen (hyprlock)              |
 | Super + Shift + N    | Toggle notification center (swaync) |
-| Super + Shift + R    | Toggle screen recording (wl-screenrec) |
 | Super + Shift + S    | Blue light filter on (4500K)        |
 | Super + Shift + Alt + S | Blue light filter off            |
 
@@ -98,8 +97,10 @@ Workspaces 1-5 are persistent (always exist).
 ## macOS-style Shortcuts (xremap)
 
 xremap intercepts at the evdev level before Hyprland, remapping specific
-Super+key combos to their Ctrl equivalents. Unremapped Super combos pass
-through to Hyprland normally.
+Super+key combos to their Ctrl equivalents. `exact_match: true` is set so
+that `Super+Shift+X` does NOT trigger a `Super+X` rule -- every shift combo
+that should reach apps needs an explicit entry. Combos without an entry pass
+through to Hyprland.
 
 Config: `~/.config/xremap/config.yml`
 
@@ -122,8 +123,12 @@ Applies to: Ghostty, Kitty, Alacritty, foot, WezTerm
 | Super + Backspace    | Ctrl+U               | Clear line           |
 | Super + Left         | Home                 | Beginning of line    |
 | Super + Right        | End                  | End of line          |
+| Super + Shift + Left | Shift+Home           | Select to line start |
+| Super + Shift + Right | Shift+End           | Select to line end   |
 | Alt + Left           | Ctrl+Left            | Word back            |
 | Alt + Right          | Ctrl+Right           | Word forward         |
+| Alt + Shift + Left   | Ctrl+Shift+Left      | Select word back     |
+| Alt + Shift + Right  | Ctrl+Shift+Right     | Select word forward  |
 | Alt + Backspace      | Ctrl+W               | Delete word back     |
 
 ### GUI Apps
@@ -143,6 +148,10 @@ Everything except terminals. Uses standard Ctrl variants.
 | Super + T            | Ctrl+T               | New tab              |
 | Super + W            | Ctrl+W               | Close tab            |
 | Super + Shift + T    | Ctrl+Shift+T         | Reopen tab           |
+| Super + Shift + C    | Ctrl+Shift+C         | Inspect element      |
+| Super + Shift + A    | Ctrl+Shift+A         | Extensions           |
+| Super + Shift + R    | Ctrl+Shift+R         | Hard reload          |
+| Super + Shift + W    | Ctrl+Shift+W         | Close window         |
 | Super + L            | Ctrl+L               | Focus address bar    |
 | Super + R            | Ctrl+R               | Reload               |
 | Super + N            | Ctrl+N               | New window           |
@@ -152,7 +161,13 @@ Everything except terminals. Uses standard Ctrl variants.
 | Super + Right        | End                  | End of line          |
 | Super + Up           | Ctrl+Home            | Top of document      |
 | Super + Down         | Ctrl+End             | Bottom of document   |
+| Super + Shift + Left | Shift+Home           | Select to line start |
+| Super + Shift + Right | Shift+End           | Select to line end   |
+| Super + Shift + Up   | Ctrl+Shift+Home      | Select to doc top    |
+| Super + Shift + Down | Ctrl+Shift+End       | Select to doc bottom |
 | Alt + Left           | Ctrl+Left            | Word back            |
 | Alt + Right          | Ctrl+Right           | Word forward         |
+| Alt + Shift + Left   | Ctrl+Shift+Left      | Select word back     |
+| Alt + Shift + Right  | Ctrl+Shift+Right     | Select word forward  |
 | Alt + Backspace      | Ctrl+Backspace       | Delete word back     |
 | Super + Backspace    | Ctrl+Shift+Backspace | Delete line back     |
