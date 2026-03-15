@@ -58,11 +58,7 @@ output_path = "~/.config/cava/themes/matugen"
 
 [templates.walker-theme]
 input_path = "~/.config/matugen/templates/walker.css"
-output_path = "~/.config/theme/themes/snow_black/walker.css"
-
-[templates.walker-current]
-input_path = "~/.config/matugen/templates/walker.css"
-output_path = "~/.config/theme/current/walker.css"
+output_path = "~/.config/walker/themes/walker/style.css"
 
 [templates.swaync-current]
 input_path = "~/.config/matugen/templates/swaync-colors.css"
