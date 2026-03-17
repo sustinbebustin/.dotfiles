@@ -243,8 +243,8 @@ setup_shell() {
 
 backup_conflicts() {
     local files_to_backup=()
-    local packages
-    mapfile -t packages < <(stow_packages)
+    local packages=()
+    while IFS= read -r pkg; do packages+=("$pkg"); done < <(stow_packages)
 
     for pkg in "${packages[@]}"; do
         while IFS= read -r -d '' file; do
@@ -319,8 +319,8 @@ cmd_stow() {
         err "GNU Stow is not installed ($(install_hint stow))"
         return 1
     fi
-    local packages
-    mapfile -t packages < <(stow_packages)
+    local packages=()
+    while IFS= read -r pkg; do packages+=("$pkg"); done < <(stow_packages)
     info "Stowing dotfiles (${packages[*]})..."
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "${packages[@]}"
     ok "Dotfiles linked"
