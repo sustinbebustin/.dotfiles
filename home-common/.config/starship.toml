@@ -2,6 +2,7 @@
 # Docs: https://starship.rs/config/
 
 format = """
+$hostname\
 $directory\
 $git_branch\
 $git_status\
@@ -24,7 +25,7 @@ foreground = "#F8F8F2"
 comment = "#7970A9"
 
 [directory]
-truncation_length = 3
+truncation_length = 1
 truncate_to_repo = true
 style = "bold purple"
 
@@ -44,3 +45,8 @@ style = "comment"
 [character]
 success_symbol = "[>](bold green)"
 error_symbol = "[>](bold red)"
+
+[hostname]
+ssh_only = true
+format = "[$hostname]($style) "
+style = "green"

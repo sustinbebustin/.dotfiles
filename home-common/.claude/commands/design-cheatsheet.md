@@ -16,7 +16,7 @@ Print the following cheatsheet exactly as shown:
 - `/audit` -- Perform comprehensive audit of interface quality across accessibility, performance, theming, and responsive design. Generates detailed report of issues with severity ratings and recommendations.
   - Leads to: `/normalize`, `/harden`, `/optimize`, `/adapt`, `/clarify`
 - `/critique` -- Evaluate design effectiveness from a UX perspective. Assesses visual hierarchy, information architecture, emotional resonance, and overall design quality with actionable feedback.
-  - Leads to: `/polish`, `/distill`, `/bolder`, `/quieter`
+  - Leads to: `/polish`, `/distill`, `/bolder`, `/quieter`, `/typeset`, `/arrange`
 
 ## Quality
 
@@ -47,15 +47,22 @@ Print the following cheatsheet exactly as shown:
 
 - `/animate` -- Review a feature and enhance it with purposeful animations, micro-interactions, and motion effects that improve usability and delight.
   - Combines with: `/delight`
+- `/arrange` -- Improve layout, spacing, and visual rhythm. Fixes monotonous grids, inconsistent spacing, and weak visual hierarchy to create intentional compositions.
+  - Combines with: `/distill`, `/adapt`
 - `/colorize` -- Add strategic color to features that are too monochromatic or lack visual interest. Makes interfaces more engaging and expressive.
   - Combines with: `/bolder`, `/delight`
 - `/delight` -- Add moments of joy, personality, and unexpected touches that make interfaces memorable and enjoyable to use. Elevates functional to delightful.
   - Combines with: `/bolder`, `/animate`
+- `/onboard` -- Design or improve onboarding flows, empty states, and first-time user experiences. Helps users get started successfully and understand value quickly.
+  - Combines with: `/clarify`, `/delight`
+- `/typeset` -- Improve typography by fixing font choices, hierarchy, sizing, weight consistency, and readability. Makes text feel intentional and polished.
+  - Combines with: `/bolder`, `/normalize`
+- `/overdrive` BETA -- Push interfaces past conventional limits with technically ambitious implementations. Whether that's a shader, a 60fps virtual table, spring physics on a dialog, or scroll-driven reveals -- make users ask "how did they do that?"
+  - Combines with: `/animate`, `/delight`
 
 ## System
 
 - `/extract` -- Extract and consolidate reusable components, design tokens, and patterns into your design system. Identifies opportunities for systematic reuse and enriches your component library.
-- `/onboard` -- Design or improve onboarding flows, empty states, and first-time user experiences. Helps users get started successfully and understand value quickly.
 - `/teach-impeccable` -- One-time setup that gathers design context for your project and saves it to your AI config file. Run once to establish persistent design guidelines.
 
 ---
