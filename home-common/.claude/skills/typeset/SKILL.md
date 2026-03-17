@@ -41,7 +41,7 @@ Analyze what's weak or generic about the current type:
 3. **Sizing & scale**:
    - Is there a consistent type scale, or are sizes arbitrary?
    - Does body text meet minimum readability? (16px+)
-   - Is fluid sizing used, or do sizes jump at breakpoints?
+   - Is the sizing strategy appropriate for the context? (Fixed `rem` scales for app UIs; fluid `clamp()` for marketing/content page headings)
 
 4. **Readability**:
    - Are line lengths comfortable? (45-75 characters ideal)
@@ -81,7 +81,8 @@ Build a clear type scale:
 - **5 sizes cover most needs**: caption, secondary, body, subheading, heading
 - **Use a consistent ratio** between levels (1.25, 1.333, or 1.5)
 - **Combine dimensions**: Size + weight + color + space for strong hierarchy — don't rely on size alone
-- **Use fluid sizing**: `clamp(min, preferred, max)` for smooth scaling
+- **App UIs**: Use a fixed `rem`-based type scale, optionally adjusted at 1-2 breakpoints. Fluid sizing undermines the spatial predictability that dense, container-based layouts need
+- **Marketing / content pages**: Use fluid sizing via `clamp(min, preferred, max)` for headings and display text. Keep body text fixed
 
 ### Fix Readability
 
