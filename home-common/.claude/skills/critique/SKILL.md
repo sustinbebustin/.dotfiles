@@ -8,15 +8,13 @@ args:
     required: false
 ---
 
+## MANDATORY PREPARATION
+
+Use the frontend-design skill — it contains design principles, anti-patterns, and the **Context Gathering Protocol**. Follow the protocol before proceeding — if no design context exists yet, you MUST run teach-impeccable first. Additionally gather: what the interface is trying to accomplish.
+
+---
+
 Conduct a holistic design critique, evaluating whether the interface actually works—not just technically, but as a designed experience. Think like a design director giving feedback.
-
-**STOP. Before doing anything else**, you MUST call the Skill tool to load the frontend-design skill. This skill contains critical design principles and anti-patterns that govern all decisions in this command. Skipping this step will produce generic AI slop.
-
-```
-skill({ name: 'frontend-design' })
-```
-
-Do NOT read code, do NOT gather context, do NOT plan changes until the skill has loaded and you have internalized all its DO's and DON'Ts.
 
 ## Design Critique
 
@@ -104,7 +102,7 @@ For each issue:
 - **What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)
-- **Command**: Which command to use (prefer: /impeccable:animate, /impeccable:quieter, /impeccable:optimize, /impeccable:adapt, /impeccable:clarify, /impeccable:distill, /impeccable:delight, /impeccable:onboard, /impeccable:normalize, /impeccable:audit, /impeccable:harden, /impeccable:polish, /impeccable:extract, /impeccable:bolder, /impeccable:critique, /impeccable:colorize — or other installed skills you're sure exist)
+- **Command**: Which command to use (prefer: /arrange, /distill, /adapt, /normalize, /optimize, /critique, /typeset, /quieter, /harden, /polish, /bolder, /extract, /colorize, /delight, /audit, /clarify, /animate, /overdrive, /onboard — or other installed skills you're sure exist)
 
 ### Minor Observations
 Quick notes on smaller issues worth addressing.

@@ -10,13 +10,7 @@ args:
 
 Run systematic quality checks and generate a comprehensive audit report with prioritized issues and actionable recommendations. Don't fix issues - document them for other commands to address.
 
-**STOP. Before doing anything else**, you MUST call the Skill tool to load the frontend-design skill. This skill contains critical design principles and anti-patterns that govern all decisions in this command. Skipping this step will produce generic AI slop.
-
-```
-skill({ name: 'frontend-design' })
-```
-
-Do NOT read code, do NOT gather context, do NOT plan changes until the skill has loaded and you have internalized all its DO's and DON'Ts.
+**First**: Use the frontend-design skill for design principles and anti-patterns.
 
 ## Diagnostic Scan
 
@@ -77,7 +71,7 @@ For each issue, document:
 - **Impact**: How it affects users
 - **WCAG/Standard**: Which standard it violates (if applicable)
 - **Recommendation**: How to fix it
-- **Suggested command**: Which command to use (prefer: /impeccable:animate, /impeccable:quieter, /impeccable:optimize, /impeccable:adapt, /impeccable:clarify, /impeccable:distill, /impeccable:delight, /impeccable:onboard, /impeccable:normalize, /impeccable:audit, /impeccable:harden, /impeccable:polish, /impeccable:extract, /impeccable:bolder, /impeccable:critique, /impeccable:colorize — or other installed skills you're sure exist)
+- **Suggested command**: Which command to use (prefer: /arrange, /distill, /adapt, /normalize, /optimize, /critique, /typeset, /quieter, /harden, /polish, /bolder, /extract, /colorize, /delight, /audit, /clarify, /animate, /overdrive, /onboard — or other installed skills you're sure exist)
 
 #### Critical Issues
 [Issues that block core functionality or violate WCAG A]
@@ -114,12 +108,12 @@ Create actionable plan:
 
 ### Suggested Commands for Fixes
 
-Map issues to available commands. Prefer these: /impeccable:animate, /impeccable:quieter, /impeccable:optimize, /impeccable:adapt, /impeccable:clarify, /impeccable:distill, /impeccable:delight, /impeccable:onboard, /impeccable:normalize, /impeccable:audit, /impeccable:harden, /impeccable:polish, /impeccable:extract, /impeccable:bolder, /impeccable:critique, /impeccable:colorize. You may also suggest other installed skills you're sure exist, but never invent commands.
+Map issues to available commands. Prefer these: /arrange, /distill, /adapt, /normalize, /optimize, /critique, /typeset, /quieter, /harden, /polish, /bolder, /extract, /colorize, /delight, /audit, /clarify, /animate, /overdrive, /onboard. You may also suggest other installed skills you're sure exist, but never invent commands.
 
 Examples:
-- "Use `/impeccable:normalize` to align with design system (addresses N theming issues)"
-- "Use `/impeccable:optimize` to improve performance (addresses N performance issues)"
-- "Use `/impeccable:harden` to improve resilience (addresses N edge cases)"
+- "Use `/normalize` to align with design system (addresses N theming issues)"
+- "Use `/optimize` to improve performance (addresses N performance issues)"
+- "Use `/harden` to improve resilience (addresses N edge cases)"
 
 **IMPORTANT**: Be thorough but actionable. Too many low-priority issues creates noise. Focus on what actually matters.
 
