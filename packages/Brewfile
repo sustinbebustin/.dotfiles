@@ -13,6 +13,7 @@ brew "tmux"
 
 # CLI tools
 brew "ast-grep"
+brew "direnv"
 brew "eza"
 brew "gh"
 brew "jq"

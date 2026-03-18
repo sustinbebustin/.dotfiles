@@ -12,7 +12,8 @@
     "read": {
       "*": "allow",
       "*.env": "deny",
-      "*.env.*": "deny",
+      "*.env.local": "deny",
+      ".env.example": "allow",
       "*.envrc": "deny",
       "secrets/*": "deny",
       ".dev.vars": "ask",

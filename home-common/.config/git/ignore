@@ -4,3 +4,4 @@ opensrc
 .mcp.json
 .docs
 .claude/plans
+.envrc

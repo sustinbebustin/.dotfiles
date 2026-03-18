@@ -124,6 +124,9 @@ HISTSIZE=50000
 SAVEHIST=50000
 setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_VERIFY
 
+# ===== Direnv =====
+command -v direnv &>/dev/null && eval "$(direnv hook zsh)"
+
 # ===== Zoxide =====
 command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
 

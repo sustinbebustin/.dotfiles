@@ -2,7 +2,6 @@
 description: Print the Impeccable design commands cheatsheet, optionally recommend commands for a goal
 argument-hint: "[optional: describe what you want to achieve]"
 disable-model-invocation: true
-model: sonnet
 ---
 
 Print the following cheatsheet exactly as shown:
