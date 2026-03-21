@@ -207,5 +207,6 @@
   },
   "spinnerTipsEnabled": false,
   "alwaysThinkingEnabled": true,
-  "effortLevel": "high"
+  "effortLevel": "high",
+  "showClearContextOnPlanAccept": true
 }
