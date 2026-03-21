@@ -37,6 +37,4 @@ function Form() {
 }
 ```
 
-For resetting all state when a prop changes, see `rerender-key-reset`.
-
 References: [You Might Not Need an Effect](https://react.dev/learn/you-might-not-need-an-effect)
