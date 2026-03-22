@@ -3,26 +3,31 @@ name: overseer-team
 description: Orchestrate Overseer task implementation with subagents. Fetches ready tasks, starts them (VCS), spawns planner then implementer, completes them (auto-commit + merge). Sequential, 1 task at a time.
 disable-model-invocation: true
 argument-hint: [milestone-id]
-allowed-tools: mcp__overseer__execute, Read, Agent
+allowed-tools: mcp__overseer__execute, Read, Agent, TeamCreate, TeamDelete, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
 
 # Overseer Team Orchestrator
 
 You are the **orchestrator**. You manage the Overseer task lifecycle via MCP while subagents implement. You never write code yourself.
 
+**Autonomous execution:** Work through ALL ready tasks in the milestone without pausing for user confirmation between tasks. Do not ask "should I continue?" or "shall I move to the next task?" -- just proceed. The user will interrupt if needed.
+
 ## Roles
 
 | Role | Agent | Responsibilities |
 |------|-------|------------------|
-| **Orchestrator** | You | Overseer MCP calls, progress reporting, prompt construction, quality gate |
-| **Planner** | Subagent (`Plan`) | Explore codebase, produce concrete implementation plan |
-| **Implementer** | Subagent (`general-purpose`) | Code changes, test execution, verification |
-| **Reviewers** | Subagents (see step 7) | Review uncommitted changes, flag issues |
+| **Orchestrator** | You (team lead) | Overseer MCP calls, team lifecycle, progress reporting, prompt construction, quality gate |
+| **Planner** | Teammate (`Plan`) | Explore codebase, produce concrete implementation plan |
+| **Implementer** | Teammate (`general-purpose`) | Code changes, test execution, verification, fix rounds |
+| **Reviewers** | Teammates (see step 7) | Review uncommitted changes, flag issues |
+
+**Team lifecycle:** One team per overseer task. Created after `tasks.start()`, deleted after `tasks.complete()`.
 
 **Separation of concerns:**
 - Only YOU call `mcp__overseer__execute` (start, complete, nextReady, etc.)
+- Only YOU manage team lifecycle (`TeamCreate`, `TeamDelete`, `SendMessage` for shutdown)
 - The planner explores the codebase and produces a plan -- it never edits files
-- Only the implementer edits files and runs tests
+- Only the implementer edits files and runs tests -- it persists on the team for fix rounds
 - Reviewers are read-only -- they inspect changes but never edit files
 - `tasks.complete()` handles all VCS: `git add -A`, commit, fast-forward merge to base_ref, bookmark cleanup
 
@@ -49,12 +54,11 @@ Repeat until no ready tasks remain:
 ```javascript
 const task = await tasks.nextReady(milestoneId);
 if (!task) {
-  const p = await tasks.progress(milestoneId);
-  return `Done: ${p.completed}/${p.total} tasks completed`;
+  // No more tasks -- proceed to Milestone Complete section below
 }
 ```
 
-Report to user: task description, depth, blocker status.
+Report to user: task description, depth, blocker status. Then proceed immediately -- do not wait for confirmation.
 
 ### 2. Start Task
 
@@ -65,12 +69,30 @@ await tasks.start(task.id);
 
 If this fails with `DirtyWorkingCopy`, inform the user to clean the working tree first.
 
-### 3. Spawn Planner
+### 3. Create Team
 
-Before implementation, spawn a `Plan` subagent to explore the codebase and produce a concrete implementation plan. Construct the planner prompt from the `TaskWithContext` fields:
+Create a team scoped to this single task. Use the task ID for a unique team name:
 
 ```
-You are a planning agent. Explore the codebase and produce a concrete implementation plan for this task. You do NOT edit any files.
+TeamCreate({
+  team_name: "task-{task.id}",
+  description: "<task description>"
+})
+```
+
+The team is torn down after this task completes (step 10).
+
+### 4. Spawn Planner
+
+Spawn a `Plan` teammate to explore the codebase and produce a concrete implementation plan. Construct the planner prompt from the `TaskWithContext` fields:
+
+```
+Agent({
+  subagent_type: "Plan",
+  name: "planner",
+  team_name: "task-{task.id}",
+  description: "Plan: <short task summary>",
+  prompt: "You are a planning agent on a task team. Explore the codebase and produce a concrete implementation plan for this task. You do NOT edit any files.
 
 ## Task
 {task.description}
@@ -79,10 +101,10 @@ You are a planning agent. Explore the codebase and produce a concrete implementa
 {task.context.own}
 
 ## Parent Context
-{task.context.parent or "N/A"}
+{task.context.parent or 'N/A'}
 
 ## Milestone Context
-{task.context.milestone or "N/A"}
+{task.context.milestone or 'N/A'}
 
 ## Learnings from Prior Work
 {formatted learnings from task.learnings.own, .parent, .milestone}
@@ -107,25 +129,27 @@ Numbered steps, each with:
 
 ### Risks
 - Edge cases or potential issues to watch for
-- Anything unclear that the implementer should verify
-```
-
-Spawn synchronously (no `run_in_background`):
-
-```
-Agent({
-  subagent_type: "Plan",
-  description: "Plan: <short task summary>",
-  prompt: <constructed planner prompt>
+- Anything unclear that the implementer should verify"
 })
 ```
 
-### 4. Build Implementer Prompt
-
-Construct the implementer prompt from the task context **plus the plan** produced in step 3. The plan gives the implementer a concrete roadmap so it can execute without exploratory overhead:
+When the planner goes idle with its plan, shut it down:
 
 ```
-You are implementing a single task. Work directly in the current repo.
+SendMessage({ to: "planner", message: { type: "shutdown_request", reason: "Planning complete" } })
+```
+
+### 5. Spawn Implementer
+
+Spawn a `general-purpose` teammate with the task context **plus the plan** from step 4. The implementer persists on the team so it can handle fix rounds later.
+
+```
+Agent({
+  subagent_type: "general-purpose",
+  name: "implementer",
+  team_name: "task-{task.id}",
+  description: "<short task summary>",
+  prompt: "You are the implementer on a task team. Work directly in the current repo.
 
 ## Task
 {task.description}
@@ -134,16 +158,16 @@ You are implementing a single task. Work directly in the current repo.
 {task.context.own}
 
 ## Parent Context
-{task.context.parent or "N/A"}
+{task.context.parent or 'N/A'}
 
 ## Milestone Context
-{task.context.milestone or "N/A"}
+{task.context.milestone or 'N/A'}
 
 ## Learnings from Prior Work
 {formatted learnings from task.learnings.own, .parent, .milestone}
 
 ## Implementation Plan
-{plan output from planner agent -- include the full Analysis and Implementation Plan sections}
+{plan output from planner -- include the full Analysis and Implementation Plan sections}
 
 ## Rules
 - Do NOT run git commit, git add, or any VCS commands
@@ -151,10 +175,11 @@ You are implementing a single task. Work directly in the current repo.
 - DO follow the implementation plan above
 - DO deviate from the plan if you discover it is incorrect, and note deviations
 - DO run tests and verify your work
-- DO output a structured summary when done (see Output Format)
+- DO send your structured summary back when done (see Output Format)
+- DO stay idle after reporting -- you may receive follow-up fix requests
 
 ## Output Format
-When complete, output:
+When complete, send back:
 
 ### Implementation
 - Files changed and what was done in each
@@ -162,40 +187,27 @@ When complete, output:
 - Any deviations from the plan and why
 
 ### Verification
-- Test results with counts (e.g., "All 42 tests passing, 3 new")
+- Test results with counts (e.g., 'All 42 tests passing, 3 new')
 - Build status
 - Manual testing performed
 
 ### Learnings
-- Anything discovered that would help future tasks
-```
-
-### 5. Spawn Implementer
-
-Use the Agent tool synchronously (no `run_in_background`):
-
-```
-Agent({
-  subagent_type: "general-purpose",
-  description: "<short task summary>",
-  prompt: <constructed prompt>
+- Anything discovered that would help future tasks"
 })
 ```
 
-The subagent works in the main repo on the task branch that `tasks.start()` checked out.
-
 ### 6. Review Output
 
-Check the implementer's output:
+Check the implementer's message:
 - Are all requirements from task context addressed?
 - Is there verification evidence (test counts, build status)?
 - Are there learnings to capture?
 
-If output is insufficient, spawn another subagent to fix issues before proceeding.
+If output is insufficient, send the implementer a fix request via `SendMessage` before proceeding to reviews.
 
 ### 7. Review with Agents
 
-After the implementer finishes, spawn review agents to inspect the uncommitted changes. Select agents based on what the implementation touched -- not every agent is needed for every task.
+Spawn review agents **as teammates** to inspect the uncommitted changes. Select agents based on what the implementation touched -- not every agent is needed for every task.
 
 **Available review agents:**
 
@@ -212,12 +224,13 @@ After the implementer finishes, spawn review agents to inspect the uncommitted c
 **How to spawn reviewers:**
 
 1. Determine which agents are relevant based on the implementer's output (files changed, languages, nature of changes)
-2. Spawn all relevant review agents **in parallel** -- they are read-only and independent
-3. Each reviewer receives the same prompt structure:
+2. Spawn all relevant review agents **in parallel** as teammates:
 
 ```
 Agent({
   subagent_type: "<agent-type>",
+  name: "<agent-name>",
+  team_name: "task-{task.id}",
   description: "Review: <short task summary>",
   prompt: "Review the uncommitted changes in this repository.
 
@@ -234,22 +247,33 @@ Only flag real problems -- do not flag pre-existing code that was not modified."
 })
 ```
 
-**After reviews return:**
+### 8. Handle Review Findings
+
+As reviewers report back:
 
 1. Collect findings from all reviewers
-2. Filter to actionable issues (bugs, security, correctness) -- ignore style nits and suggestions for pre-existing code
-3. If any reviewer flagged issues that should be fixed:
-   - Spawn a new implementer subagent with the original task context + review findings to fix
+2. Shut down each reviewer after it reports:
+   ```
+   SendMessage({ to: "<reviewer-name>", message: { type: "shutdown_request", reason: "Review complete" } })
+   ```
+3. Filter to actionable issues (bugs, security, correctness) -- ignore style nits and suggestions for pre-existing code
+4. If any reviewer flagged issues that should be fixed:
+   - Send the implementer a fix request via `SendMessage` with the original task context + review findings
+   - The implementer is still alive on the team -- no need to re-spawn
    - Do NOT re-run reviewers after fixes unless the fixes were substantial
-4. If reviews are clean or only have minor notes, proceed to complete
+5. If reviews are clean or only have minor notes, proceed to complete
 
-### 8. Complete Task
+### 9. Complete Task
 
-Extract result summary and learnings from the implementer output, then complete:
+Shut down the implementer, then extract result summary and learnings from its output and complete:
+
+```
+SendMessage({ to: "implementer", message: { type: "shutdown_request", reason: "Task complete" } })
+```
 
 ```javascript
 await tasks.complete(task.id, {
-  result: "<implementation summary + verification evidence from subagent>",
+  result: "<implementation summary + verification evidence from implementer>",
   learnings: ["<extracted learnings>"]
 });
 // Auto: git add -A, commit, ff-merge to base_ref, bookmark cleanup
@@ -257,9 +281,29 @@ await tasks.complete(task.id, {
 
 Report completion to user with progress update.
 
-### 9. Loop
+### 10. Teardown Team
 
-Go back to step 1.
+Delete the team before moving to the next task:
+
+```
+TeamDelete()
+```
+
+This removes the team and its task list. Go back to step 1.
+
+## Milestone Complete
+
+When `nextReady()` returns `null`, all tasks are done. Run a final review of the milestone:
+
+1. Report progress summary to user
+2. List all completed tasks with their results
+3. Collect all learnings accumulated across the milestone
+4. Report any issues encountered during implementation
+
+```javascript
+const p = await tasks.progress(milestoneId);
+// Report: `Milestone complete: ${p.completed}/${p.total} tasks`
+```
 
 ## Error Recovery
 
@@ -271,19 +315,19 @@ Go back to step 1.
 
 ### Implementer Produces Bad Output
 1. Do NOT complete the task
-2. Spawn another subagent with the original context + failure notes
-3. If still failing, update task context with notes and inform user
+2. Send the implementer a fix request via `SendMessage` with failure notes -- it is still alive on the team
+3. If still failing after fix round, update task context with notes and inform user
 
 ### Start Fails (`DirtyWorkingCopy`)
 Working copy must be clean for `tasks.start()`. Inform user to stash or commit first.
 
 ## Rules
 
-- **Never write code** - delegate to subagents
+- **Never write code** - delegate to teammates
 - **Never do VCS manually** - `tasks.start()` and `tasks.complete()` handle everything
-- **Never skip verification** - subagent must provide test evidence before you complete
+- **Never skip verification** - implementer must provide test evidence before you complete
 - **Never put task IDs in commits** - `tasks.complete()` writes the commit message automatically
-- **Complete immediately** after reviewing subagent output
+- **Always teardown the team** before moving to the next task -- shutdown all teammates, then `TeamDelete()`
 - **One task at a time** - finish current before starting next
 - **Capture all learnings** - they bubble to parent and help future tasks
 

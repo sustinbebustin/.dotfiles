@@ -111,7 +111,6 @@
       "Glob(~/.claude/**)"
     ],
     "deny": [
-      "Bash(curl:*)",
       "Bash(wget:*)",
       "Bash(rm -rf *)",
       "Bash(git push:*)",
