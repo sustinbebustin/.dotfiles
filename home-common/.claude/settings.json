@@ -207,5 +207,6 @@
   "spinnerTipsEnabled": false,
   "alwaysThinkingEnabled": true,
   "effortLevel": "high",
-  "showClearContextOnPlanAccept": true
+  "showClearContextOnPlanAccept": true,
+  "skipDangerousModePermissionPrompt": true
 }

@@ -220,6 +220,9 @@ Spawn review agents **as teammates** to inspect the uncommitted changes. Select 
 | `performance-oracle` | When algorithms, queries, loops, or data-heavy code changed |
 | `data-migration-expert` | When migrations, schema changes, or data transforms involved |
 | `deployment-verification-agent` | When production data, deploy scripts, or infrastructure touched |
+| `architecture-strategist` | When changes affect component boundaries, system design, or architectural patterns |
+| `data-integrity-guardian` | When Go backend data access, repository patterns, or transaction boundaries changed |
+| `security-sentinel` | When auth, input handling, secrets, or security-sensitive code changed |
 
 **How to spawn reviewers:**
 
