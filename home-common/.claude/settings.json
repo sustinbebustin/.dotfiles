@@ -104,6 +104,10 @@
       "mcp__git__*",
       "mcp__fetch__*",
       "mcp__qlty__*",
+      "mcp__opensrc__*",
+      "mcp__context7__*",
+      "mcp__grep_app__*",
+      "mcp__codesearch__*",
       "mcp__ide__getDiagnostics",
       "Read($HOME/.claude/**)",
       "Read(~/.claude/**)",
@@ -204,9 +208,19 @@
     "type": "command",
     "command": "$HOME/.claude/hooks/src/statusline.sh"
   },
+  "extraKnownMarketplaces": {
+    "plannotator": {
+      "source": {
+        "source": "github",
+        "repo": "backnotprop/plannotator"
+      }
+    }
+  },
   "spinnerTipsEnabled": false,
   "alwaysThinkingEnabled": true,
   "effortLevel": "high",
   "showClearContextOnPlanAccept": true,
-  "skipDangerousModePermissionPrompt": true
+  "enabledPlugins": {
+    "plannotator@plannotator": true
+  }
 }

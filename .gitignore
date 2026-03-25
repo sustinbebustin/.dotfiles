@@ -80,17 +80,4 @@ home-common/.config/ngrok
 home-common/.config/opencode/package-lock.json
 
 # pi agent runtime/state (keep settings + customization resources tracked)
-home-common/.pi/agent/*
-
-!home-common/.pi/agent/settings.json
-!home-common/.pi/agent/tsconfig.json
-!home-common/.pi/agent/package.json
-!home-common/.pi/agent/themes/
-!home-common/.pi/agent/themes/*.json
-!home-common/.pi/agent/extensions/
-!home-common/.pi/agent/extensions/**
-!home-common/.pi/agent/prelude/
-!home-common/.pi/agent/prelude/**
-!home-common/.pi/agent/skills/
-!home-common/.pi/agent/skills/**
-!home-common/.pi/agent/agents/
+home-common/.pi/

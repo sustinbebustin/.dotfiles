@@ -1,5 +1,6 @@
 ---
 description: Clone a repo and enhance with CLAUDE.md knowledge base
+disable-model-invocation: true
 ---
 
 Clone a repository using opensrc and generate hierarchical CLAUDE.md documentation.
