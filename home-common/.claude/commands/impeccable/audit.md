@@ -79,7 +79,7 @@ For each issue, document:
 - **Impact**: How it affects users
 - **WCAG/Standard**: Which standard it violates (if applicable)
 - **Recommendation**: How to fix it
-- **Suggested command**: Which command to use (prefer: /arrange, /distill, /adapt, /normalize, /optimize, /critique, /typeset, /quieter, /harden, /polish, /bolder, /extract, /colorize, /delight, /audit, /clarify, /animate, /overdrive, /onboard — or other installed skills you're sure exist)
+- **Suggested command**: Which command to use (prefer: /impeccable:arrange, /impeccable:distill, /impeccable:adapt, /impeccable:normalize, /impeccable:optimize, /impeccable:critique, /impeccable:typeset, /impeccable:quieter, /impeccable:harden, /impeccable:polish, /impeccable:bolder, /impeccable:extract, /impeccable:colorize, /impeccable:delight, /impeccable:audit, /impeccable:clarify, /impeccable:animate, /impeccable:overdrive, /impeccable:onboard — or other installed skills you're sure exist)
 
 #### Critical Issues
 [Issues that block core functionality or violate WCAG A]
@@ -116,12 +116,12 @@ Create actionable plan:
 
 ### Suggested Commands for Fixes
 
-Map issues to available commands. Prefer these: /arrange, /distill, /adapt, /normalize, /optimize, /critique, /typeset, /quieter, /harden, /polish, /bolder, /extract, /colorize, /delight, /audit, /clarify, /animate, /overdrive, /onboard. You may also suggest other installed skills you're sure exist, but never invent commands.
+Map issues to available commands. Prefer these: /impeccable:arrange, /impeccable:distill, /impeccable:adapt, /impeccable:normalize, /impeccable:optimize, /impeccable:critique, /impeccable:typeset, /impeccable:quieter, /impeccable:harden, /impeccable:polish, /impeccable:bolder, /impeccable:extract, /impeccable:colorize, /impeccable:delight, /impeccable:audit, /impeccable:clarify, /impeccable:animate, /impeccable:overdrive, /impeccable:onboard. You may also suggest other installed skills you're sure exist, but never invent commands.
 
 Examples:
-- "Use `/normalize` to align with design system (addresses N theming issues)"
-- "Use `/optimize` to improve performance (addresses N performance issues)"
-- "Use `/harden` to improve resilience (addresses N edge cases)"
+- "Use `/impeccable:normalize` to align with design system (addresses N theming issues)"
+- "Use `/impeccable:optimize` to improve performance (addresses N performance issues)"
+- "Use `/impeccable:harden` to improve resilience (addresses N edge cases)"
 
 **IMPORTANT**: Be thorough but actionable. Too many low-priority issues creates noise. Focus on what actually matters.
 

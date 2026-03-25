@@ -129,37 +129,6 @@
     "defaultMode": "acceptEdits"
   },
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node $HOME/.claude/hooks/dist/skill-activation-prompt.mjs"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/typescript-stop-gate.sh",
-            "timeout": 50
-          }
-        ]
-      },
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/stop-tts.sh"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Read|Edit|Write|Bash|Grep",
@@ -179,34 +148,11 @@
           }
         ]
       }
-    ],
-    "Notification": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/notification.sh"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.claude/hooks/typescript-preflight.sh",
-            "timeout": 40
-          }
-        ]
-      }
     ]
   },
   "statusLine": {
     "type": "command",
-    "command": "$HOME/.claude/hooks/src/statusline.sh"
+    "command": "$HOME/.claude/hooks/statusline.sh"
   },
   "extraKnownMarketplaces": {
     "plannotator": {

@@ -112,7 +112,7 @@ For each issue:
 - **What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)
-- **Command**: Which command to use (prefer: /arrange, /distill, /adapt, /normalize, /optimize, /critique, /typeset, /quieter, /harden, /polish, /bolder, /extract, /colorize, /delight, /audit, /clarify, /animate, /overdrive, /onboard — or other installed skills you're sure exist)
+- **Command**: Which command to use (prefer: /impeccable:arrange, /impeccable:distill, /impeccable:adapt, /impeccable:normalize, /impeccable:optimize, /impeccable:critique, /impeccable:typeset, /impeccable:quieter, /impeccable:harden, /impeccable:polish, /impeccable:bolder, /impeccable:extract, /impeccable:colorize, /impeccable:delight, /impeccable:audit, /impeccable:clarify, /impeccable:animate, /impeccable:overdrive, /impeccable:onboard — or other installed skills you're sure exist)
 
 ### Minor Observations
 Quick notes on smaller issues worth addressing.
