@@ -1,4 +1,5 @@
 # Core
+brew "gawk"
 brew "git"
 brew "stow"
 brew "zsh"
