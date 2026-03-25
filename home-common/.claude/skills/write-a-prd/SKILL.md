@@ -6,6 +6,18 @@ disable-model-invocation: true
 
 This skill will be invoked when the user wants to create a PRD. You may skip steps if you don't consider them necessary.
 
+## Output location
+
+Write the PRD to `.docs/specs/<slug>/prd.md`, where `<slug>` is a lowercase, hyphenated slug derived from the PRD title.
+
+Create the `.docs/specs/<slug>/` directory if it does not exist.
+
+Example: PRD title "Improved tmux session restore" -> `.docs/specs/improved-tmux-session-restore/prd.md`
+
+This folder will also be used by the `prd-to-todos` skill to store implementation todos alongside the PRD.
+
+## Process
+
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 
 2. Explore the repo to verify their assertions and understand the current state of the codebase.
@@ -18,7 +30,7 @@ A deep module (as opposed to a shallow module) is one which encapsulates a lot o
 
 Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
 
-5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. The PRD should be written to a markdown document.
+5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD to `.docs/specs/<slug>/prd.md`.
 
 <prd-template>
 
