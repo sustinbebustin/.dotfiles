@@ -40,11 +40,11 @@ Stow creates per-file symlinks (`--no-folding`) so packages never conflict with 
 │       ├── git/                     # git config + aliases
 │       ├── ghostty/                 # terminal
 │       ├── tmux/                    # tmux + TPM (submodule)
-│       ├── btop/                    # system monitor
 │       ├── ripgrep/                 # rg defaults
 │       └── opencode/                # opencode.ai config
 ├── home-arch/                       # Arch only
 │   └── .config/
+│       ├── btop/                    # system monitor
 │       ├── hypr/                    # Hyprland + Hyprlock + Hyprpaper
 │       ├── waybar/                  # status bar
 │       ├── swaync/                  # notification center
