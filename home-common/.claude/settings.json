@@ -2,9 +2,7 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-4-6",
-    "ENABLE_TOOL_SEARCH": "true",
-    "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1",
-    "MAX_THINKING_TOKENS": "31999"
+    "ENABLE_TOOL_SEARCH": "true"
   },
   "permissions": {
     "allow": [
@@ -154,6 +152,9 @@
     "type": "command",
     "command": "$HOME/.claude/hooks/statusline.sh"
   },
+  "enabledPlugins": {
+    "plannotator@plannotator": true
+  },
   "extraKnownMarketplaces": {
     "plannotator": {
       "source": {
@@ -166,7 +167,5 @@
   "alwaysThinkingEnabled": true,
   "effortLevel": "high",
   "showClearContextOnPlanAccept": true,
-  "enabledPlugins": {
-    "plannotator@plannotator": true
-  }
+  "voiceEnabled": false
 }

@@ -23,6 +23,12 @@ elif [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi
 
+# Plannotator remote mode (skip auto-open, use fixed port for forwarding)
+if [[ -n "$SSH_CONNECTION" ]]; then
+  export PLANNOTATOR_REMOTE=1
+  export PLANNOTATOR_PORT=19432
+fi
+
 # User bin directories
 export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 [ ! -d "$HOME/.local/bin" ] && mkdir -p "$HOME/.local/bin"

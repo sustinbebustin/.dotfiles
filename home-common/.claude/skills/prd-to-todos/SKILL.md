@@ -1,7 +1,7 @@
 ---
 name: prd-to-todos
 description: Break a PRD into independently-grabbable file-backed todos using tracer-bullet vertical slices. Use when the user wants to convert a PRD into implementation tasks, create vertical-slice todos, or break down a PRD into work items.
-allowed-tools: Read, Write, Bash, WebFetch, WebSearch, Glob, Grep, Agent
+allowed-tools: Read, Write, Bash, WebFetch, WebSearch, Glob, Grep, Agent, AskUserQuestion
 ---
 
 # PRD to Todos
@@ -15,7 +15,7 @@ Break a PRD into independently-grabbable implementation todos using **vertical s
 
 ### 1. Locate the PRD
 
-Ask the user for the PRD source if it is not already clear.
+Use `AskUserQuestion` to ask the user for the PRD source if it is not already clear.
 
 Accept any of:
 
@@ -39,7 +39,7 @@ Make sure you have the full PRD, including:
 - implementation notes
 - out-of-scope notes
 
-If the PRD is incomplete, ask clarifying questions before breaking it down.
+If the PRD is incomplete, use `AskUserQuestion` to clarify before breaking it down.
 
 ### 2. Explore the codebase (optional but preferred)
 
@@ -92,7 +92,7 @@ For each slice, include:
 - **User stories covered**: reference the PRD user story numbers
 - **Why this is a vertical slice**: one sentence explaining the end-to-end value
 
-Then ask the user:
+Then use `AskUserQuestion` to confirm:
 
 - Does the granularity feel right? Too coarse or too fine?
 - Are the dependency relationships correct?
@@ -109,7 +109,7 @@ Once the breakdown is approved, write one markdown file per slice into the PRD's
 
 Determine the spec folder from the parent PRD path. If the PRD lives at `.docs/specs/<slug>/prd.md`, write todos into the same `.docs/specs/<slug>/` directory.
 
-If the PRD was provided as a URL, pasted text, or issue reference, ask the user for the slug or derive one from the PRD title.
+If the PRD was provided as a URL, pasted text, or issue reference, use `AskUserQuestion` to confirm the slug or derive one from the PRD title.
 
 #### File naming
 

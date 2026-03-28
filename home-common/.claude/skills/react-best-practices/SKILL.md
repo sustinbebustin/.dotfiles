@@ -16,6 +16,26 @@ Reference these guidelines when:
 - Refactoring existing React/Next.js code
 - Optimizing bundle size or load times
 
+## Effect Correctness (HIGH -- check FIRST)
+
+Before reaching for `useEffect`, verify the pattern isn't covered by `rules/you-might-not-need-effect.md`. Effects are an escape hatch for synchronizing with external systems -- most other uses are bugs or performance problems.
+
+**Do NOT use `useEffect` for:**
+
+| Anti-pattern | Correct alternative |
+|---|---|
+| Derived state (`useEffect` + `setState` from props/state) | Compute during render |
+| Caching expensive calculations | `useMemo` |
+| Resetting state when a prop changes | `key` prop on the component |
+| Adjusting partial state on prop change | Derive during render, or store selected ID instead of object |
+| Event-specific logic (POST, notification, navigation) | Event handlers |
+| Chained effects that trigger each other | Compute in event handler or during render |
+| Notifying parent of state changes | Call parent callback in event handler alongside `setState` |
+| Passing data to parent | Lift data fetching up; pass data down via props |
+| Subscribing to external stores | `useSyncExternalStore` |
+
+**Legitimate `useEffect` uses:** synchronizing with external systems (DOM APIs, third-party widgets, network subscriptions), analytics on mount, data fetching with cleanup (prefer framework mechanisms or SWR/React Query).
+
 ## Rule Categories by Priority
 
 | Priority | Category | Impact | Prefix |

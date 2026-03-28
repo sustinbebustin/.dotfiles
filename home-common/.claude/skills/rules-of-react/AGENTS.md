@@ -258,6 +258,139 @@ function useTotal(items) {
 
 ---
 
+## You Might Not Need an Effect
+
+Effects are an escape hatch for synchronizing with **external systems** (DOM APIs, third-party widgets, network). If there is no external system involved, you almost certainly do not need an Effect. Unnecessary Effects cause extra render passes, harder-to-trace data flow, and subtle bugs.
+
+Full reference with code examples: `~/.claude/skills/react-best-practices/rules/you-might-not-need-effect.md`
+
+### When NOT to use `useEffect`
+
+**Derived state** -- compute during render, not in an Effect:
+
+```jsx
+// WRONG
+const [fullName, setFullName] = useState('');
+useEffect(() => {
+  setFullName(firstName + ' ' + lastName);
+}, [firstName, lastName]);
+
+// RIGHT
+const fullName = firstName + ' ' + lastName;
+```
+
+**Caching expensive calculations** -- use `useMemo`, not Effect + setState:
+
+```jsx
+// WRONG
+const [visibleTodos, setVisibleTodos] = useState([]);
+useEffect(() => {
+  setVisibleTodos(getFilteredTodos(todos, filter));
+}, [todos, filter]);
+
+// RIGHT
+const visibleTodos = useMemo(() => getFilteredTodos(todos, filter), [todos, filter]);
+```
+
+**Resetting state when a prop changes** -- use `key`, not Effect:
+
+```jsx
+// WRONG
+useEffect(() => { setComment(''); }, [userId]);
+
+// RIGHT
+<Profile userId={userId} key={userId} />
+```
+
+**Event-specific logic** (POST requests, notifications, navigation) -- use event handlers:
+
+```jsx
+// WRONG
+useEffect(() => {
+  if (product.isInCart) showNotification(`Added ${product.name}!`);
+}, [product]);
+
+// RIGHT
+function handleBuyClick() {
+  addToCart(product);
+  showNotification(`Added ${product.name}!`);
+}
+```
+
+**Chained effects** that trigger each other -- compute in the event handler or during render:
+
+```jsx
+// WRONG: setCard -> effect sets goldCardCount -> effect sets round -> effect sets isGameOver
+useEffect(() => { if (card?.gold) setGoldCardCount(c => c + 1); }, [card]);
+useEffect(() => { if (goldCardCount > 3) { setRound(r => r + 1); setGoldCardCount(0); } }, [goldCardCount]);
+
+// RIGHT: derive what you can, compute the rest in the event handler
+const isGameOver = round > 5;
+function handlePlaceCard(nextCard) {
+  setCard(nextCard);
+  if (nextCard.gold) {
+    if (goldCardCount < 3) setGoldCardCount(goldCardCount + 1);
+    else { setGoldCardCount(0); setRound(round + 1); }
+  }
+}
+```
+
+**Notifying parent of state changes** -- call parent callback alongside setState in the event handler:
+
+```jsx
+// WRONG
+useEffect(() => { onChange(isOn); }, [isOn, onChange]);
+
+// RIGHT
+function updateToggle(nextIsOn) {
+  setIsOn(nextIsOn);
+  onChange(nextIsOn);
+}
+```
+
+**Passing data to parent** -- lift data fetching up; pass data down via props:
+
+```jsx
+// WRONG: child fetches, then pushes to parent via Effect
+useEffect(() => { if (data) onFetched(data); }, [onFetched, data]);
+
+// RIGHT: parent fetches, passes down
+function Parent() {
+  const data = useSomeAPI();
+  return <Child data={data} />;
+}
+```
+
+**Subscribing to external stores** -- use `useSyncExternalStore`:
+
+```jsx
+// WRONG: manual subscription in Effect
+useEffect(() => {
+  const handler = () => setIsOnline(navigator.onLine);
+  window.addEventListener('online', handler);
+  window.addEventListener('offline', handler);
+  return () => { /* cleanup */ };
+}, []);
+
+// RIGHT
+return useSyncExternalStore(subscribe, () => navigator.onLine, () => true);
+```
+
+### When Effects ARE appropriate
+
+- Synchronizing with external systems (non-React widgets, browser APIs)
+- Analytics on component display
+- Data fetching with cleanup (prefer framework mechanisms or SWR/React Query)
+
+### Decision heuristic
+
+Ask: "Why does this code need to run?"
+- **Because the user did something** (clicked, submitted, dragged) -> event handler
+- **Because the component appeared on screen** -> Effect (if external system) or derive during render
+- **Because some state/prop changed** -> compute during render or `useMemo`
+
+---
+
 ## Enforcement
 
 ### ESLint (Compile-Time)
