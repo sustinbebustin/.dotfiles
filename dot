@@ -276,6 +276,22 @@ backup_conflicts() {
     fi
 }
 
+install_cli_tools() {
+    if ! command_exists claude; then
+        info "Installing Claude Code..."
+        curl -fsSL https://claude.ai/install.sh | bash
+    else
+        ok "Claude Code already installed"
+    fi
+
+    if ! command_exists opencode; then
+        info "Installing OpenCode..."
+        curl -fsSL https://opencode.ai/install | bash
+    else
+        ok "OpenCode already installed"
+    fi
+}
+
 # --- Commands ---
 
 cmd_init() {
@@ -283,29 +299,33 @@ cmd_init() {
 
     case "$PLATFORM" in
         arch)
-            local total=4
+            local total=5
             step 1 $total "Installing packages"
             install_pacman_packages
-            step 2 $total "Backing up conflicts"
+            step 2 $total "Installing CLI tools"
+            install_cli_tools
+            step 3 $total "Backing up conflicts"
             backup_conflicts
-            step 3 $total "Stowing dotfiles"
+            step 4 $total "Stowing dotfiles"
             cmd_stow
-            step 4 $total "Setting up shell"
+            step 5 $total "Setting up shell"
             setup_shell
             ;;
         *)
-            local total=6
+            local total=7
             step 1 $total "Installing Homebrew"
             install_homebrew
             step 2 $total "Installing packages"
             install_brew_packages
             step 3 $total "Installing npm globals"
             install_npm_globals
-            step 4 $total "Backing up conflicts"
+            step 4 $total "Installing CLI tools"
+            install_cli_tools
+            step 5 $total "Backing up conflicts"
             backup_conflicts
-            step 5 $total "Stowing dotfiles"
+            step 6 $total "Stowing dotfiles"
             cmd_stow
-            step 6 $total "Setting up shell"
+            step 7 $total "Setting up shell"
             setup_shell
             ;;
     esac
