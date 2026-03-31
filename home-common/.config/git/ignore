@@ -7,3 +7,4 @@ opensrc
 .envrc
 .opencode
 .vscode
+.env.local
