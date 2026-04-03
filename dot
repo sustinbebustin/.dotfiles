@@ -278,15 +278,19 @@ backup_conflicts() {
 
 install_cli_tools() {
     if ! command_exists claude; then
-        info "Installing Claude Code..."
-        curl -fsSL https://claude.ai/install.sh | bash
+        if confirm "Install Claude Code?" "y"; then
+            info "Installing Claude Code..."
+            curl -fsSL https://claude.ai/install.sh | bash
+        fi
     else
         ok "Claude Code already installed"
     fi
 
     if ! command_exists opencode; then
-        info "Installing OpenCode..."
-        curl -fsSL https://opencode.ai/install | bash
+        if confirm "Install OpenCode?" "y"; then
+            info "Installing OpenCode..."
+            curl -fsSL https://opencode.ai/install | bash
+        fi
     else
         ok "OpenCode already installed"
     fi
