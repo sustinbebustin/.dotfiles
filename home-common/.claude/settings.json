@@ -155,17 +155,8 @@
     "type": "command",
     "command": "$HOME/.claude/hooks/statusline.sh"
   },
-  "enabledPlugins": {
-    "plannotator@plannotator": true
-  },
-  "extraKnownMarketplaces": {
-    "plannotator": {
-      "source": {
-        "source": "github",
-        "repo": "backnotprop/plannotator"
-      }
-    }
-  },
+  "enabledPlugins": {},
+  "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
   "alwaysThinkingEnabled": true,
   "effortLevel": "high",

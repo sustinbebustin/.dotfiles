@@ -135,3 +135,8 @@ if command -v lsd &>/dev/null; then
   alias ls='lsd'
   alias lt='lsd --tree'
 fi
+
+. "$HOME/.local/share/../bin/env"
+
+# opencode
+export PATH=/home/austin/.opencode/bin:$PATH
