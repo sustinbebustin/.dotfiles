@@ -43,10 +43,17 @@ path_prepend "$HOME/.npm-packages/bin"
 export BUN_INSTALL="$HOME/.bun"
 [ -s "$BUN_INSTALL/_bun" ] && source "$BUN_INSTALL/_bun"
 
-# ===== SSH Agent (macOS) =====
+# ===== SSH Agent =====
 if [[ "$OSTYPE" == "darwin"* ]]; then
   export APPLE_SSH_ADD_BEHAVIOR=macos
   ssh-add --apple-load-keychain > /dev/null 2>&1
+elif [[ "$OSTYPE" == "linux"* ]]; then
+  # Stabilize SSH_AUTH_SOCK behind a fixed symlink so tmux panes always
+  # reach the forwarded agent after SSH reconnects (new socket path).
+  if [[ -S "$SSH_AUTH_SOCK" && "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_sock" ]]; then
+    ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
+  fi
+  export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
 fi
 
 # ===== Aliases =====
