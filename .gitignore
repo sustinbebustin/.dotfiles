@@ -78,6 +78,7 @@ backups/
 packages/failed_packages_*.txt
 home-common/.config/ngrok
 home-common/.config/opencode/package-lock.json
+home-common/.claude/context/*.md
 
 # pi agent runtime/state (keep settings + customization resources tracked)
 home-common/.pi/
