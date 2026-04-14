@@ -5,6 +5,7 @@ description: Set up and run an autonomous experiment loop for any optimization t
   "run autoresearch", "optimize X in a loop", "set up autoresearch for X", or
   "start experiments".
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
+disable-model-invocation: true
 effort: max
 hooks:
   Stop:

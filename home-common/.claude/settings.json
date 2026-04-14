@@ -117,7 +117,6 @@
     "deny": [
       "Bash(wget:*)",
       "Bash(rm -rf *)",
-      "Bash(git push:*)",
       "Bash(git reset --hard:*)",
       "Read(**/.env)",
       "Read(**/.env.development)",

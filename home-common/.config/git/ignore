@@ -40,7 +40,6 @@ venv
 .claude/scripts
 .claude/worktrees
 .mcp.json
-.claude
 
 # Project-specific
 .overseer
