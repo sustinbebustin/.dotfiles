@@ -1,7 +1,7 @@
 ---
 name: index-knowledge
 description: Generate hierarchical CLAUDE.md knowledge base for a codebase. Creates root + complexity-scored subdirectory documentation.
-user_invocable: true
+disable-model-invocation: true
 ---
 
 # index-knowledge
