@@ -2,7 +2,7 @@
 name: commit
 description: Git commit workflow combining atomic commits (scope/granularity) with conventional commits (message format). Use when committing code changes, reviewing commit history, or when guidance is needed on how to structure commits for clarity and reversibility.
 allowed-tools: Bash
-argument_hint: [subdir]
+argument_hint: [subdir] [-- note]
 ---
 
 # Git Commit Skill
@@ -13,13 +13,18 @@ Create clean, meaningful commits by combining **atomic commits** (one logical ch
 
 Argument: `$ARGUMENTS`
 
-- If argument provided -> only commit in that subdirectory
-- If empty and cwd is a git repo -> commit in current repo
-- If empty and cwd is NOT a git repo -> find git repos one level down, commit where there are changes
+Accepts an optional subdir and/or a free-form user note separated by ` -- `:
+
+- `/commit` -> commit in current repo (or sibling repos one level down)
+- `/commit frontend` -> scope to subdir
+- `/commit -- don't touch lockfile` -> no scope, note only
+- `/commit frontend -- don't touch lockfile` -> both
+
+If a **User note** block appears in Current State, treat it as binding guidance for this invocation (e.g. files to exclude, messaging hints, atomicity constraints).
 
 ## Current State
 
-!`arg="$ARGUMENTS"; if [ -n "$arg" ]; then echo "### $arg"; echo "**Status:**"; git -C "$arg" status 2>/dev/null || echo "not a git repo"; echo ""; echo "**Staged diff:**"; git -C "$arg" diff --staged 2>/dev/null; echo ""; echo "**Unstaged diff:**"; git -C "$arg" diff 2>/dev/null; echo ""; echo "**Recent commits:**"; git -C "$arg" log --oneline -5 2>/dev/null; elif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then echo "**Status:**"; git status; echo ""; echo "**Staged diff:**"; git diff --staged; echo ""; echo "**Unstaged diff:**"; git diff; echo ""; echo "**Recent commits:**"; git log --oneline -5; else found=0; for dir in */; do if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then found=1; echo "### ${dir%/}"; echo "**Status:**"; git -C "$dir" status; echo ""; echo "**Staged diff:**"; git -C "$dir" diff --staged; echo ""; echo "**Unstaged diff:**"; git -C "$dir" diff; echo ""; echo "**Recent commits:**"; git -C "$dir" log --oneline -5; echo ""; fi; done; if [ "$found" = "0" ]; then echo "No git repos found in current directory or subdirectories"; fi; fi`
+!`bash ${CLAUDE_SKILL_DIR}/scripts/gather-state.sh "$ARGUMENTS"`
 
 ## Commit Workflow
 
