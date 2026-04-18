@@ -2,7 +2,7 @@
 name: commit-push-pr
 allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion
 description: Commit, update CHANGELOG, push, and open a PR
-argument_hint: [repo]
+argument_hint: [repo] [-- note]
 disable-model-invocation: true
 ---
 
@@ -10,7 +10,18 @@ disable-model-invocation: true
 
 Argument: `$ARGUMENTS`
 
-- If an argument is provided -> operate on that subdirectory
+Accepts an optional repo subdir and/or a free-form user note separated by ` -- `:
+
+- `/commit-push-pr` -> operate on cwd (or ask to pick a sibling repo)
+- `/commit-push-pr frontend` -> operate on subdir
+- `/commit-push-pr -- skip lockfile` -> note only
+- `/commit-push-pr frontend -- skip lockfile` -> both
+
+If a **User note** block appears in Current State, treat it as binding guidance for this invocation (e.g. files to exclude, messaging hints, PR description cues).
+
+Repo resolution:
+
+- If a repo subdir is provided -> operate on that subdirectory
 - If empty and cwd IS a git repo -> operate on the current directory
 - If empty and cwd is NOT a git repo -> the context below lists sibling git repos one level down; use `AskUserQuestion` to have the user pick exactly one before proceeding
 

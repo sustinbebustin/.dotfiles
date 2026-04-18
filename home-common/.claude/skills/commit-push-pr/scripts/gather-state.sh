@@ -1,15 +1,40 @@
 #!/usr/bin/env bash
 # Gather git state for the commit-push-pr skill.
-# Argument: optional repo subdirectory relative to cwd.
+# Argument: raw $ARGUMENTS, optionally split as "<repo> -- <user note>".
 #
-# Behavior:
-# - If $1 is non-empty: report state for that subdirectory.
+# Parsing:
+# - "<repo>"                  -> scope to subdir, no note
+# - "<repo> -- <note text>"   -> scope to subdir, emit note
+# - "-- <note text>"          -> no scope, emit note
+# - ""                        -> no scope, no note
+#
+# Repo resolution:
+# - If scope is non-empty: report state for that subdirectory.
 # - Else if cwd is a git repo: report state for cwd.
 # - Else: list sibling git repos one level down.
 
 set -u
 
-arg="${1:-}"
+raw="${1:-}"
+arg=""
+note=""
+
+if [[ "$raw" == "--" ]]; then
+  :
+elif [[ "$raw" == "-- "* ]]; then
+  note="${raw#-- }"
+elif [[ "$raw" == *" -- "* ]]; then
+  arg="${raw% -- *}"
+  note="${raw#* -- }"
+else
+  arg="$raw"
+fi
+
+if [ -n "$note" ]; then
+  echo "### User note"
+  echo "$note"
+  echo ""
+fi
 
 report_repo() {
   local dir="$1"
