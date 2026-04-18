@@ -57,14 +57,19 @@ All fields are optional. Only `description` is recommended.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | No | Display name. Lowercase letters, numbers, hyphens (max 64 chars). Defaults to directory name. |
-| `description` | Recommended | What it does AND when to use it. Claude uses this for auto-discovery. Max 1024 chars. |
+| `description` | Recommended | What it does AND when to use it. Claude uses this for auto-discovery. Front-load the key use case: combined `description` + `when_to_use` is truncated at 1,536 chars in the skill listing. |
+| `when_to_use` | No | Extra trigger context (phrases, example requests). Appended to `description`; counts toward the 1,536-char cap. |
 | `argument-hint` | No | Hint shown during autocomplete. Example: `[issue-number]` |
 | `disable-model-invocation` | No | Set `true` to prevent Claude auto-loading. Use for manual workflows like `/deploy`, `/commit`. Default: `false`. |
 | `user-invocable` | No | Set `false` to hide from `/` menu. Use for background knowledge. Default: `true`. |
-| `allowed-tools` | No | Tools Claude can use without permission prompts. Example: `Read, Bash(git *)` |
+| `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict other tools — add deny rules in `/permissions` for that. Example: `Read, Bash(git *)` |
 | `model` | No | Model to use. Options: `haiku`, `sonnet`, `opus`. |
+| `effort` | No | Effort level while the skill is active. Options: `low`, `medium`, `high`, `max` (Opus 4.6 only). Overrides session effort. |
 | `context` | No | Set `fork` to run in isolated subagent context. |
 | `agent` | No | Subagent type when `context: fork`. Options: `Explore`, `Plan`, `general-purpose`, or custom agent name. |
+| `hooks` | No | Hooks scoped to this skill's lifecycle. |
+| `paths` | No | Glob patterns scoping auto-activation. When set, Claude loads the skill automatically only when working with matching files. Comma-separated string or YAML list. |
+| `shell` | No | `bash` (default) or `powershell` for shell-injection blocks. `powershell` requires `CLAUDE_CODE_USE_POWERSHELL_TOOL=1`. |
 
 ### Invocation Control
 
@@ -94,7 +99,14 @@ disable-model-invocation: true
 Fix GitHub issue $ARGUMENTS following our coding standards.
 ```
 
-Access individual args: `$ARGUMENTS[0]` or shorthand `$0`, `$1`, `$2`.
+Access individual args: `$ARGUMENTS[0]` or shorthand `$0`, `$1`, `$2`. Indexed args use shell-style quoting — wrap multi-word values in quotes.
+
+**Other substitutions:**
+
+| Variable | Description |
+|----------|-------------|
+| `${CLAUDE_SESSION_ID}` | Current session ID. Useful for logging or session-specific files. |
+| `${CLAUDE_SKILL_DIR}` | Absolute path to the skill's directory. Use inside shell-injection blocks to reference bundled scripts regardless of cwd. For plugin skills, this is the skill's subdirectory inside the plugin. |
 
 ### Dynamic Context Injection
 
@@ -109,9 +121,13 @@ Skill files can run shell commands at load time by prefixing a backtick-wrapped 
 
 NOTE: Cannot show literal examples here -- the skill parser executes the syntax even inside code blocks. See the [official docs](https://code.claude.com/docs/en/skills) for copy-pasteable examples.
 
+Multi-line injection and the extended-thinking activation keyword are covered in [official-spec.md](references/official-spec.md) — the literal syntax can't appear here without the parser executing it.
+
 ### Running in a Subagent
 
 Add `context: fork` to run in isolation. The skill content becomes the subagent's prompt. It won't have conversation history.
+
+**Warning:** `context: fork` only makes sense for skills with *explicit task instructions*. A skill that just lists conventions ("use these API patterns") will hand the subagent guidelines but no task, and return without output.
 
 ```yaml
 ---
@@ -126,6 +142,27 @@ Research $ARGUMENTS thoroughly:
 2. Analyze the code
 3. Summarize findings
 ```
+
+## Where Skills Live
+
+Priority order (higher wins on name conflicts): **enterprise > personal > project**. Plugin skills are namespaced `plugin-name:skill-name` and cannot conflict.
+
+| Location | Path | Applies to |
+|----------|------|-----------|
+| Enterprise | Managed settings | Everyone in the org |
+| Personal | `~/.claude/skills/<name>/SKILL.md` | All your projects |
+| Project | `.claude/skills/<name>/SKILL.md` | This repo only |
+| Plugin | `<plugin>/skills/<name>/SKILL.md` | Where plugin is enabled |
+
+**Live change detection:** edits under `~/.claude/skills/`, `.claude/skills/`, or `.claude/skills/` inside an `--add-dir` directory take effect mid-session. Creating a top-level skills directory that didn't exist at startup requires a restart.
+
+**Nested discovery:** when editing files in a subdirectory, Claude also picks up skills from nested `.claude/skills/` (e.g. `packages/frontend/.claude/skills/`) — useful for monorepos.
+
+## Skill Content Lifecycle
+
+When invoked, rendered `SKILL.md` content enters the conversation as a single message and stays there for the rest of the session. Claude Code does *not* re-read the file on later turns — write guidance as **standing instructions**, not one-time steps.
+
+**Auto-compaction:** on summarization, Claude Code re-attaches the most recent invocation of each skill after the summary, keeping the first 5,000 tokens of each, with a combined 25,000-token budget. Older skills can be dropped. If a skill stops influencing behavior after compaction, re-invoke it to restore the full content.
 
 ## Progressive Disclosure
 
@@ -257,6 +294,21 @@ For form filling guide, see [forms.md](forms.md).
 - **Missing invocation control** - Side-effect workflows need `disable-model-invocation: true`
 - **Too many options** - Provide a default with escape hatch
 - **Punting to Claude** - Scripts should handle errors explicitly
+- **`context: fork` on reference-only skills** - Subagent gets no task and returns nothing
+
+## Troubleshooting
+
+**Skill not triggering:**
+1. Add keywords users would naturally say to `description` / `when_to_use`
+2. Verify it shows up in `What skills are available?`
+3. Rephrase requests to match the description
+4. Invoke directly with `/skill-name` if user-invocable
+
+**Skill triggers too often:** Make description more specific, or set `disable-model-invocation: true`.
+
+**Descriptions cut short:** With many skills, descriptions are trimmed to fit a budget (1% of context window, 8,000 char fallback). Front-load key use cases, or raise the limit with `SLASH_COMMAND_TOOL_CHAR_BUDGET`. Each entry's combined text is capped at 1,536 chars regardless.
+
+**Skill stops influencing behavior mid-session:** Content is usually still in context — the model is picking other tools. Strengthen the description/instructions, or use [hooks](https://code.claude.com/docs/en/hooks) to enforce behavior deterministically. After compaction, re-invoke to restore.
 
 ## Reference Files
 
