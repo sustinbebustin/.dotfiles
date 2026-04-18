@@ -4,7 +4,12 @@
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-4-6",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "1",
-    "CLAUDE_CODE_NO_FLICKER": "1"
+    "CLAUDE_CODE_NO_FLICKER": "1",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "268000"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
   },
   "permissions": {
     "allow": [
@@ -153,15 +158,12 @@
     "type": "command",
     "command": "$HOME/.claude/hooks/statusline.sh"
   },
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
   "enabledPlugins": {},
   "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
-  "alwaysThinkingEnabled": true,
   "effortLevel": "high",
   "showClearContextOnPlanAccept": true,
-  "voiceEnabled": false
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": false,
+  "awaySummaryEnabled": false
 }
