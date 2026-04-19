@@ -82,3 +82,6 @@ home-common/.claude/context/*.md
 
 # pi agent runtime/state (keep settings + customization resources tracked)
 home-common/.pi/
+
+# Personal
+home-macos/.config/raycast
