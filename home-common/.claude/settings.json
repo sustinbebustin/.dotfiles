@@ -16,26 +16,13 @@
       "Edit",
       "MultiEdit",
       "Write",
-      "Skill(agent-browser)",
-      "Skill(agent-native-architecture)",
-      "Skill(designing-clean-architecture)",
       "Skill(commit)",
-      "Skill(compound-docs)",
-      "Skill(continuity)",
       "Skill(create-agent-skills)",
       "Skill(doc-generator)",
-      "Skill(file-todos)",
       "Skill(frontend-design)",
       "Skill(git-worktree)",
-      "Skill(handoff)",
       "Skill(index-knowledge)",
-      "Skill(prd)",
-      "Skill(prd-implementation)",
-      "Skill(prd-task)",
       "Skill(react-best-practices)",
-      "Skill(test-driven-development)",
-      "Skill(web-design-guidelines)",
-      "Skill(workflows:*)",
       "Skill(prompt:*)",
       "WebSearch",
       "WebFetch",
@@ -117,7 +104,25 @@
       "Read($HOME/.claude/**)",
       "Read(~/.claude/**)",
       "Glob($HOME/.claude/**)",
-      "Glob(~/.claude/**)"
+      "Glob(~/.claude/**)",
+      "Skill(supabase)",
+      "mcp__supabase__search_docs",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__list_extensions",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__get_logs",
+      "mcp__supabase__get_advisors",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__get_publishable_keys",
+      "mcp__supabase__generate_typescript_types",
+      "mcp__context7__query-docs",
+      "mcp__overseer__execute",
+      "mcp__opensrc__execute",
+      "mcp__context7__resolve-library-id",
+      "mcp__grep_app__searchGitHub",
+      "Skill(shadcn)"
     ],
     "deny": [
       "Bash(wget:*)",
@@ -130,7 +135,7 @@
       "Read(**/*.env)",
       "Read(**/secrets/**)"
     ],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "auto"
   },
   "hooks": {
     "PreToolUse": [
@@ -162,8 +167,8 @@
   "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
   "effortLevel": "high",
+  "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false,
-  "awaySummaryEnabled": false
+  "voiceEnabled": false
 }
