@@ -38,10 +38,13 @@ Repo resolution:
 2. **Create a new branch if on main.**
 3. **Assess atomicity** -- split into multiple commits if changes contain independent logical units. See [When to split commits](#when-to-split-commits).
 4. **Stage selectively per commit** (specific files or `git add -p`) and commit with a conventional message. See [Conventional commit format](#conventional-commit-format).
-5. **Update CHANGELOG.md** for any user-facing changes in the commits you just made. See [CHANGELOG update](#changelog-update). Commit the CHANGELOG change separately as `docs(changelog): ...`.
-6. **Push the branch to origin.**
-7. **Create a pull request** using `gh pr create`.
-8. After the target repo is determined, keep output to tool calls only -- no extra prose.
+5. **Release Please detection.** Check for `release-please-config.json` at the repo root.
+   - If present -> SKIP the CHANGELOG step. Release Please owns `CHANGELOG.md` and will generate entries from your conventional-commit subjects on its release PR; hand-editing it now guarantees a merge conflict with the bot. Instead, make sure each commit subject reads as a user-facing sentence, because it becomes the changelog entry verbatim.
+   - If absent -> proceed to step 6.
+6. **Update CHANGELOG.md** for any user-facing changes in the commits you just made. See [CHANGELOG update](#changelog-update). Commit the CHANGELOG change separately as `docs(changelog): ...`.
+7. **Push the branch to origin.**
+8. **Create a pull request** using `gh pr create`.
+9. After the target repo is determined, keep output to tool calls only -- no extra prose.
 
 ## Conventional commit format
 
@@ -73,7 +76,9 @@ Repo resolution:
 
 ## CHANGELOG update
 
-Maintain `CHANGELOG.md` at the repo root using the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Accumulate new entries under `[Unreleased]` — do not create a versioned release.
+**Do not run this section if `release-please-config.json` exists at the repo root.** Release Please owns `CHANGELOG.md` in those repos and regenerates entries from conventional-commit subjects on its release PR.
+
+Otherwise, maintain `CHANGELOG.md` at the repo root using the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Accumulate new entries under `[Unreleased]` — do not create a versioned release.
 
 ### If CHANGELOG.md does NOT exist
 

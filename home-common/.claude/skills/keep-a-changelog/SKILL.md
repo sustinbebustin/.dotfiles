@@ -49,6 +49,8 @@ Always maintain an `[Unreleased]` section at the top:
 - Makes release preparation easier
 - Shows what's coming in the next version
 
+**Exception: Release Please repos.** If the repo has `release-please-config.json` at the root, Release Please owns `CHANGELOG.md`. Do not hand-edit it; the bot will generate entries from conventional-commit subjects on its release PR and prepend a new `[X.Y.Z]` section on release. Hand edits cause merge conflicts with the bot.
+
 ## Writing Good Entries
 
 ### Do:
