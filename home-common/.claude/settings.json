@@ -166,7 +166,7 @@
   "enabledPlugins": {},
   "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
-  "effortLevel": "high",
+  "effortLevel": "xhigh",
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "skipAutoPermissionPrompt": true,
