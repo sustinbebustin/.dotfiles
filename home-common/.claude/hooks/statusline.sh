@@ -97,22 +97,25 @@ git_status() {
 # ── Token usage ──────────────────────────────────────────────────────────────
 
 token_info() {
-  local input_tokens cache_read window_size used limit pct color
+  local input_tokens cache_creation cache_read window_size used limit pct color
 
   if command -v jq &>/dev/null; then
     input_tokens=$(echo "$INPUT" | jq -r '.context_window.current_usage.input_tokens // 0' 2>/dev/null)
+    cache_creation=$(echo "$INPUT" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0' 2>/dev/null)
     cache_read=$(echo "$INPUT" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0' 2>/dev/null)
     window_size=$(echo "$INPUT" | jq -r '.context_window.context_window_size // 200000' 2>/dev/null)
   else
     input_tokens=$(json_val "input_tokens")
+    cache_creation=$(json_val "cache_creation_input_tokens")
     cache_read=$(json_val "cache_read_input_tokens")
     window_size=$(json_val "context_window_size")
     input_tokens="${input_tokens:-0}"
+    cache_creation="${cache_creation:-0}"
     cache_read="${cache_read:-0}"
     window_size="${window_size:-200000}"
   fi
 
-  used=$(( input_tokens + cache_read ))
+  used=$(( input_tokens + cache_creation + cache_read ))
   # Subtract 33k autocompact buffer
   limit=$(( window_size - 33000 ))
   if [ "$limit" -gt 0 ]; then
