@@ -3,3 +3,6 @@
 
 export ZDOTDIR="$HOME/.config/zsh"
 [ -f "$ZDOTDIR/.zshenv" ] && source "$ZDOTDIR/.zshenv"
+
+# sentry
+fpath=("/home/austin/.local/share/zsh/site-functions" $fpath)
