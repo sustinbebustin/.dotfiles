@@ -39,7 +39,6 @@ fi
 report_repo() {
   local dir="$1"
   local label="$2"
-  local changelog_path
 
   echo "### Target: $label"
   echo ""
@@ -60,14 +59,6 @@ report_repo() {
   echo ""
   echo "**Unstaged diff:**"
   git -C "$dir" diff
-  echo ""
-  echo "**CHANGELOG.md present:**"
-  changelog_path="$dir/CHANGELOG.md"
-  if [ -f "$changelog_path" ]; then
-    echo yes
-  else
-    echo no
-  fi
 }
 
 if [ -n "$arg" ]; then
