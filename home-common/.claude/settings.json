@@ -172,5 +172,6 @@
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "remoteControlAtStartup": false
 }
