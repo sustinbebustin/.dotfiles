@@ -163,7 +163,9 @@
     "type": "command",
     "command": "$HOME/.claude/hooks/statusline.sh"
   },
-  "enabledPlugins": {},
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true
+  },
   "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
   "effortLevel": "xhigh",
