@@ -8,11 +8,11 @@ This skill will be invoked when the user wants to create a PRD. You may skip ste
 
 ## Output location
 
-Write the PRD to `.docs/specs/<slug>/prd.md`, where `<slug>` is a lowercase, hyphenated slug derived from the PRD title.
+Write the PRD to `.workspace/work/_specs/<slug>/prd.md`, where `<slug>` is a lowercase, hyphenated slug derived from the PRD title.
 
-Create the `.docs/specs/<slug>/` directory if it does not exist.
+Create the `.workspace/work/_specs/<slug>/` directory if it does not exist.
 
-Example: PRD title "Improved tmux session restore" -> `.docs/specs/improved-tmux-session-restore/prd.md`
+Example: PRD title "Improved tmux session restore" -> `.workspace/work/_specs/improved-tmux-session-restore/prd.md`
 
 This folder will also be used by the `prd-to-todos` skill to store implementation todos alongside the PRD.
 
@@ -30,7 +30,7 @@ A deep module (as opposed to a shallow module) is one which encapsulates a lot o
 
 Use `AskUserQuestion` to check that modules match user expectations and which modules they want tests written for.
 
-5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD to `.docs/specs/<slug>/prd.md`.
+5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD to `.workspace/work/_specs/<slug>/prd.md`.
 
 <prd-template>
 

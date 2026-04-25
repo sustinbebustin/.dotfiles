@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Bash, WebFetch, WebSearch, Glob, Grep, Agent, AskUse
 Break a PRD into independently-grabbable implementation todos using **vertical slices (tracer bullets)**.
 
 - input can come from a local PRD file, a PRD already in context, or a URL/issue the agent can fetch
-- output is written as numbered markdown files in `.docs/specs/<slug>/` alongside the parent PRD
+- output is written as numbered markdown files in `.workspace/work/_specs/<slug>/` alongside the parent PRD
 
 ## Process
 
@@ -107,7 +107,7 @@ Do **not** create todos before approval.
 
 Once the breakdown is approved, write one markdown file per slice into the PRD's spec folder.
 
-Determine the spec folder from the parent PRD path. If the PRD lives at `.docs/specs/<slug>/prd.md`, write todos into the same `.docs/specs/<slug>/` directory.
+Determine the spec folder from the parent PRD path. If the PRD lives at `.workspace/work/_specs/<slug>/prd.md`, write todos into the same `.workspace/work/_specs/<slug>/` directory.
 
 If the PRD was provided as a URL, pasted text, or issue reference, use `AskUserQuestion` to confirm the slug or derive one from the PRD title.
 
@@ -116,9 +116,9 @@ If the PRD was provided as a URL, pasted text, or issue reference, use `AskUserQ
 Name each todo file with a zero-padded sequence number and a short hyphenated descriptor:
 
 ```
-.docs/specs/<slug>/01-<short-descriptor>.md
-.docs/specs/<slug>/02-<short-descriptor>.md
-.docs/specs/<slug>/03-<short-descriptor>.md
+.workspace/work/_specs/<slug>/01-<short-descriptor>.md
+.workspace/work/_specs/<slug>/02-<short-descriptor>.md
+.workspace/work/_specs/<slug>/03-<short-descriptor>.md
 ```
 
 Create them in dependency order so later files can reference earlier ones by filename.
