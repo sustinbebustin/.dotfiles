@@ -85,3 +85,5 @@ home-common/.pi/
 
 # Personal
 home-macos/.config/raycast
+
+home-common/.claude/hooks/_archived

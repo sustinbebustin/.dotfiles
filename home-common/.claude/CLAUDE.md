@@ -119,3 +119,5 @@
 - Never create commits, PRs, or push unless explicitly requested
 - **Never** add AI/Agent attribution or contributor status in commits, PRs, or messages
 - **gh CLI available** for GitHub operations (PRs, issues, etc.)
+
+@NUB.md

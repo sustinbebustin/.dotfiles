@@ -1,0 +1,22 @@
+# Stow ignores. Patterns are anchored at the package root with a leading "/".
+# When this file exists, stow uses ONLY these patterns (not its built-in defaults),
+# so common VCS / metadata patterns are repeated explicitly below.
+
+# Repeat stow's default ignores (since this file replaces them).
+\.git
+\.gitignore
+\.gitmodules
+\.hg
+\.svn
+^README.*
+^LICENSE.*
+
+# Go source dirs for the hook binaries — only the built *-bin should be linked.
+^/\.claude/hooks/block-dangerous-git$
+^/\.claude/hooks/block-env-files$
+
+# Build tooling for those binaries; not needed in ~/.claude/hooks.
+^/\.claude/hooks/Makefile$
+
+# Bash hooks that have been replaced; kept on disk for reference only.
+^/\.claude/hooks/_archived$
