@@ -73,18 +73,15 @@ stow_packages() {
 # $DOTFILES_DIR but whose target no longer exists. These are orphans left
 # behind when a file is deleted from a stow package -- GNU Stow can't clean
 # them up because it only walks files that still exist in the package.
-# Uses plain readlink (portable across BSD/GNU); both absolute and stow's
-# relative targets contain the dotfiles dir basename, e.g. ".dotfiles/".
+# Uses find's -lname to pre-filter (works on GNU and BSD find) so we don't
+# fork readlink per symlink; both absolute and stow's relative targets
+# contain "/<dotfiles-basename>/", e.g. "/.dotfiles/".
 find_broken_stow_links() {
-    local marker
-    marker="/$(basename "$DOTFILES_DIR")/"
+    local pattern
+    pattern="*/$(basename "$DOTFILES_DIR")/*"
     while IFS= read -r -d '' link; do
-        local target
-        target=$(readlink "$link" 2>/dev/null || true)
-        if [[ "$target" == *"$marker"* && ! -e "$link" ]]; then
-            printf '%s\0' "$link"
-        fi
-    done < <(find "$HOME" -maxdepth 8 -type l -print0 2>/dev/null)
+        [[ -e "$link" ]] || printf '%s\0' "$link"
+    done < <(find "$HOME" -maxdepth 8 -type l -lname "$pattern" -print0 2>/dev/null)
 }
 
 prune_broken_stow_links() {
