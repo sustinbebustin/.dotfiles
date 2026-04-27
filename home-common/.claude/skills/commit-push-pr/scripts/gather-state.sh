@@ -59,6 +59,13 @@ report_repo() {
   echo ""
   echo "**Unstaged diff:**"
   git -C "$dir" diff
+  echo ""
+  echo "**CHANGELOG.md present:**"
+  if [ -f "$dir/CHANGELOG.md" ]; then
+    echo yes
+  else
+    echo no
+  fi
 }
 
 if [ -n "$arg" ]; then
