@@ -69,6 +69,42 @@ stow_packages() {
     printf '%s\n' "${packages[@]}"
 }
 
+# Emit NUL-separated paths to symlinks under $HOME that point into
+# $DOTFILES_DIR but whose target no longer exists. These are orphans left
+# behind when a file is deleted from a stow package -- GNU Stow can't clean
+# them up because it only walks files that still exist in the package.
+# Uses plain readlink (portable across BSD/GNU); both absolute and stow's
+# relative targets contain the dotfiles dir basename, e.g. ".dotfiles/".
+find_broken_stow_links() {
+    local marker
+    marker="/$(basename "$DOTFILES_DIR")/"
+    while IFS= read -r -d '' link; do
+        local target
+        target=$(readlink "$link" 2>/dev/null || true)
+        if [[ "$target" == *"$marker"* && ! -e "$link" ]]; then
+            printf '%s\0' "$link"
+        fi
+    done < <(find "$HOME" -maxdepth 8 -type l -print0 2>/dev/null)
+}
+
+prune_broken_stow_links() {
+    local pruned=0
+    while IFS= read -r -d '' link; do
+        rm -f "$link"
+        ((++pruned))
+        # Collapse parent dirs that became empty after the link was removed.
+        local parent
+        parent="$(dirname "$link")"
+        while [[ "$parent" != "$HOME" && "$parent" != "/" ]]; do
+            rmdir "$parent" 2>/dev/null || break
+            parent="$(dirname "$parent")"
+        done
+    done < <(find_broken_stow_links)
+    if [[ $pruned -gt 0 ]]; then
+        ok "Pruned $pruned orphaned symlink(s)"
+    fi
+}
+
 # --- Core operations ---
 
 install_homebrew() {
@@ -346,6 +382,7 @@ cmd_stow() {
     local packages=()
     while IFS= read -r pkg; do packages+=("$pkg"); done < <(stow_packages)
     info "Stowing dotfiles (${packages[*]})..."
+    prune_broken_stow_links
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "${packages[@]}"
     ok "Dotfiles linked"
 }
@@ -448,21 +485,15 @@ cmd_doctor() {
     fi
 
     # Broken stow symlinks (only links pointing into dotfiles dir)
-    local broken=0
     local broken_list=()
     while IFS= read -r -d '' link; do
-        local target
-        target=$(readlink "$link" 2>/dev/null || true)
-        if [[ "$target" == *".dotfiles"* && ! -e "$link" ]]; then
-            ((++broken))
-            broken_list+=("$link")
-        fi
-    done < <(find "$HOME" -maxdepth 3 -type l -print0 2>/dev/null)
+        broken_list+=("$link")
+    done < <(find_broken_stow_links)
 
-    if [[ $broken -eq 0 ]]; then
+    if [[ ${#broken_list[@]} -eq 0 ]]; then
         ok "No broken stow symlinks"
     else
-        warn "Found $broken broken stow symlinks:"
+        warn "Found ${#broken_list[@]} broken stow symlinks:"
         printf "  %s\n" "${broken_list[@]}"
         info "  -> dot stow"
         ((++issues))
