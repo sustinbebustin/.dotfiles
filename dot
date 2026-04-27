@@ -69,14 +69,66 @@ stow_packages() {
     printf '%s\n' "${packages[@]}"
 }
 
-# Emit NUL-separated paths to symlinks under $HOME that point into
-# $DOTFILES_DIR but whose target no longer exists. These are orphans left
-# behind when a file is deleted from a stow package -- GNU Stow can't clean
-# them up because it only walks files that still exist in the package.
-# Uses find's -lname to pre-filter (works on GNU and BSD find) so we don't
-# fork readlink per symlink; both absolute and stow's relative targets
-# contain "/<dotfiles-basename>/", e.g. "/.dotfiles/".
+# Top-level paths under $HOME that the active stow packages manage. Used
+# to scope orphan-symlink scans to subtrees stow actually touches -- we
+# never walk unrelated $HOME content (e.g. macOS Documents/Downloads which
+# trigger TCC permission prompts on first access).
+stow_target_paths() {
+    local packages=() pkg pkg_dir entry rel target seen=""
+    while IFS= read -r pkg; do packages+=("$pkg"); done < <(stow_packages)
+    for pkg in "${packages[@]}"; do
+        pkg_dir="${DOTFILES_DIR}/${pkg}"
+        [[ -d "$pkg_dir" ]] || continue
+        while IFS= read -r -d '' entry; do
+            rel="${entry##*/}"
+            [[ "$rel" == ".stow-local-ignore" ]] && continue
+            target="${HOME}/${rel}"
+            # Dedupe across packages (e.g. .config exists in multiple).
+            case ":$seen:" in
+                *":$target:"*) continue ;;
+            esac
+            seen="${seen}:${target}"
+            printf '%s\0' "$target"
+        done < <(find "$pkg_dir" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+    done
+}
+
+# Emit NUL-separated paths to broken stow symlinks (orphans left behind
+# when a file is deleted from a stow package -- GNU Stow can't clean them
+# up because it only walks files that still exist in the package).
+#
+# Scoped to subtrees the active stow packages manage; on macOS this avoids
+# TCC prompts for unrelated $HOME paths. Both absolute and stow's relative
+# symlink targets contain "/<dotfiles-basename>/" (e.g. "/.dotfiles/"), so
+# we use that as the lname pattern to filter at the find level (no per-link
+# readlink fork).
 find_broken_stow_links() {
+    local marker pattern
+    marker="/$(basename "$DOTFILES_DIR")/"
+    pattern="*${marker}*"
+    while IFS= read -r -d '' target; do
+        if [[ -L "$target" ]]; then
+            # Top-level symlink (e.g. $HOME/.zshenv). Confirm it points
+            # into our dotfiles before pruning -- never touch a user's
+            # own broken symlinks.
+            if [[ ! -e "$target" ]]; then
+                local link_target
+                link_target=$(readlink "$target" 2>/dev/null || true)
+                [[ "$link_target" == *"$marker"* ]] && printf '%s\0' "$target"
+            fi
+        elif [[ -d "$target" ]]; then
+            while IFS= read -r -d '' link; do
+                [[ -e "$link" ]] || printf '%s\0' "$link"
+            done < <(find "$target" -type l -lname "$pattern" -print0 2>/dev/null)
+        fi
+    done < <(stow_target_paths)
+}
+
+# Deep scan across $HOME for any broken symlink into the dotfiles dir.
+# Used by `dot doctor` for an explicit thorough audit. On macOS this can
+# trigger TCC prompts the first time -- by design, since the user opted
+# into a deep check.
+find_broken_stow_links_deep() {
     local pattern
     pattern="*/$(basename "$DOTFILES_DIR")/*"
     while IFS= read -r -d '' link; do
@@ -481,11 +533,12 @@ cmd_doctor() {
         ((++issues))
     fi
 
-    # Broken stow symlinks (only links pointing into dotfiles dir)
+    # Broken stow symlinks (deep scan across $HOME for a thorough audit;
+    # `dot stow` itself uses a faster scoped scan).
     local broken_list=()
     while IFS= read -r -d '' link; do
         broken_list+=("$link")
-    done < <(find_broken_stow_links)
+    done < <(find_broken_stow_links_deep)
 
     if [[ ${#broken_list[@]} -eq 0 ]]; then
         ok "No broken stow symlinks"
