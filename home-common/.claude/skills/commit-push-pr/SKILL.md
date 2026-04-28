@@ -42,7 +42,7 @@ Repo resolution:
    - `no` -> SKIP entirely. Do **not** create a `CHANGELOG.md`.
    - `yes` -> follow the [keep-a-changelog](../keep-a-changelog/SKILL.md) skill to add entries under `[Unreleased]` for any user-facing changes in the commits you just made (the keep-a-changelog skill itself defers to Release Please when `release-please-config.json` is present — respect that). Commit the CHANGELOG change separately as `docs(changelog): ...`.
 6. **Push the branch to origin.**
-7. **Create a pull request** using `gh pr create`. The PR title should also be a conventional-commit subject (release tooling reads this when squash-merging). Do **not** include a "Test Plan" / "Test plan" section in the PR body — keep the body to a short summary only.
+7. **Create a pull request** using `gh pr create`. The PR title should also be a conventional-commit subject (release tooling reads this when squash-merging). Do **not** include a "Test Plan" / "Test plan" section in the PR body — keep the body to a short summary only. Write the PR body using the [Voice DNA](../../commands/voice-dna.md) rules: contractions, short paragraphs (1-3 sentences), no em dashes, no banned AI phrases, and no "not X, but Y" negation constructions.
 8. After the target repo is determined, keep output to tool calls only -- no extra prose.
 
 ## Conventional commit format
