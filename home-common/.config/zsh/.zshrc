@@ -6,7 +6,21 @@ bindkey '^[^?' backward-kill-word  # Option+Backspace: delete word
 # ===== Completions =====
 fpath=("$ZDOTDIR/functions" $fpath)
 autoload -Uz compinit
-compinit
+# Keep the compdump outside the stow tree so `dot` operations can't conflict
+# with it. Run a full security check at most once per 24h; otherwise reuse
+# the cached dump.
+() {
+  emulate -L zsh
+  setopt extendedglob
+  local zcache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+  local zdump="$zcache/zcompdump"
+  [[ -d "$zcache" ]] || mkdir -p "$zcache"
+  if [[ -n $zdump(#qN.mh+24) ]]; then
+    compinit -d "$zdump"
+  else
+    compinit -C -d "$zdump"
+  fi
+}
 
 # ===== Path Helpers =====
 path_append() {
@@ -143,11 +157,6 @@ if command -v lsd &>/dev/null; then
   alias lt='lsd --tree'
 fi
 
-. "$HOME/.local/share/../bin/env"
+. "$HOME/.local/bin/env"
 
-# opencode
-export PATH=/home/austin/.opencode/bin:$PATH
-
-# qlty
 export QLTY_INSTALL="$HOME/.qlty"
-export PATH="$QLTY_INSTALL/bin:$PATH"
