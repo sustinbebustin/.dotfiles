@@ -30,12 +30,16 @@
 
 ## Code Quality Standards
 
-- Make minimal, surgical changes
+- Make minimal, surgical changes -- minimal in scope, not minimal in care; broken windows in the touched area are still in scope (see Broken Window Rule)
 - **Never compromise type safety**: no `any`, no non-null assertion operator (`!`), no unsafe type assertions
 - Parse and validate inputs at boundaries; keep internal states typed and explicit
 - **Make illegal states unrepresentable**; prefer ADTs/discriminated unions over boolean flags and loosely optional fields
 - Prefer existing helpers/patterns over new abstractions
 - **Abstractions**: consciously constrained, pragmatically parameterised, documented when non-obvious
+
+## Broken Window Rule
+
+Never leave broken windows -- bad designs, wrong decisions, sloppy formatting, commented-out junk, failing tests, ignored warnings, or poor code -- unrepaired in this codebase. The moment one is spotted, fix it; if there isn't time for a proper fix, board it up by commenting out the offending code, replacing it with a clear `TODO` or `Not Implemented` stub, or substituting dummy data, so it's visibly contained rather than quietly rotting. The premise is that visible disorder signals "no one cares," and once that signal is in the codebase, further decay accelerates faster than from any other cause: small messes invite bigger ones, and clean systems deteriorate quickly once the first window stays broken. Sweat the small stuff -- naming, formatting, dead code, stray TODOs, inconsistent patterns -- because in software the perception of disorder *is* disorder, and treating details as beneath attention is how a healthy codebase becomes unmaintainable.
 
 ## Error Handling
 
@@ -96,8 +100,9 @@
 
 ## Scope Control
 
-- Avoid over-engineering; do not add features, abstractions, configurability, or refactors beyond what the task requires
+- Avoid scope creep: do not add unrelated features, abstractions, configurability, or large refactors beyond what the task requires
 - Prefer the simplest general solution that correctly solves the problem
+- Broken windows are not scope creep -- fix or board them up per the Broken Window Rule, even when the immediate task did not introduce them
 - If temporary scratch files or helper scripts are created during iteration, remove them before finishing unless they are part of the requested solution
 
 ## Autonomy
