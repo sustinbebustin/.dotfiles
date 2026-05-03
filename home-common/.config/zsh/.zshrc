@@ -43,11 +43,11 @@ _compinit_deferred() {
 typeset -ga _compdef_buffer
 compdef() { _compdef_buffer+=("$*") }
 
-# Fire after the first prompt is rendered. zle -F triggers on fd activity;
-# we use fd 0 inside zle, but the simpler path is `zle-line-init` which
-# runs once when the line editor accepts input.
+# Fire after the first prompt is rendered. zle-line-init runs every time
+# the line editor starts a new line; we delete the widget after the first
+# call so subsequent prompts skip the work.
 _compinit_kick() {
-  zle -N zle-line-init
+  zle -D zle-line-init
   _compinit_deferred
 }
 autoload -Uz add-zsh-hook
