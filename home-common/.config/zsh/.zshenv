@@ -14,14 +14,22 @@ export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 
-# Initialize Homebrew/Linuxbrew (platform-aware)
-if [ -f /opt/homebrew/bin/brew ]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-elif [ -f /usr/local/bin/brew ]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-elif [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+# Initialize Homebrew/Linuxbrew (platform-aware).
+# `brew shellenv` forks a process every shell (~20 ms on Mac). Cache the
+# output and source the cached file; refresh when brew is upgraded.
+_brew_bin=""
+for _candidate in /opt/homebrew/bin/brew /usr/local/bin/brew /home/linuxbrew/.linuxbrew/bin/brew; do
+    [ -x "$_candidate" ] && { _brew_bin="$_candidate"; break; }
+done
+if [ -n "$_brew_bin" ]; then
+    _brew_cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/brew-shellenv.zsh"
+    if [ ! -s "$_brew_cache" ] || [ "$_brew_bin" -nt "$_brew_cache" ]; then
+        mkdir -p "${_brew_cache%/*}"
+        "$_brew_bin" shellenv > "$_brew_cache"
+    fi
+    . "$_brew_cache"
 fi
+unset _brew_bin _candidate _brew_cache
 
 # User bin directories
 export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
