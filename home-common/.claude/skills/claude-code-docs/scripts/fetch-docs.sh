@@ -16,11 +16,12 @@ mkdir -p "$CONTEXT_DIR"
 echo "Fetching llms.txt..."
 LLMS_CONTENT=$(curl -sS "$LLMS_TXT_URL")
 
-# Extract all URLs from the llms.txt content, skipping unwanted docs
+# Extract all URLs from the llms.txt content, skipping unwanted docs.
+# Use ERE + POSIX classes so this works with both GNU and BSD grep.
 SKIP_PATTERN='(agent-sdk/|amazon-bedrock|chrome|github-enterprise-server|gitlab-ci-cd|google-vertex-ai|jetbrains|microsoft-foundry|vs-code)'
 URLS=$(echo "$LLMS_CONTENT" \
-    | grep -oP 'https://code\.claude\.com/docs/en/[^\s\)]+' \
-    | grep -vP "https://code\.claude\.com/docs/en/${SKIP_PATTERN}")
+    | grep -oE 'https://code\.claude\.com/docs/en/[^[:space:])]+' \
+    | grep -vE "https://code\.claude\.com/docs/en/${SKIP_PATTERN}")
 
 TOTAL=$(echo "$URLS" | wc -l)
 COUNT=0
@@ -37,8 +38,13 @@ while IFS= read -r url; do
 
     echo "[$COUNT/$TOTAL] $filename"
     if curl -sS --fail -o "${CONTEXT_DIR}/${filename}" "$url"; then
-        # Strip the 4-line "Documentation Index" preamble injected at the top of every page
-        sed -i '1{/^> ## Documentation Index/{N;N;N;d;}}' "${CONTEXT_DIR}/${filename}"
+        # Strip the 4-line "Documentation Index" preamble injected at the
+        # top of every page. Done with head/tail for portability across
+        # GNU and BSD coreutils (sed -i and {;} block syntax differ).
+        out="${CONTEXT_DIR}/${filename}"
+        if head -1 "$out" | grep -q '^> ## Documentation Index'; then
+            tail -n +5 "$out" > "$out.tmp" && mv "$out.tmp" "$out"
+        fi
         echo "  -> saved"
     else
         echo "  -> FAILED (HTTP error)"
