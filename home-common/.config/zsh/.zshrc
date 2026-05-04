@@ -114,10 +114,41 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 elif [[ "$OSTYPE" == "linux"* ]]; then
   # Stabilize SSH_AUTH_SOCK behind a fixed symlink so tmux panes always
   # reach the forwarded agent after SSH reconnects (new socket path).
-  if [[ -S "$SSH_AUTH_SOCK" && "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_sock" ]]; then
-    ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
-  fi
-  export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
+  _refresh_ssh_auth_sock() {
+    emulate -L zsh
+
+    local link="$HOME/.ssh/ssh_auth_sock"
+    local candidate="${SSH_AUTH_SOCK:-}"
+    local tmux_sock
+    local sock
+
+    if [[ -n "$TMUX" ]]; then
+      tmux_sock="$(tmux show-environment -g SSH_AUTH_SOCK 2>/dev/null)"
+      [[ "$tmux_sock" == SSH_AUTH_SOCK=* ]] && tmux_sock="${tmux_sock#SSH_AUTH_SOCK=}"
+      if [[ -S "$tmux_sock" && "$tmux_sock" != "$link" ]]; then
+        candidate="$tmux_sock"
+      fi
+    fi
+
+    if [[ ! -S "$candidate" ]]; then
+      for sock in /tmp/ssh-*/agent.*(Nom); do
+        if [[ -O "$sock" && -S "$sock" ]]; then
+          candidate="$sock"
+          break
+        fi
+      done
+    fi
+
+    if [[ -S "$candidate" && "$candidate" != "$link" ]]; then
+      mkdir -p "$HOME/.ssh"
+      ln -sfn "$candidate" "$link"
+    fi
+
+    export SSH_AUTH_SOCK="$link"
+  }
+
+  _refresh_ssh_auth_sock
+  add-zsh-hook precmd _refresh_ssh_auth_sock
 fi
 
 # ===== Aliases =====
