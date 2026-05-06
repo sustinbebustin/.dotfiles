@@ -3,12 +3,10 @@ name: librarian
 description: Multi-repository codebase expert for understanding library internals and remote code. Invoke when exploring GitHub/npm/PyPI/crates repositories, tracing code flow through unfamiliar libraries, comparing implementations, or searching current docs/discussions.
 tools: Read, Glob, Grep, Bash, WebFetch, WebSearch, Task
 disallowedTools: Edit, Write, NotebookEdit
-model: opus
 mcpServers:
   - opensrc
   - context7
   - grep_app
-  - codesearch
 skills:
   - librarian
 ---
