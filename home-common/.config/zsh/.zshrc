@@ -164,6 +164,9 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   alias code="open -a Cursor"
 fi
 
+# Claude Code
+alias viki='claude --append-system-prompt-file ~/.claude/prompt.txt'
+
 # Git
 alias gpl='git pull'
 alias gaa='git add .'
