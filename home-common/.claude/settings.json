@@ -5,7 +5,7 @@
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "268000"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "228000"
   },
   "attribution": {
     "commit": "",
@@ -127,7 +127,6 @@
     "deny": [
       "Bash(wget:*)",
       "Bash(rm -rf *)",
-      "Bash(git reset --hard:*)",
       "Read(**/.env)",
       "Read(**/.env.development)",
       "Read(**/.env.production)",
@@ -183,6 +182,5 @@
   "showClearContextOnPlanAccept": true,
   "remoteControlAtStartup": false,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false,
-  "showThinkingSummaries": true
+  "voiceEnabled": false
 }

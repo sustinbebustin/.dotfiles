@@ -106,37 +106,37 @@ func checkGit(args []string) (verdict, bool) {
 	case "push":
 		return verdict{decision: "ask", reason: "git push detected - allow?"}, true
 	case "merge":
-		return verdict{decision: "deny", reason: "[BLOCKED] git merge - branch merges not allowed"}, true
+		return verdict{decision: "ask", reason: "git merge detected - allow?"}, true
 	case "rebase":
-		return verdict{decision: "deny", reason: "[BLOCKED] git rebase - rebasing not allowed"}, true
+		return verdict{decision: "ask", reason: "git rebase detected - allow?"}, true
 	case "reset":
 		if hasFlag(rest, "--hard") {
-			return verdict{decision: "deny", reason: "[BLOCKED] git reset --hard - destructive reset not allowed"}, true
+			return verdict{decision: "ask", reason: "git reset --hard discards uncommitted changes - allow?"}, true
 		}
 	case "clean":
-		return verdict{decision: "deny", reason: "[BLOCKED] git clean - file deletion not allowed"}, true
+		return verdict{decision: "ask", reason: "git clean removes untracked files - allow?"}, true
 	case "branch":
 		for _, a := range rest {
 			if a == "-d" || a == "-D" || a == "--delete" {
-				return verdict{decision: "deny", reason: "[BLOCKED] git branch delete not allowed"}, true
+				return verdict{decision: "ask", reason: "git branch delete detected - allow?"}, true
 			}
 		}
 	case "checkout":
 		for _, a := range rest {
 			if a == "--" {
-				return verdict{decision: "deny", reason: "[BLOCKED] git checkout -- discards changes, not allowed"}, true
+				return verdict{decision: "ask", reason: "git checkout -- discards working-tree changes - allow?"}, true
 			}
 		}
 	case "restore":
-		return verdict{decision: "deny", reason: "[BLOCKED] git restore - discarding changes not allowed"}, true
+		return verdict{decision: "ask", reason: "git restore discards changes - allow?"}, true
 	case "stash":
 		if len(rest) > 0 && (rest[0] == "drop" || rest[0] == "clear") {
-			return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] git stash %s - stash destruction not allowed", rest[0])}, true
+			return verdict{decision: "ask", reason: fmt.Sprintf("git stash %s discards stashed changes - allow?", rest[0])}, true
 		}
 	case "tag":
 		for _, a := range rest {
 			if a == "-d" || a == "--delete" {
-				return verdict{decision: "deny", reason: "[BLOCKED] git tag delete not allowed"}, true
+				return verdict{decision: "ask", reason: "git tag delete detected - allow?"}, true
 			}
 		}
 	}
