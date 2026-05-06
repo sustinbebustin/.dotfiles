@@ -1,7 +1,7 @@
 ---
 name: prime
 allowed-tools: Bash(bash:*)
-description: Prime context with current git changes
+description: Prime context with the repo's git status, recent commits, and working diffs. Use at the start of a session to load relevant code context before deeper work.
 argument_hint: [repo]
 disable-model-invocation: true
 ---

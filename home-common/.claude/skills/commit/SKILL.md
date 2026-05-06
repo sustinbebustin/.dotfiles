@@ -1,8 +1,9 @@
 ---
 name: commit
-description: Git commit workflow combining atomic commits (scope/granularity) with conventional commits (message format). Use when committing code changes, reviewing commit history, or when guidance is needed on how to structure commits for clarity and reversibility.
+description: Git commit workflow combining atomic scope with conventional message format. Use when committing changes, reviewing history, or structuring commits for clarity and reversibility.
 allowed-tools: Bash
 argument_hint: [subdir] [-- note]
+disable-model-invocation: true
 ---
 
 # Git Commit Skill

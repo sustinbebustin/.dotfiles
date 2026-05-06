@@ -1,6 +1,6 @@
 ---
 name: index-knowledge
-description: Generate hierarchical CLAUDE.md knowledge base for a codebase. Creates root + complexity-scored subdirectory documentation.
+description: Generate a hierarchical CLAUDE.md knowledge base for a codebase, creating root plus complexity-scored subdirectory docs. Use to bootstrap or refresh a project's CLAUDE.md tree.
 disable-model-invocation: true
 ---
 

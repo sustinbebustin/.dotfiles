@@ -1,11 +1,6 @@
 ---
-description: Knowledge about Keep a Changelog standard for writing and maintaining changelogs
-triggers:
-  - changelog
-  - CHANGELOG
-  - release notes
-  - version history
-  - what changed
+name: keep-a-changelog
+description: Keep a Changelog standard for writing and maintaining human-readable changelogs. Use when editing CHANGELOG, drafting release notes, or documenting version history.
 ---
 
 # Keep a Changelog Standard

@@ -1,7 +1,7 @@
 ---
 name: commit-push-pr
 allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion
-description: Commit, push, and open a PR
+description: Commit, push, and open a GitHub PR in one flow. Use when finishing a branch and ready to ship, or on phrases like "open a PR", "push and PR", or "ship this branch".
 argument_hint: [repo] [-- note]
 disable-model-invocation: true
 ---

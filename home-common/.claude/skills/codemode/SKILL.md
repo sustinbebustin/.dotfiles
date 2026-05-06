@@ -1,6 +1,6 @@
 ---
 name: codemode
-description: Author local Code Mode tools as MCP servers for Claude Code. Use when building a local tool that wraps N host functions behind a single code-generating tool, replacing per-call JSON tool dispatch with one executed JavaScript function. Triggers on mentions of codemode, CodeAct, @cloudflare/codemode, or "wrap my tools in a code tool".
+description: Author Code Mode MCP servers that wrap multiple host functions behind one code-generating tool, replacing per-call JSON tool dispatch with a single executed JavaScript function. Triggers on codemode, CodeAct, @cloudflare/codemode, or "wrap my tools in a code tool".
 disable-model-invocation: true
 ---
 
