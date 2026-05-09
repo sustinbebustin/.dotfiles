@@ -5,7 +5,7 @@
 #   make           # build all binaries
 #   make clean     # remove built binaries
 
-HOOKS := block-dangerous-git block-env-files
+HOOKS := block-dangerous-git block-env-files enforce-root
 BINS  := $(addsuffix -bin,$(HOOKS))
 
 .PHONY: all build clean
