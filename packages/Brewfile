@@ -1,6 +1,7 @@
 # Core
 brew "gawk"
 brew "git"
+brew "just"
 brew "stow"
 brew "zsh"
 
