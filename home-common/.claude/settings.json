@@ -127,6 +127,7 @@
     "deny": [
       "Bash(wget:*)",
       "Bash(rm -rf *)",
+      "Bash(brew install:*)",
       "Read(**/.env)",
       "Read(**/.env.development)",
       "Read(**/.env.production)",
