@@ -140,11 +140,10 @@ func looksLikeEnv(base string) bool {
 }
 
 func isSafeEnv(base string) bool {
-	switch {
-	case strings.HasSuffix(base, ".example"),
-		strings.HasSuffix(base, ".sample"),
-		strings.HasSuffix(base, ".template"):
-		return true
+	for _, marker := range []string{".example", ".sample", ".template"} {
+		if strings.HasSuffix(base, marker) || strings.Contains(base, marker+".") {
+			return true
+		}
 	}
 	return false
 }
