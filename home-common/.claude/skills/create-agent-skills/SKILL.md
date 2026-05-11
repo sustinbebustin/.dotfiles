@@ -60,11 +60,12 @@ All fields are optional. Only `description` is recommended.
 | `description` | Recommended | What it does AND when to use it. Claude uses this for auto-discovery. Front-load the key use case: combined `description` + `when_to_use` is truncated at 1,536 chars in the skill listing. |
 | `when_to_use` | No | Extra trigger context (phrases, example requests). Appended to `description`; counts toward the 1,536-char cap. |
 | `argument-hint` | No | Hint shown during autocomplete. Example: `[issue-number]` |
+| `arguments` | No | Named positional arguments for `$name` substitution. Names map to positions in order — `arguments: [issue, branch]` makes `$issue` the first arg and `$branch` the second. Space-separated string or YAML list. |
 | `disable-model-invocation` | No | Set `true` to prevent Claude auto-loading. Use for manual workflows like `/deploy`, `/commit`. Default: `false`. |
 | `user-invocable` | No | Set `false` to hide from `/` menu. Use for background knowledge. Default: `true`. |
 | `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict other tools — add deny rules in `/permissions` for that. Example: `Read, Bash(git *)` |
-| `model` | No | Model to use. Options: `haiku`, `sonnet`, `opus`. |
-| `effort` | No | Effort level while the skill is active. Options: `low`, `medium`, `high`, `max` (Opus 4.6 only). Overrides session effort. |
+| `model` | No | Model to use. Accepts an alias (`haiku`, `sonnet`, `opus`), a full model ID (e.g. `claude-opus-4-7`), or `inherit`. Override applies only for the current turn — session model resumes on the next prompt. |
+| `effort` | No | Effort level while the skill is active. Options: `low`, `medium`, `high`, `xhigh`, `max`; available levels depend on the model. Overrides session effort. |
 | `context` | No | Set `fork` to run in isolated subagent context. |
 | `agent` | No | Subagent type when `context: fork`. Options: `Explore`, `Plan`, `general-purpose`, or custom agent name. |
 | `hooks` | No | Hooks scoped to this skill's lifecycle. |
@@ -99,13 +100,14 @@ disable-model-invocation: true
 Fix GitHub issue $ARGUMENTS following our coding standards.
 ```
 
-Access individual args: `$ARGUMENTS[0]` or shorthand `$0`, `$1`, `$2`. Indexed args use shell-style quoting — wrap multi-word values in quotes.
+Access individual args: `$ARGUMENTS[0]` or shorthand `$0`, `$1`, `$2`. Indexed args use shell-style quoting — wrap multi-word values in quotes. With the `arguments` frontmatter set, use named placeholders (`$issue`, `$branch`) instead of indexes.
 
 **Other substitutions:**
 
 | Variable | Description |
 |----------|-------------|
 | `${CLAUDE_SESSION_ID}` | Current session ID. Useful for logging or session-specific files. |
+| `${CLAUDE_EFFORT}` | Current effort level: `low`, `medium`, `high`, `xhigh`, or `max`. Adapt instructions to the active effort setting. |
 | `${CLAUDE_SKILL_DIR}` | Absolute path to the skill's directory. Use inside shell-injection blocks to reference bundled scripts regardless of cwd. For plugin skills, this is the skill's subdirectory inside the plugin. |
 
 ### Dynamic Context Injection
@@ -163,6 +165,23 @@ Priority order (higher wins on name conflicts): **enterprise > personal > projec
 When invoked, rendered `SKILL.md` content enters the conversation as a single message and stays there for the rest of the session. Claude Code does *not* re-read the file on later turns — write guidance as **standing instructions**, not one-time steps.
 
 **Auto-compaction:** on summarization, Claude Code re-attaches the most recent invocation of each skill after the summary, keeping the first 5,000 tokens of each, with a combined 25,000-token budget. Older skills can be dropped. If a skill stops influencing behavior after compaction, re-invoke it to restore the full content.
+
+## Visibility & Permissions
+
+Control which skills Claude can invoke without editing each SKILL.md.
+
+**Permission rules** (`/permissions` or `settings.json`) — `Skill(name)` exact match, `Skill(name *)` prefix match. Use in `allow`/`deny` to grant or block specific skills. Deny the bare `Skill` tool to disable all skills at once.
+
+**`skillOverrides` setting** — per-skill visibility states without touching the skill file (useful for shared/MCP-provided skills). The `/skills` menu writes this to `.claude/settings.local.json`; cycle with `Space`, save with `Enter`:
+
+| Value | Listed to Claude | In `/` menu |
+|-------|------------------|-------------|
+| `"on"` (default) | Name + description | Yes |
+| `"name-only"` | Name only (frees description budget) | Yes |
+| `"user-invocable-only"` | Hidden | Yes |
+| `"off"` | Hidden | Hidden |
+
+Plugin skills are not affected by `skillOverrides` — manage those through `/plugin`.
 
 ## Progressive Disclosure
 

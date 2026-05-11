@@ -39,11 +39,12 @@ All fields are optional. Only `description` is recommended.
 | `description` | Recommended | What it does and when to use it. Front-load the key use case: combined `description` + `when_to_use` is truncated at **1,536 characters** in the skill listing to reduce context usage. If omitted, uses the first paragraph of markdown content. |
 | `when_to_use` | No | Additional context for when Claude should invoke the skill (trigger phrases, example requests). Appended to `description`; counts toward the 1,536-char cap. |
 | `argument-hint` | No | Hint shown during autocomplete. Example: `[issue-number]` or `[filename] [format]` |
+| `arguments` | No | Named positional arguments declared for `$name` substitution. Names map to argument positions in order — `arguments: [issue, branch]` makes `$issue` the first arg and `$branch` the second. Accepts a space-separated string or YAML list. |
 | `disable-model-invocation` | No | Set `true` to prevent Claude from auto-loading. Use for manual workflows. Default: `false` |
 | `user-invocable` | No | Set `false` to hide from `/` menu. Use for background knowledge. Default: `true` |
 | `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict tools — every tool remains callable and permission settings still govern unlisted tools. Accepts space-separated string or YAML list. |
-| `model` | No | Model to use: `haiku`, `sonnet`, or `opus` |
-| `effort` | No | Effort level while skill is active. Options: `low`, `medium`, `high`, `max` (Opus 4.6 only). Overrides session effort. |
+| `model` | No | Model to use. Accepts an alias (`haiku`, `sonnet`, `opus`), a full model ID (e.g. `claude-opus-4-7`, `claude-sonnet-4-6`), or `inherit`. Override applies for the rest of the current turn and is **not** saved to settings — the session model resumes on the next prompt. |
+| `effort` | No | Effort level while skill is active. Options: `low`, `medium`, `high`, `xhigh`, `max`; available levels depend on the model. Overrides session effort. |
 | `context` | No | Set `fork` to run in isolated subagent context |
 | `agent` | No | Subagent type when `context: fork`. Options: `Explore`, `Plan`, `general-purpose`, or any custom subagent from `.claude/agents/`. Defaults to `general-purpose`. |
 | `hooks` | No | Hooks scoped to this skill's lifecycle. See [Hooks in skills and agents](https://code.claude.com/docs/en/hooks#hooks-in-skills-and-agents). |
@@ -102,7 +103,9 @@ Claude Code ships with prompt-based bundled skills available in every session: `
 | `$ARGUMENTS` | All arguments passed when invoking. If not present in content, arguments are appended as `ARGUMENTS: <value>`. |
 | `$ARGUMENTS[N]` | Specific argument by 0-based index. Uses shell-style quoting — wrap multi-word values in quotes. |
 | `$N` | Shorthand for `$ARGUMENTS[N]` (`$0`, `$1`, ...). |
+| `$name` | Named argument declared in the `arguments` frontmatter list. With `arguments: [issue, branch]`, `$issue` expands to the first arg and `$branch` to the second. |
 | `${CLAUDE_SESSION_ID}` | Current session ID. Useful for logging or session-specific files. |
+| `${CLAUDE_EFFORT}` | Current effort level: `low`, `medium`, `high`, `xhigh`, or `max`. Use to adapt skill instructions to the active effort setting. |
 | `${CLAUDE_SKILL_DIR}` | Directory containing the skill's `SKILL.md`. For plugin skills, the skill's subdirectory within the plugin, not the plugin root. Use inside shell-injection blocks to reference bundled scripts regardless of cwd. |
 
 ## Dynamic Context Injection
@@ -182,7 +185,29 @@ Skill(deploy *)        # in deny rules, blocks the skill
 
 **Hide individual skills** with `disable-model-invocation: true` — removes the skill from Claude's context entirely. Note: `user-invocable` only controls menu visibility, not Skill-tool access.
 
-Built-in commands like `/compact` and `/init` are *not* available through the Skill tool.
+A few built-in commands *are* available through the Skill tool (e.g. `/init`, `/review`, `/security-review`). Others like `/compact` are not.
+
+### `skillOverrides` setting
+
+`skillOverrides` in [settings](https://code.claude.com/docs/en/settings) controls per-skill visibility *without* editing the skill's frontmatter — useful for shared-repo or MCP-provided skills you can't modify. The `/skills` menu writes overrides to `.claude/settings.local.json` (cycle with `Space`, save with `Enter`).
+
+| Value | Listed to Claude | In `/` menu |
+|-------|------------------|-------------|
+| `"on"` | Name + description | Yes |
+| `"name-only"` | Name only | Yes |
+| `"user-invocable-only"` | Hidden | Yes |
+| `"off"` | Hidden | Hidden |
+
+```json
+{
+  "skillOverrides": {
+    "legacy-context": "name-only",
+    "deploy": "off"
+  }
+}
+```
+
+A skill absent from `skillOverrides` is treated as `"on"`. Plugin skills are not affected — manage those via `/plugin`.
 
 ## Configuration Knobs
 
