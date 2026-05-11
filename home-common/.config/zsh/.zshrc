@@ -99,6 +99,12 @@ fi
 
 path_prepend "$HOME/.npm-packages/bin"
 
+# Keep auth tokens (`npm login`) out of the tracked ~/.npmrc by redirecting
+# the userconfig to an untracked file. The tracked dotfile is promoted to
+# globalconfig so its settings still apply.
+export NPM_CONFIG_USERCONFIG="$HOME/.npmrc.local"
+export NPM_CONFIG_GLOBALCONFIG="$HOME/.npmrc"
+
 # ===== Bun =====
 # Put the bun completion (37 KB) on fpath so compinit auto-discovers it
 # instead of sourcing the whole file at every shell startup.
@@ -265,3 +271,14 @@ fi
 . "$HOME/.local/bin/env"
 
 export QLTY_INSTALL="$HOME/.qlty"
+
+# pnpm
+export PNPM_HOME="/home/austin/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+# bun completions
+[ -s "/home/austin/.bun/_bun" ] && source "/home/austin/.bun/_bun"
