@@ -38,9 +38,11 @@ Repo resolution:
 2. **Create a new branch if on main.**
 3. **Assess atomicity** -- split into multiple commits if changes contain independent logical units. See [When to split commits](#when-to-split-commits).
 4. **Stage selectively per commit** (specific files or `git add -p`) and commit with a conventional message. See [Conventional commit format](#conventional-commit-format). Each commit subject should read as a user-facing sentence; release tooling (e.g., Release Please, GitHub Releases auto-notes) uses these subjects to build release notes verbatim.
-5. **CHANGELOG handling.** Use `**CHANGELOG.md present:**` from the gathered state:
-   - `no` -> SKIP entirely. Do **not** create a `CHANGELOG.md`.
-   - `yes` -> follow the [keep-a-changelog](../keep-a-changelog/SKILL.md) skill to add entries under `[Unreleased]` for any user-facing changes in the commits you just made (the keep-a-changelog skill itself defers to Release Please when `release-please-config.json` is present — respect that). Commit the CHANGELOG change separately as `docs(changelog): ...`.
+5. **Release-notes handling.** The gathered state above contains a `**Release-notes action:**` line. That verdict is authoritative — do **not** run additional `ls`, `cat`, `grep`, or any other commands to re-detect release tooling. Dispatch on the action:
+   - `skip` -> do nothing for release notes.
+   - `update-changelog` -> use the [keep-a-changelog](../keep-a-changelog/SKILL.md) skill to add entries under `[Unreleased]` for user-facing changes from the commits you just made. Commit the CHANGELOG change separately as `docs(changelog): ...`.
+   - `add-changeset` -> write a new file under `.changeset/<kebab-name>.md` per [Changeset handling](#changeset-handling), using **Candidate packages for changeset frontmatter** from the gathered state. Commit it separately as `docs(changeset): ...`.
+   - `verify-changeset` -> read the file(s) listed under **Changeset files added on this branch**. If they describe the user-facing changes in this branch's commits, do nothing. Only add another changeset if the existing ones materially miss something.
 6. **Push the branch to origin.**
 7. **Create a pull request** using `gh pr create`. The PR title should also be a conventional-commit subject (release tooling reads this when squash-merging). Do **not** include a "Test Plan" / "Test plan" section in the PR body — keep the body to a short summary only. Write the PR body using the [Voice DNA](../../commands/voice-dna.md) rules: contractions, short paragraphs (1-3 sentences), no em dashes, no banned AI phrases, and no "not X, but Y" negation constructions.
 8. After the target repo is determined, keep output to tool calls only -- no extra prose.
@@ -72,4 +74,49 @@ Repo resolution:
 - Changes that only make sense together (function + its tests)
 - Rename/move touching many files but one logical operation
 - Config changes required by the code change
+
+## Changeset handling
+
+A changeset is a short markdown file under `.changeset/` that describes user-facing changes and the SemVer bump they imply. Format:
+
+```
+---
+"<package-name>": patch | minor | major
+---
+
+Short description of the change.
+```
+
+Multiple packages, listed in frontmatter:
+
+```
+---
+"@scope/pkg-a": minor
+"@scope/pkg-b": patch
+---
+
+Description.
+```
+
+Rules:
+
+- **Bump type:** `patch` for fixes, `minor` for backwards-compatible features, `major` for breaking changes (also use `!` in the commit subject for breaking).
+- **Packages:** use the names from `**Candidate packages**` in the gathered state. Include only packages whose code actually changed on this branch. If those globs look wrong, read `.changeset/config.json`'s `packages` field for the source of truth.
+- **Filename:** kebab-case, descriptive: `.changeset/fix-auth-redirect.md`. Don't ship the changeset CLI's random `adjective-noun-verb` name -- a descriptive filename reviews better.
+- **Description:** one short sentence, user-facing, imperative or past tense -- match existing changesets in the repo.
+
+Check `**Existing changeset files**` first. If a changeset on this branch already covers the work, do not add another.
+
+### When to use an empty changeset
+
+For changes with no consumer-visible impact (internal refactor, tests, CI/build config, lint config, docs that don't ship, type-only changes invisible to consumers), create an **empty** changeset rather than skipping. Most changeset bots fail PRs with no changeset, and "empty" is the documented escape hatch:
+
+```
+---
+---
+
+Internal refactor; no consumer-visible changes.
+```
+
+If unsure between a real and empty changeset, prefer empty -- empty is safe, missing breaks CI.
 
