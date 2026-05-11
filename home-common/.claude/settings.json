@@ -134,7 +134,7 @@
       "Read(**/*.env)",
       "Read(**/secrets/**)"
     ],
-    "defaultMode": "auto"
+    "defaultMode": "acceptEdits"
   },
   "hooks": {
     "PreToolUse": [
@@ -177,7 +177,8 @@
   },
   "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
-  "effortLevel": "xhigh",
+  "model": "claude-opus-4-6[1m]",
+  "effortLevel": "high",
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "remoteControlAtStartup": false,
