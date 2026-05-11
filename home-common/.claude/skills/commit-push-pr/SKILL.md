@@ -107,6 +107,8 @@ Rules:
 
 Check `**Existing changeset files**` first. If a changeset on this branch already covers the work, do not add another.
 
+If the gathered state includes **Repo changeset instructions (.changeset/README.md)**, follow those repo-specific instructions. They take precedence over the defaults above when they conflict.
+
 ### When to use an empty changeset
 
 For changes with no consumer-visible impact (internal refactor, tests, CI/build config, lint config, docs that don't ship, type-only changes invisible to consumers), create an **empty** changeset rather than skipping. Most changeset bots fail PRs with no changeset, and "empty" is the documented escape hatch:

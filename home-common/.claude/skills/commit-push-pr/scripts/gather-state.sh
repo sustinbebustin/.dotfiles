@@ -168,6 +168,13 @@ report_repo() {
   echo ""
 
   if [ "$cs" = "1" ] && [ "$rp" = "0" ]; then
+    if [ -f "$dir/.changeset/README.md" ]; then
+      echo "**Repo changeset instructions (.changeset/README.md):**"
+      echo '```'
+      cat "$dir/.changeset/README.md"
+      echo '```'
+      echo ""
+    fi
     echo "**Changeset files added on this branch:**"
     if [ -n "$new" ]; then
       echo "$new" | sed 's/^/- /'
