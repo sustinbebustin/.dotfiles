@@ -164,15 +164,6 @@
             "command": "$HOME/.claude/hooks/enforce-root-bin"
           }
         ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "nub hook claude"
-          }
-        ]
       }
     ]
   },

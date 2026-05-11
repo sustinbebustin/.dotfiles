@@ -103,5 +103,3 @@ Never leave broken windows -- bad designs, sloppy formatting, commented-out junk
 - Never create commits, PRs, or push unless explicitly requested
 - **Never** add AI/Agent attribution or contributor status
 - `gh` CLI available for GitHub ops
-
-@NUB.md
