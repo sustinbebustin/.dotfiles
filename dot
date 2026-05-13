@@ -154,6 +154,128 @@ prune_broken_stow_links() {
     fi
 }
 
+# --- Skills (flattened category support) ---
+
+# Claude Code only reads ~/.claude/skills/<name>/SKILL.md (depth 1), so the
+# dotfiles source may organize skills under an optional one-level category
+# dir for human clarity (e.g. skills/meta/claude-code-docs/) -- we flatten
+# that layer away when linking into $HOME. The skills tree is excluded from
+# GNU Stow in .stow-local-ignore; these helpers replace stow for that subtree.
+
+skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/home-common/.claude/skills"; }
+skills_dst_dir() { printf '%s\n' "${HOME}/.claude/skills"; }
+
+# Returns: flat | category | invalid
+skill_dir_kind() {
+    local dir="$1"
+    if [[ -f "$dir/SKILL.md" ]]; then
+        printf 'flat\n'
+        return
+    fi
+    local has_any=0 entry
+    while IFS= read -r -d '' entry; do
+        local base="${entry##*/}"
+        case "$base" in .*|README*|LICENSE*) continue ;; esac
+        if [[ -d "$entry" && -f "$entry/SKILL.md" ]]; then
+            has_any=1
+        else
+            printf 'invalid\n'
+            return
+        fi
+    done < <(find "$dir" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+    if [[ $has_any -eq 1 ]]; then
+        printf 'category\n'
+    else
+        printf 'invalid\n'
+    fi
+}
+
+# Delete *broken* symlinks under ~/.claude/skills/ that point into the
+# dotfiles dir (orphans from removed sources), then rmdir empty parents.
+# Links to still-existing sources are left alone -- link_skill_tree() will
+# overwrite them in place via `ln -snf` if the target needs to change
+# (e.g. a skill moved between categories).
+prune_skill_links() {
+    local dst marker pattern
+    dst="$(skills_dst_dir)"
+    [[ -d "$dst" ]] || return 0
+    marker="/$(basename "$DOTFILES_DIR")/"
+    pattern="*${marker}*"
+    local removed=0 link
+    while IFS= read -r -d '' link; do
+        [[ -e "$link" ]] && continue
+        rm -f "$link"
+        ((++removed))
+    done < <(find "$dst" -type l -lname "$pattern" -print0 2>/dev/null)
+    find "$dst" -mindepth 1 -depth -type d -empty -delete 2>/dev/null || true
+    if [[ $removed -gt 0 ]]; then
+        info "Pruned $removed orphaned skill symlink(s)"
+    fi
+}
+
+# Mirror $src_skill into $dst_skill with real dirs + per-file symlinks
+# (mimics `stow --no-folding`).
+link_skill_tree() {
+    local src_skill="$1" dst_skill="$2"
+    mkdir -p "$dst_skill"
+    local file rel target_file
+    while IFS= read -r -d '' file; do
+        rel="${file#"$src_skill"/}"
+        target_file="${dst_skill}/${rel}"
+        mkdir -p "$(dirname "$target_file")"
+        ln -snf "$file" "$target_file"
+    done < <(find "$src_skill" -type f -print0 2>/dev/null)
+}
+
+stow_skills() {
+    local src dst
+    src="$(skills_src_dir)"
+    dst="$(skills_dst_dir)"
+    [[ -d "$src" ]] || return 0
+    info "Linking Claude skills..."
+    mkdir -p "$dst"
+    prune_skill_links
+    local seen_names="" entry kind name child child_name
+    while IFS= read -r -d '' entry; do
+        name="${entry##*/}"
+        case "$name" in .stow-local-ignore|.git*|README*|LICENSE*) continue ;; esac
+        [[ -d "$entry" ]] || continue
+        kind="$(skill_dir_kind "$entry")"
+        case "$kind" in
+            flat)
+                case ":$seen_names:" in
+                    *":$name:"*)
+                        err "Duplicate skill name: $name (at $entry)"
+                        return 1
+                        ;;
+                esac
+                seen_names="${seen_names}:${name}"
+                link_skill_tree "$entry" "$dst/$name"
+                ;;
+            category)
+                while IFS= read -r -d '' child; do
+                    child_name="${child##*/}"
+                    case "$child_name" in .*|README*|LICENSE*) continue ;; esac
+                    [[ -d "$child" && -f "$child/SKILL.md" ]] || continue
+                    case ":$seen_names:" in
+                        *":$child_name:"*)
+                            err "Duplicate skill name: $child_name (category $name conflicts with earlier)"
+                            return 1
+                            ;;
+                    esac
+                    seen_names="${seen_names}:${child_name}"
+                    link_skill_tree "$child" "$dst/$child_name"
+                done < <(find "$entry" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+                ;;
+            invalid)
+                err "Skill dir $entry has no SKILL.md and isn't a category of skills"
+                return 1
+                ;;
+        esac
+    done < <(find "$src" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+    ok "Skills linked"
+}
+
 # --- Core operations ---
 
 install_homebrew() {
@@ -433,6 +555,7 @@ cmd_stow() {
     info "Stowing dotfiles (${packages[*]})..."
     prune_broken_stow_links
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "${packages[@]}"
+    stow_skills
     ok "Dotfiles linked"
 }
 

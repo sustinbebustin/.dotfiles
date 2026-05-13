@@ -21,3 +21,8 @@
 
 # Bash hooks that have been replaced; kept on disk for reference only.
 ^/\.claude/hooks/_archived$
+
+# Skills tree is managed by `dot`'s stow_skills() helper, which flattens
+# an optional one-level category dir between skills/ and <skill>/ (Claude
+# Code only reads ~/.claude/skills/<name>/SKILL.md). Keep stow out of it.
+^/\.claude/skills(/.*)?$
