@@ -4,7 +4,7 @@
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-4-6",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_NO_FLICKER": "1",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "228000"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "256000"
   },
   "attribution": {
     "commit": "",
@@ -134,7 +134,7 @@
       "Read(**/*.env)",
       "Read(**/secrets/**)"
     ],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "auto"
   },
   "hooks": {
     "PreToolUse": [
@@ -177,8 +177,7 @@
   },
   "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
-  "model": "claude-opus-4-6[1m]",
-  "effortLevel": "high",
+  "effortLevel": "xhigh",
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "remoteControlAtStartup": false,
