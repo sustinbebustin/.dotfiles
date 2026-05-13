@@ -1,0 +1,21 @@
+# pnpm global settings
+# Docs: https://pnpm.io/settings
+# Non-auth/non-registry settings must live here (or in a project's
+# pnpm-workspace.yaml) -- .npmrc only carries auth/registry config.
+
+# Block install-time scripts globally. Migrated from ~/.npmrc (v11 only reads
+# auth/registry from .npmrc). Individual projects re-assert this in their
+# pnpm-workspace.yaml so the constraint is portable across teammates.
+ignoreScripts: true
+
+# Supply-chain cooldown: don't install a package version until it has been
+# published for at least this many minutes. 4320 min = 3 days.
+# Applies to all dependencies, including transitive.
+minimumReleaseAge: 4320
+
+# Bypass the cooldown for packages I publish myself, so a fresh release
+# is immediately installable via `pnpm dlx` or from another repo.
+# Workspace-protocol deps already bypass automatically (no registry time
+# metadata), so only published scopes belong here.
+minimumReleaseAgeExclude:
+  - "@turbocraft/*"
