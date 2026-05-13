@@ -157,7 +157,7 @@ report_repo() {
     fi
   elif [ "$has_changelog" = "1" ]; then
     action="update-changelog"
-    reason="manual CHANGELOG.md present (no release-please, no changesets). Add user-facing entries under [Unreleased] via the keep-a-changelog skill."
+    reason="manual CHANGELOG.md present (no release-please, no changesets). Add user-facing entries under [Unreleased] per references/changelog.md."
   else
     action="skip"
     reason="no release tooling and no CHANGELOG.md. Nothing to do for release notes."
