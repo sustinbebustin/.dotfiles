@@ -173,6 +173,27 @@ fi
 # Claude Code
 alias viki='claude --append-system-prompt-file ~/.claude/prompt.txt'
 
+# Claude model + effort wrappers.
+# Usage: `opus`, `opus high`, `opus-old medium`, `sonnet low`, etc.
+# Bare invocation defaults to each model's highest non-`max` supported effort.
+# `opus-old` and `sonnet` force `--permission-mode acceptEdits` because the
+# global default (`auto`) only supports Opus 4.7.
+# Extra args are forwarded to `claude` (e.g. `opus high --resume`).
+_claude_model() {
+  local model="$1" default_effort="$2" valid_efforts="$3" extra_flags="$4"
+  shift 4
+  local effort="$default_effort"
+  if [[ -n "$1" && " $valid_efforts " == *" $1 "* ]]; then
+    effort="$1"
+    shift
+  fi
+  claude --model "$model" --effort "$effort" ${=extra_flags} "$@"
+}
+
+opus()     { _claude_model opus            xhigh "low medium high xhigh max" ""                              "$@" }
+opus-old() { _claude_model claude-opus-4-6 high  "low medium high max"       "--permission-mode acceptEdits" "$@" }
+sonnet()   { _claude_model sonnet          high  "low medium high max"       "--permission-mode acceptEdits" "$@" }
+
 # Git
 alias gpl='git pull'
 alias gaa='git add .'
