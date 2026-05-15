@@ -16,7 +16,7 @@ Inspired by Apple's CodeAct paper. LLMs have seen millions of lines of real code
 2. **`createCodeTool({ tools, executor })`** — returns one AI SDK tool the LLM calls by writing code
 3. **`Executor` interface** — where the code runs; the Cloudflare `DynamicWorkerExecutor` is one implementation, you write another for local use
 
-The `codemode.md` source (`/home/austin/.dotfiles/codemode/codemode.md:693`) documents the `Executor` contract — it is deliberately minimal so Node VM, subprocess, and container executors are all first-class.
+The `Executor` contract is deliberately minimal so Node VM, subprocess, and container executors are all first-class. The authoritative signature lives in `node_modules/@cloudflare/codemode/dist/executor-*.d.ts` after install.
 
 ## When to Use This Skill
 
@@ -50,7 +50,7 @@ Restart Claude Code. Your server now advertises one `code` tool whose descriptio
 
 Use [templates/server.ts](templates/server.ts) verbatim — it is the reference. Do not hand-roll a smaller version from memory. Two details the first-draft executor keeps getting wrong are load-bearing:
 
-1. **`codemode@0.2.x` passes `ResolvedProvider[]` to `Executor.execute`**, not the flat `Record<string, fn>` shown in Cloudflare's `codemode.md`. An executor that only handles the flat form silently breaks: the array `[{name:"codemode", fns}]` gets bound to `codemode`, and every sandbox call like `codemode.query(...)` fails with `codemode.query is not a function`. See [references/gotchas.md](references/gotchas.md#version-drift-between-docs-and-package-codemode02x).
+1. **`codemode@0.2.x` passes `ResolvedProvider[]` to `Executor.execute`**, not the flat `Record<string, fn>` shown in Cloudflare's published developer docs. An executor that only handles the flat form silently breaks: the array `[{name:"codemode", fns}]` gets bound to `codemode`, and every sandbox call like `codemode.query(...)` fails with `codemode.query is not a function`. See [references/gotchas.md](references/gotchas.md#version-drift-between-docs-and-package-codemode02x).
 2. **Sandbox fns return the raw MCP `CallToolResult` wrapper** — `{content: [{type:"text", text}], isError?}` — not the data. LLM-written `r.rows.map(...)` fails with `r.rows is undefined`, and `try/catch` does not fire on tool errors. The template unwraps MCP results inside the executor so sandbox code sees parsed data and `try/catch` works. See [references/gotchas.md](references/gotchas.md#mcp-result-wrapping-under-codemcpserver).
 
 The shape of the template's executor:
@@ -98,7 +98,7 @@ Write a local `Executor` to replace `DynamicWorkerExecutor`. Everything else on 
 
 ## Hard Rules
 
-- **Never pass `needsApproval: true` tools to `createCodeTool`.** Code Mode has no approval flow — the tool runs immediately inside the sandbox. Route approval-required tools through a separate, non-codemode MCP server. (`codemode.md:885`)
+- **Never pass `needsApproval: true` tools to `createCodeTool`.** Code Mode has no approval flow — the tool runs immediately inside the sandbox. Route approval-required tools through a separate, non-codemode MCP server.
 - **Never call `codemode.*` from host code.** It is a sandbox-only Proxy that only exists during `execute()`. Host code calls your tool functions directly.
 - **Never normalize or sanitize tool names or code before `execute()`.** The library already does both internally.
 - **Never write to `stdout` except the MCP protocol.** `StdioServerTransport` owns it. Route diagnostics to `stderr` via `console.error`.
@@ -115,9 +115,8 @@ Write a local `Executor` to replace `DynamicWorkerExecutor`. Everything else on 
 
 ## Source Material
 
-These files are the primary source; re-read them before making non-trivial claims:
+Authoritative sources, in order of preference:
 
-- `/home/austin/.dotfiles/codemode/codemode.md` — full API reference; `Executor` interface at line 693, limitations at line 885
-- `/home/austin/.dotfiles/codemode/CLAUDE.md` — curated anti-patterns and hard requirements
-- `/home/austin/.dotfiles/codemode/examples/codemode-mcp/src/server.ts` — the closest Cloudflare example to port locally (112 lines)
-- `/home/austin/.dotfiles/codemode/examples/codemode/src/tools.ts` — canonical `tool()` + `zod` authoring style
+- `node_modules/@cloudflare/codemode/dist/executor-*.d.ts` — the installed package's type definitions; the only source that matches runtime behavior for `Executor.execute` in `codemode@0.2.x`
+- The `@cloudflare/codemode` package README and Cloudflare's developer docs for Code Mode — full API reference and conceptual overview
+- The `codemode-mcp` example in Cloudflare's published examples — the closest Worker-shaped reference; port per [references/gotchas.md](references/gotchas.md)

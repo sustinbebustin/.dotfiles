@@ -4,7 +4,7 @@ The `Executor` interface from `@cloudflare/codemode` is deliberately minimal. `D
 
 ## The interface (codemode@0.2.x)
 
-Source of truth: `node_modules/@cloudflare/codemode/dist/executor-*.d.ts` in any recent install. The Cloudflare developer docs at `codemode.md` line ~693 are behind — they still show the deprecated flat-record form only.
+Source of truth: `node_modules/@cloudflare/codemode/dist/executor-*.d.ts` in any recent install. Cloudflare's published developer docs are behind — they still show the deprecated flat-record form only.
 
 ```ts
 type ProviderFn = (...args: unknown[]) => Promise<unknown>;

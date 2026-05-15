@@ -1,10 +1,10 @@
 # Gotchas: Cloudflare-isms to Strip
 
-The examples under `/home/austin/.dotfiles/codemode/examples/` are written for Cloudflare Workers. When porting them to a local Claude Code MCP server, strip the Workers-specific pieces and replace them with portable equivalents.
+Cloudflare's `codemode` examples (`codemode-mcp`, `codemode`) are written for Cloudflare Workers. When porting them to a local Claude Code MCP server, strip the Workers-specific pieces and replace them with portable equivalents.
 
 ## Line-by-line replacements
 
-Source of truth: `/home/austin/.dotfiles/codemode/examples/codemode-mcp/src/server.ts` — the closest example to a portable server, but still Worker-shaped.
+The `codemode-mcp` example is the closest to a portable server, but still Worker-shaped. Apply these substitutions when porting it:
 
 | Strip | Replace with |
 |---|---|
@@ -42,7 +42,7 @@ Add:
 
 - `tsx` + `typescript` as dev deps
 
-## Behavioral gotchas (from `codemode/CLAUDE.md` and `codemode.md`)
+## Behavioral gotchas
 
 These apply the same locally as they do on Cloudflare:
 
@@ -54,7 +54,7 @@ These apply the same locally as they do on Cloudflare:
 
 ## Version drift between docs and package (codemode@0.2.x)
 
-The Cloudflare developer docs at `codemode.md` line ~693 still show the original `Executor` interface:
+Cloudflare's published developer docs still show the original `Executor` interface:
 
 ```ts
 execute(code: string, fns: Record<string, (...args: unknown[]) => Promise<unknown>>): Promise<ExecuteResult>

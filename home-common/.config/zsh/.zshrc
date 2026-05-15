@@ -273,7 +273,7 @@ fi
 export QLTY_INSTALL="$HOME/.qlty"
 
 # pnpm
-export PNPM_HOME="/home/austin/.local/share/pnpm"
+export PNPM_HOME="$HOME/.local/share/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME/bin:"*) ;;
   *) export PATH="$PNPM_HOME/bin:$PATH" ;;
@@ -281,4 +281,4 @@ esac
 # pnpm end
 
 # bun completions
-[ -s "/home/austin/.bun/_bun" ] && source "/home/austin/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
