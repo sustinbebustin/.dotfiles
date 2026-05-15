@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-CONTEXT_DIR="${SCRIPT_DIR}/../../../context"
+CONTEXT_DIR="${SCRIPT_DIR}/../../../../context"
 INDEX_FILE="${CONTEXT_DIR}/INDEX.md"
 FETCH_SCRIPT="${SCRIPT_DIR}/fetch-docs.sh"
 MAX_AGE_DAYS="${CLAUDE_DOCS_MAX_AGE_DAYS:-7}"

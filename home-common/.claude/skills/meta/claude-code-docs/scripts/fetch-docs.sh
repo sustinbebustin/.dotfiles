@@ -8,7 +8,7 @@ set -euo pipefail
 LLMS_TXT_URL="https://code.claude.com/docs/llms.txt"
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 # scripts -> claude-code-docs -> skills -> .claude
-CONTEXT_DIR="${SCRIPT_DIR}/../../../context"
+CONTEXT_DIR="${SCRIPT_DIR}/../../../../context"
 INDEX_FILE="${CONTEXT_DIR}/INDEX.md"
 
 mkdir -p "$CONTEXT_DIR"
