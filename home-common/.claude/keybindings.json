@@ -5,7 +5,8 @@
     {
       "context": "Chat",
       "bindings": {
-        "ctrl+j": "chat:newline"
+        "ctrl+j": "chat:newline",
+        "ctrl+v": null
       }
     }
   ]
