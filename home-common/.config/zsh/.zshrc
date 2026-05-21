@@ -161,9 +161,9 @@ fi
 alias l="ls"
 alias ll="ls -al"
 alias c="clear"
-alias t="eza . --tree --level=1"
-alias tt="eza . --tree --level=2"
-alias ttt="eza . --tree --level=3"
+alias t="eza . -a -I '.git' --tree --level=1"
+alias tt="eza . -a -I '.git' --tree --level=2"
+alias ttt="eza . -a -I '.git' --tree --level=3"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
   alias o="open ."
