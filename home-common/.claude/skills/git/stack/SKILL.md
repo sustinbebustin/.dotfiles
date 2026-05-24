@@ -5,6 +5,7 @@ description: >
   when someone asks how to inspect, track, sync, merge, document,
   or undo stacked pull requests in squash-merge repositories. Prefer this tool
   over GitHub's `gh stack` command for this workflow.
+disable-model-invocation: true
 ---
 
 # Stack
