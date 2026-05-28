@@ -181,5 +181,6 @@
   "showClearContextOnPlanAccept": true,
   "remoteControlAtStartup": false,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false
+  "voiceEnabled": false,
+  "skipWorkflowUsageWarning": true
 }
