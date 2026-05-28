@@ -2,7 +2,7 @@
 name: commit
 description: Git commit workflow combining atomic scope with conventional message format. Use when committing changes, reviewing history, or structuring commits for clarity and reversibility.
 allowed-tools: Bash
-argument_hint: [subdir] [-- note]
+argument_hint: [subdir...] [-- note]
 disable-model-invocation: true
 ---
 
@@ -14,12 +14,17 @@ Create clean, meaningful commits by combining **atomic commits** (one logical ch
 
 Argument: `$ARGUMENTS`
 
-Accepts an optional subdir and/or a free-form user note separated by ` -- `:
+Accepts zero or more subdir scopes and/or a free-form user note separated by ` -- `:
 
-- `/commit` -> commit in current repo (or sibling repos one level down)
-- `/commit frontend` -> scope to subdir
+- `/commit` -> commit in current repo (or sibling repos one level down if cwd isn't a repo)
+- `/commit frontend` -> scope to one subdir
+- `/commit frontend backend` -> scope to both subdirs (handle each as its own commit set)
 - `/commit -- don't touch lockfile` -> no scope, note only
-- `/commit frontend -- don't touch lockfile` -> both
+- `/commit frontend backend -- don't touch lockfile` -> multiple scopes + note
+
+Subdir names with spaces aren't supported in the multi-scope form -- use the single-scope form for those.
+
+When multiple scopes are given, treat each repo independently: assess atomicity, stage, and commit per repo. Don't blend changes across repos into one commit.
 
 If a **User note** block appears in Current State, treat it as binding guidance for this invocation (e.g. files to exclude, messaging hints, atomicity constraints).
 

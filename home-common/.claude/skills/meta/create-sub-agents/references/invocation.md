@@ -21,6 +21,8 @@ Use the test-runner subagent to fix failing tests
 Have the code-reviewer subagent look at my recent changes
 ```
 
+The `subagent_type` resolver is case- and separator-insensitive (v2.1.140): `"Code Reviewer"`, `"code-reviewer"`, and `"code_reviewer"` all resolve to the agent named `code-reviewer`. You can refer to an agent by its display name in prose without breaking delegation.
+
 ## `@`-Mention (Guaranteed)
 
 Type `@` and pick the subagent from the typeahead, the same way you `@`-mention files. This GUARANTEES that specific subagent runs:

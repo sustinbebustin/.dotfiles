@@ -2,7 +2,7 @@
 name: commit-push-pr
 allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion
 description: Commit, push, and open a GitHub PR in one flow. Use when finishing a branch and ready to ship, or on phrases like "open a PR", "push and PR", or "ship this branch".
-argument_hint: [repo] [-- note]
+argument_hint: [repo...] [-- note]
 disable-model-invocation: true
 ---
 
@@ -10,18 +10,23 @@ disable-model-invocation: true
 
 Argument: `$ARGUMENTS`
 
-Accepts an optional repo subdir and/or a free-form user note separated by ` -- `:
+Accepts zero or more repo subdirs and/or a free-form user note separated by ` -- `:
 
 - `/commit-push-pr` -> operate on cwd (or ask to pick a sibling repo)
-- `/commit-push-pr frontend` -> operate on subdir
+- `/commit-push-pr frontend` -> operate on one subdir
+- `/commit-push-pr frontend backend` -> operate on both subdirs (independent flows)
 - `/commit-push-pr -- skip lockfile` -> note only
-- `/commit-push-pr frontend -- skip lockfile` -> both
+- `/commit-push-pr frontend backend -- skip lockfile` -> scopes + note
+
+Subdir names with spaces aren't supported in the multi-scope form -- use the single-scope form for those.
+
+When multiple repos are given, run the entire flow (branch, commits, release-notes, push, PR) **independently** for each. Don't share branch names, commit messages, or PRs across repos. The context below emits one `### Target:` block per repo.
 
 If a **User note** block appears in Current State, treat it as binding guidance for this invocation (e.g. files to exclude, messaging hints, PR description cues).
 
 Repo resolution:
 
-- If a repo subdir is provided -> operate on that subdirectory
+- If one or more repo subdirs are provided -> operate on each, independently
 - If empty and cwd IS a git repo -> operate on the current directory
 - If empty and cwd is NOT a git repo -> the context below lists sibling git repos one level down; use `AskUserQuestion` to have the user pick exactly one before proceeding
 
@@ -31,9 +36,9 @@ Repo resolution:
 
 ## Your task
 
-1. **Determine the target repo:**
-   - If the context above shows `### Target:`, the repo is already known — skip to step 2.
-   - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then gather state for the chosen repo with `git -C <chosen> status`, `git -C <chosen> branch --show-current`, `git -C <chosen> log --oneline -5`, `git -C <chosen> diff --staged`, `git -C <chosen> diff`, and check for `CHANGELOG.md`.
+1. **Determine the target repo(s):**
+   - If the context above shows one or more `### Target:` blocks, the repo(s) are already known — run steps 2-7 independently for each target.
+   - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then re-invoke this skill scoped to the chosen repo so the gather script produces a full `### Target:` block (branch, recent commits, commits-ahead-of-default, cumulative diff stat, staged/unstaged diff, release-notes verdict). Don't try to reassemble that state from ad-hoc `git` calls -- the PR description needs the commits-ahead view that the script computes.
    - If no repos were found, STOP and tell the user.
 2. **Create a new branch if on main.**
 3. **Assess atomicity** -- split into multiple commits if changes contain independent logical units. See [When to split commits](#when-to-split-commits).
@@ -44,7 +49,7 @@ Repo resolution:
    - `add-changeset` -> write a new file under `.changeset/<kebab-name>.md` per [Changeset handling](#changeset-handling), using **Candidate packages for changeset frontmatter** from the gathered state. Commit it separately as `docs(changeset): ...`.
    - `verify-changeset` -> read the file(s) listed under **Changeset files added on this branch**. If they describe the user-facing changes in this branch's commits, do nothing. Only add another changeset if the existing ones materially miss something.
 6. **Push the branch to origin.**
-7. **Create a pull request** using `gh pr create`. The PR title should also be a conventional-commit subject (release tooling reads this when squash-merging). Do **not** include a "Test Plan" / "Test plan" section in the PR body — keep the body to a short summary only. Write the PR body using the [Voice DNA](../../commands/voice-dna.md) rules: contractions, short paragraphs (1-3 sentences), no em dashes, no banned AI phrases, and no "not X, but Y" negation constructions.
+7. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject (release tooling reads this when squash-merging) and should match the dominant change type across the branch. Do **not** include a "Test Plan" / "Test plan" section in the PR body — keep the body to a short summary only. Write the PR body using the [Voice DNA](../../commands/voice-dna.md) rules: contractions, short paragraphs (1-3 sentences), no em dashes, no banned AI phrases, and no "not X, but Y" negation constructions.
 8. After the target repo is determined, keep output to tool calls only -- no extra prose.
 
 ## Conventional commit format

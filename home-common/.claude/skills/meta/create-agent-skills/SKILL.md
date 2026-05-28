@@ -131,6 +131,8 @@ Add `context: fork` to run in isolation. The skill content becomes the subagent'
 
 **Warning:** `context: fork` only makes sense for skills with *explicit task instructions*. A skill that just lists conventions ("use these API patterns") will hand the subagent guidelines but no task, and return without output.
 
+**Don't echo the description's trigger phrases in the body.** The forked subagent inherits the same skill registry; if the body restates the trigger phrases verbatim, the subagent can re-match its own skill and recurse. Address the task directly ("Research $ARGUMENTS thoroughly...") rather than "when the user asks for X, do Y". The runtime now guards against tight loops, but a self-triggering body still wastes turns.
+
 ```yaml
 ---
 name: deep-research

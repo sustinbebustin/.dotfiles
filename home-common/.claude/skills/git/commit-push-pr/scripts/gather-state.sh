@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
 # Gather git state for the commit-push-pr skill.
-# Argument: raw $ARGUMENTS, optionally split as "<repo> -- <user note>".
+# Argument: raw $ARGUMENTS, optionally split as "<repos> -- <user note>".
 #
 # Parsing:
-# - "<repo>"                  -> scope to subdir, no note
-# - "<repo> -- <note text>"   -> scope to subdir, emit note
-# - "-- <note text>"          -> no scope, emit note
-# - ""                        -> no scope, no note
+# - ""                                  -> no scope, no note
+# - "<repo>"                            -> one subdir
+# - "<repo1> <repo2> ..."               -> multiple subdirs (space-separated)
+# - "-- <note text>"                    -> no scope, emit note
+# - "<repos> -- <note text>"            -> scopes + note
+#
+# Subdir names with spaces are not supported in the multi-scope form;
+# use the single-scope form for those.
 #
 # Repo resolution:
-# - If scope is non-empty: report state for that subdirectory.
+# - If one or more scopes: report state per subdirectory.
 # - Else if cwd is a git repo: report state for cwd.
 # - Else: list sibling git repos one level down.
 
 set -u
 
 raw="${1:-}"
-arg=""
+args_raw=""
 note=""
 
 if [[ "$raw" == "--" ]]; then
@@ -24,11 +28,14 @@ if [[ "$raw" == "--" ]]; then
 elif [[ "$raw" == "-- "* ]]; then
   note="${raw#-- }"
 elif [[ "$raw" == *" -- "* ]]; then
-  arg="${raw% -- *}"
+  args_raw="${raw% -- *}"
   note="${raw#* -- }"
 else
-  arg="$raw"
+  args_raw="$raw"
 fi
+
+# Split scopes on whitespace into an array.
+read -r -a scopes <<< "$args_raw"
 
 if [ -n "$note" ]; then
   echo "### User note"
@@ -128,6 +135,49 @@ report_repo() {
   echo "**Recent commits:**"
   git -C "$dir" log --oneline -5
   echo ""
+
+  # Branch commits ahead of the default branch. The agent uses this to scope
+  # the PR title and body to the WHOLE branch, not just the new commit(s) it's
+  # about to create from the working tree.
+  local default_branch base ahead stat
+  default_branch=$(detect_default_branch "$dir")
+  base=$(git -C "$dir" merge-base HEAD "origin/$default_branch" 2>/dev/null) || base=""
+  if [ -z "$base" ]; then
+    base=$(git -C "$dir" merge-base HEAD "$default_branch" 2>/dev/null) || base=""
+  fi
+
+  echo "**Default branch:** $default_branch"
+  echo ""
+  echo "**Branch commits ahead of origin/$default_branch (these will all be in the PR):**"
+  if [ -n "$base" ]; then
+    ahead=$(git -C "$dir" log --format='%h %s%n%b' "$base"..HEAD 2>/dev/null)
+    if [ -n "$ahead" ]; then
+      echo '```'
+      echo "$ahead"
+      echo '```'
+    else
+      echo "(none -- HEAD is at or behind $default_branch; the PR will only contain the new commit(s) created in this flow)"
+    fi
+  else
+    echo "(could not determine merge base with $default_branch)"
+  fi
+  echo ""
+
+  echo "**Cumulative branch diff vs origin/$default_branch (file stat):**"
+  if [ -n "$base" ]; then
+    stat=$(git -C "$dir" diff --stat "$base"..HEAD 2>/dev/null)
+    if [ -n "$stat" ]; then
+      echo '```'
+      echo "$stat"
+      echo '```'
+    else
+      echo "(no committed diff vs $default_branch)"
+    fi
+  else
+    echo "(skipped -- no merge base)"
+  fi
+  echo ""
+
   echo "**Staged diff:**"
   git -C "$dir" diff --staged
   echo ""
@@ -194,8 +244,11 @@ report_repo() {
   fi
 }
 
-if [ -n "$arg" ]; then
-  report_repo "$arg" "$arg"
+if [ "${#scopes[@]}" -gt 0 ]; then
+  for scope in "${scopes[@]}"; do
+    report_repo "$scope" "$scope"
+    echo ""
+  done
 elif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   report_repo "." "current directory"
 else

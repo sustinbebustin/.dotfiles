@@ -88,7 +88,9 @@ The `--add-dir` flag grants file access, not configuration discovery — but ski
 
 ## Bundled Skills
 
-Claude Code ships with prompt-based bundled skills available in every session: `/simplify`, `/batch`, `/debug`, `/loop`, `/claude-api`. Unlike built-in commands (fixed logic), bundled skills are detailed playbooks Claude orchestrates using its tools. Invoke them like any other skill.
+Claude Code ships with prompt-based bundled skills available in every session: `/code-review`, `/batch`, `/debug`, `/loop`, `/claude-api`. Unlike built-in commands (fixed logic), bundled skills are detailed playbooks Claude orchestrates using its tools. Invoke them like any other skill.
+
+`/code-review` (renamed from `/simplify` in v2.1.147) reports correctness bugs at a chosen effort level: e.g. `/code-review high`. Pass `--comment` to post findings as inline GitHub PR comments.
 
 ## How Skills Work
 
@@ -160,6 +162,8 @@ Research $ARGUMENTS thoroughly...
 The skill content becomes the subagent's prompt. It won't have access to conversation history.
 
 **Warning:** `context: fork` only makes sense for skills with explicit task instructions. If a skill contains only guidelines like "use these API conventions," the subagent receives the guidelines but no actionable prompt and returns without meaningful output.
+
+**Avoid self-recursion.** The forked subagent inherits the same skill registry, so a body that restates the description's trigger phrases can re-match its own skill and re-invoke itself. The runtime now guards against tight loops (v2.1.145 fix), but write the body as a direct task ("Research $ARGUMENTS...") rather than "when the user asks for X, do Y".
 
 ## Skill Content Lifecycle
 

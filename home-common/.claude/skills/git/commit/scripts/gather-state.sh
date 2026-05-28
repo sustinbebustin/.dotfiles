@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # Gather git state for the commit skill.
-# Argument: raw $ARGUMENTS string, optionally split as "<subdir> -- <user note>".
+# Argument: raw $ARGUMENTS string, optionally split as "<scopes> -- <user note>".
 #
 # Parsing:
-# - "<subdir>"                  -> scope to subdir, no note
-# - "<subdir> -- <note text>"   -> scope to subdir, emit note
-# - "-- <note text>"            -> no scope, emit note
-# - ""                          -> no scope, no note
+# - ""                                    -> no scope, no note
+# - "<subdir>"                            -> scope to one subdir
+# - "<subdir1> <subdir2> ..."             -> scope to multiple subdirs (space-separated)
+# - "-- <note text>"                      -> no scope, emit note
+# - "<scopes> -- <note text>"             -> scopes + note
+#
+# Subdir names with spaces are not supported in the multi-scope form;
+# use the single-scope form for those.
 
 set -u
 
 raw="${1:-}"
-scope=""
+scopes_raw=""
 note=""
 
 if [[ "$raw" == "--" ]]; then
@@ -19,11 +23,14 @@ if [[ "$raw" == "--" ]]; then
 elif [[ "$raw" == "-- "* ]]; then
   note="${raw#-- }"
 elif [[ "$raw" == *" -- "* ]]; then
-  scope="${raw% -- *}"
+  scopes_raw="${raw% -- *}"
   note="${raw#* -- }"
 else
-  scope="$raw"
+  scopes_raw="$raw"
 fi
+
+# Split scopes on whitespace into an array.
+read -r -a scopes <<< "$scopes_raw"
 
 report_repo() {
   local dir="$1"
@@ -48,8 +55,11 @@ if [ -n "$note" ]; then
   echo ""
 fi
 
-if [ -n "$scope" ]; then
-  report_repo "$scope" "$scope"
+if [ "${#scopes[@]}" -gt 0 ]; then
+  for scope in "${scopes[@]}"; do
+    report_repo "$scope" "$scope"
+    echo ""
+  done
 elif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   report_repo "." "current directory"
 else

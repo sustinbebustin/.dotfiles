@@ -188,6 +188,10 @@ background: true
 
 Background subagents pre-approve permissions before launch and auto-deny anything not pre-approved. Clarifying questions fail silently.
 
+Inspect, attach to, rename, or stop background subagents from the **Agent View** dashboard: run `claude agents` (v2.1.139). Press `Ctrl+T` to pin a session so it survives idle/restart and is shed last under memory pressure (v2.1.147). `claude agents --json` lists live sessions for scripting.
+
+A backgrounded agent now preserves the `permissionMode`, `model`, and `effort` it had when sent to the background, including across the daemon retire→wake cycle (v2.1.141/v2.1.143). You no longer need to re-set those after `/bg` or `←←`.
+
 ### `isolation`
 
 `worktree` to run in a temporary git worktree (isolated copy of the repo). Auto-cleaned if the subagent makes no changes.
