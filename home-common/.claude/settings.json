@@ -171,16 +171,15 @@
     "command": "$HOME/.claude/hooks/statusline.sh"
   },
   "enabledPlugins": {
-    "gopls-lsp@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true
+    "gopls-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
   "effortLevel": "xhigh",
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
+  "skipWorkflowUsageWarning": true,
   "remoteControlAtStartup": false,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false,
-  "skipWorkflowUsageWarning": true
+  "voiceEnabled": false
 }
