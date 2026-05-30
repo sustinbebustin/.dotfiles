@@ -22,6 +22,8 @@ Subdir names with spaces aren't supported in the multi-scope form -- use the sin
 
 When multiple repos are given, run the entire flow (branch, commits, release-notes, push, PR) **independently** for each. Don't share branch names, commit messages, or PRs across repos. The context below emits one `### Target:` block per repo.
 
+Run every git command against the target's own path with `git -C <target> ...` (e.g. `git -C frontend commit ...`), using the relative path exactly as it appears in the `### Target:` block. Never rewrite it to an absolute path -- the repo lives under the current working directory, which varies per checkout.
+
 If a **User note** block appears in Current State, treat it as binding guidance for this invocation (e.g. files to exclude, messaging hints, PR description cues).
 
 Repo resolution:

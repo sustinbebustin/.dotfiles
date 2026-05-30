@@ -26,6 +26,8 @@ Subdir names with spaces aren't supported in the multi-scope form -- use the sin
 
 When multiple scopes are given, treat each repo independently: assess atomicity, stage, and commit per repo. Don't blend changes across repos into one commit.
 
+Run every git command against the scope's own path with `git -C <scope> ...` (e.g. `git -C frontend add ...`), using the relative path exactly as it appears in Current State below. Never rewrite it to an absolute path -- the repo lives under the current working directory, which varies per checkout.
+
 If a **User note** block appears in Current State, treat it as binding guidance for this invocation (e.g. files to exclude, messaging hints, atomicity constraints).
 
 ## Current State
