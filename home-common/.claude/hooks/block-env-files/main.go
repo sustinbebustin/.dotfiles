@@ -28,33 +28,6 @@ type hookOutput struct {
 	} `json:"hookSpecificOutput"`
 }
 
-// Reader/exposer commands that print or send file contents somewhere visible.
-var dangerousReaders = map[string]bool{
-	"cat":  true,
-	"less": true,
-	"more": true,
-	"head": true,
-	"tail": true,
-	"bat":  true,
-	"nano": true,
-	"vim":  true,
-	"vi":   true,
-	"code": true,
-	"subl": true,
-	"open": true,
-	// Search/transform tools that can leak contents:
-	"grep":  true,
-	"egrep": true,
-	"fgrep": true,
-	"rg":    true,
-	"awk":   true,
-	"sed":   true,
-	// Sourcing also exposes via the running shell:
-	"source": true,
-	".":      true,
-	"export": true,
-}
-
 func main() {
 	raw, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -121,13 +94,14 @@ func isBlockedEnv(p string) bool {
 	return true
 }
 
-// looksLikeEnv returns true for basenames such as `.env`, `.env.local`,
-// `.env-staging`, `prod.env`, and `app.env.local`.
+// looksLikeEnv returns true for basenames such as `.env`, `.envrc`,
+// `.env.local`, `.env-staging`, `prod.env`, and `app.env.local`.
+//
+// The leading-dot `.env*` prefix deliberately covers direnv's `.envrc` and any
+// other `.env`-prefixed dotfile -- those carry secrets just like `.env` does
+// and were the gap that previously let `.envrc` leak.
 func looksLikeEnv(base string) bool {
-	if base == ".env" {
-		return true
-	}
-	if strings.HasPrefix(base, ".env.") || strings.HasPrefix(base, ".env-") {
+	if strings.HasPrefix(base, ".env") {
 		return true
 	}
 	if strings.HasSuffix(base, ".env") {
@@ -148,40 +122,72 @@ func isSafeEnv(base string) bool {
 	return false
 }
 
-// checkBash inspects a parsed command for any dangerous-reader call whose
-// arguments include a blocked env file path. Returns a non-empty reason if
-// the command should be blocked.
+// checkBash blocks any command that references a blocked env file, whether as a
+// command argument (`cat .env`, `xxd .envrc`, `cp .env /tmp`, `source .env`) or
+// as a redirection target (`tr a b < .env`). There is intentionally no
+// allowlist of "reader" commands: enumerating every binary that can read a file
+// is a losing game, and there is no benign reason for a command to name a
+// secret env file. Returns a non-empty reason if the command should be blocked.
 func checkBash(cmd string) string {
 	if cmd == "" {
 		return ""
 	}
 	file, err := syntax.NewParser().Parse(strings.NewReader(cmd), "")
 	if err != nil {
-		return "" // unparseable -- fail open
+		// Unparseable: fail CLOSED if the raw text names a blocked env file.
+		// Better to over-block a malformed command than to leak on a parse
+		// edge case the AST walk would have caught.
+		if rawMentionsBlockedEnv(cmd) {
+			return "This command references a .env file but could not be parsed safely, so it is blocked. Use the .example/.sample/.template variant, or load the value through your secret manager."
+		}
+		return ""
 	}
 	var found string
 	syntax.Walk(file, func(n syntax.Node) bool {
 		if found != "" {
 			return false
 		}
-		call, ok := n.(*syntax.CallExpr)
-		if !ok || len(call.Args) == 0 {
-			return true
-		}
-		name := wordLit(call.Args[0])
-		if !dangerousReaders[name] {
-			return true
-		}
-		for _, arg := range call.Args[1:] {
-			lit := wordLit(arg)
-			if isBlockedEnv(lit) {
-				found = fmt.Sprintf("`%s %s` would expose a .env file. Use the .example/.sample/.template variant instead, or load the value through your secret manager.", name, lit)
+		switch x := n.(type) {
+		case *syntax.CallExpr:
+			for _, arg := range x.Args {
+				if lit := wordLit(arg); isBlockedEnv(lit) {
+					found = blockReason(lit)
+					return false
+				}
+			}
+		case *syntax.Redirect:
+			if lit := wordLit(x.Word); isBlockedEnv(lit) {
+				found = blockReason(lit)
 				return false
 			}
 		}
 		return true
 	})
 	return found
+}
+
+func blockReason(p string) string {
+	return fmt.Sprintf("Blocked: command references the env file %q. Reading, copying, sourcing, or redirecting a secret env file is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager.", p)
+}
+
+// rawMentionsBlockedEnv is the fail-closed fallback for commands the shell
+// parser rejects. It splits on whitespace and shell metacharacters and checks
+// each resulting token against isBlockedEnv.
+func rawMentionsBlockedEnv(cmd string) bool {
+	fields := strings.FieldsFunc(cmd, func(r rune) bool {
+		switch r {
+		case ' ', '\t', '\n', '\r', ';', '|', '&', '<', '>', '(', ')', '"', '\'', '=':
+			return true
+		default:
+			return false
+		}
+	})
+	for _, f := range fields {
+		if isBlockedEnv(f) {
+			return true
+		}
+	}
+	return false
 }
 
 func wordLit(w *syntax.Word) string {
