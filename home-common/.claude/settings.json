@@ -131,7 +131,8 @@
       "Read(**/.env.production)",
       "Read(**/.env.staging)",
       "Read(**/*.env)",
-      "Read(**/secrets/**)"
+      "Read(**/secrets.enc)",
+      "Read(**/*.key)"
     ],
     "defaultMode": "auto"
   },
