@@ -190,9 +190,11 @@ _claude_model() {
   claude --model "$model" --effort "$effort" ${=extra_flags} "$@"
 }
 
-opus()     { _claude_model opus            xhigh "low medium high xhigh max" ""                              "$@" }
-opus-old() { _claude_model claude-opus-4-6 high  "low medium high max"       "--permission-mode acceptEdits" "$@" }
-sonnet()   { _claude_model sonnet          high  "low medium high max"       "--permission-mode acceptEdits" "$@" }
+opus()      { _claude_model opus            xhigh "low medium high xhigh max" ""                              "$@" }
+opus-old()  { _claude_model claude-opus-4-6 high  "low medium high max"       "--permission-mode acceptEdits" "$@" }
+sonnet()    { _claude_model sonnet          high  "low medium high max"       "--permission-mode acceptEdits" "$@" }
+# Plan in Fable 5, then approve the plan to drop back into your default model.
+fableplan() { _claude_model fable           xhigh "low medium high xhigh max" "--permission-mode plan"        "$@" }
 
 # Git
 alias gpl='git pull'
