@@ -1,6 +1,7 @@
 ---
 name: html-effectiveness
 description: Produce polished, self-contained single-file HTML artifacts in the warm-paper Anthropic visual language — ivory ground, slate ink, clay accent, serif headings, sans body, mono labels, 1.5px-border cards with 12px radius. Use whenever the user wants an HTML page, a one-pager, a static report, a code-review summary, a PR writeup, an implementation plan, an explainer, a slide deck, a flowchart, an SVG illustration sheet, a design-exploration board, an internal-tool mock, or any single .html deliverable. Skip when editing an existing web-app codebase that already has its own design tokens.
+disable-model-invocation: true
 ---
 
 # HTML Effectiveness
