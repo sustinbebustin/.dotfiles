@@ -9,6 +9,10 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 export EDITOR='nano'
 
+# Opt out of Supabase CLI telemetry. Env-based so it survives Docker
+# image/volume prunes that wipe the CLI's own `supabase telemetry disable` state.
+export SUPABASE_TELEMETRY_DISABLED=1
+
 # XDG directories
 export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_HOME="$HOME/.local/share"
