@@ -162,8 +162,13 @@ func checkGh(args []string) (verdict, bool) {
 			return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh issue %s not allowed", args[1])}, true
 		}
 	case "release":
-		if len(args) > 1 && (args[1] == "create" || args[1] == "delete") {
-			return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh release %s not allowed", args[1])}, true
+		if len(args) > 1 {
+			switch args[1] {
+			case "create":
+				return verdict{decision: "ask", reason: "gh release create publishes a release and tag - allow?"}, true
+			case "delete":
+				return verdict{decision: "deny", reason: "[BLOCKED] gh release delete not allowed"}, true
+			}
 		}
 	case "repo":
 		if len(args) > 1 && (args[1] == "delete" || args[1] == "rename") {
