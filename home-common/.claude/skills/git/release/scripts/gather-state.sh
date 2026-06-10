@@ -142,6 +142,11 @@ report_repo() {
   latest_ver=$(printf '%s' "$latest" | sed -nE 's/^## \[v?([0-9][0-9A-Za-z.-]*)\].*/\1/p')
   echo "**Latest released version in changelog:** ${latest_ver:-none}"
 
+  # Refresh tags from the remote so latest-tag detection isn't stale.
+  if git -C "$top" remote | grep -q .; then
+    git -C "$top" fetch --tags --quiet 2>/dev/null || true
+  fi
+
   # Latest git tag + prefix detection.
   local last_tag prefix="v"
   last_tag=$(git -C "$top" tag --list --sort=-v:refname | head -n1)
