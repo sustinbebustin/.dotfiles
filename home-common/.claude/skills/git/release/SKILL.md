@@ -45,7 +45,7 @@ Run steps 3-10 independently for each `### Target:` block. Once the target is kn
 8. **Push.** `git -C <root> push origin <default>`.
 9. **Publish the GitHub release.** Write the changelog body you just moved (the section bullets, no heading) to a temp file via `mktemp`, then:
    `gh release create <tag> --target "$(git -C <root> rev-parse HEAD)" --title "<tag>" --notes-file <tmp>`
-   Add `--prerelease` when the version carries a pre-release suffix (`-rc.1`, `-alpha`, etc.). `gh` creates the tag at that exact commit and prints the release URL. `rm` the temp file after. See [references/cut-release.md](references/cut-release.md) for details.
+   Add `--prerelease` when the version carries a pre-release suffix (`-rc.1`, `-alpha`, etc.). `--target` must be the full 40-char SHA (`git rev-parse HEAD`) -- a short SHA returns `422 target_commitish is invalid`. `gh` creates the tag at that exact commit and prints the release URL. `rm` the temp file after. See [references/cut-release.md](references/cut-release.md) for details.
 10. **Report** the release URL, and tell the user to `git pull --tags` to fetch the new tag locally.
 11. **Watch the release CI.** Publishing the release triggers a workflow (on the `release` event or the tag `push`). Watch it to completion with the **Monitor tool** so the turn isn't held open. First resolve the run from the cut commit's SHA, retrying until it registers (it can lag a few seconds after publish):
     ```sh

@@ -89,7 +89,7 @@ rm -f "$notes"
 ```
 
 - `<tag>` is the prefixed version, e.g. `v1.8.7`. `gh` creates the git tag at `--target` on the remote.
-- `--target` is the just-pushed cut commit's SHA, so the tag lands exactly there.
+- `--target` is the just-pushed cut commit's SHA, so the tag lands exactly there. It must be the full 40-char SHA (use `git rev-parse HEAD`); a short SHA returns `422 target_commitish is invalid`.
 - Release body = the version's changelog bullets (the `### Added` / `### Fixed` subsections), without the `## [X.Y.Z]` heading -- GitHub already shows the tag as the title.
 - Add `--prerelease` for pre-release versions so GitHub doesn't mark them "Latest".
 - `gh` prints the release URL on success. A pre-existing tag makes it fail loudly -- surface that to the user rather than retrying blindly.
