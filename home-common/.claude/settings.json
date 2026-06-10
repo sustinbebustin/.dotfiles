@@ -174,10 +174,17 @@
   },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true
+    "typescript-lsp@claude-plugins-official": true,
+    "document-skills@anthropic-agent-skills": true
   },
-  "extraKnownMarketplaces": {},
+  "extraKnownMarketplaces": {
+    "anthropic-agent-skills": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/anthropics/skills.git"
+      }
+    }
+  },
   "spinnerTipsEnabled": false,
   "effortLevel": "xhigh",
   "awaySummaryEnabled": false,

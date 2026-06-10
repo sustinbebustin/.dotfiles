@@ -164,6 +164,10 @@ alias c="clear"
 alias t="eza . -a -I '.git' --tree --level=1"
 alias tt="eza . -a -I '.git' --tree --level=2"
 alias ttt="eza . -a -I '.git' --tree --level=3"
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias reload="source ~/.config/zsh/.zshrc"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
   alias o="open ."
@@ -198,10 +202,16 @@ fableplan() { _claude_model fable           xhigh "low medium high xhigh max" "-
 
 # Git
 alias gpl='git pull'
+alias gmain='git checkout main && git pull'
+alias gco='git checkout'
+alias gcb='git checkout -b'
 alias gaa='git add .'
 alias gcm='git commit -m'
 alias gpsh='git push'
 alias gss='git status -s'
+alias gstash='git stash'
+alias gpop='git stash pop'
+alias gundo='git reset --soft HEAD~1'
 alias gs='echo ""; echo "*********************************************"; echo -e "   DO NOT FORGET TO PULL BEFORE COMMITTING"; echo "*********************************************"; echo ""; git status'
 
 # ===== Colored man pages (Dracula Pro) =====
