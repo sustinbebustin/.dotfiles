@@ -3,7 +3,7 @@ name: thermo-nuclear-code-quality-review
 description: Thermo-nuclear code quality audit (maintainability, structure, 1k-line rule, spaghetti, code-judo). Invoked via Agent after a parent gathers diff and file contents. Uses the `thermo-nuclear-code-quality-review` skill as the complete rubric.
 skills: thermo-nuclear-code-quality-review
 memory: project
-model: opus
+model: inherit
 ---
 
 # Thermo-Nuclear Code Quality Review
