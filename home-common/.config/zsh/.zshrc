@@ -198,6 +198,7 @@ opus()      { _claude_model opus            xhigh "low medium high xhigh max" ""
 opus-old()  { _claude_model claude-opus-4-6 high  "low medium high max"       "--permission-mode acceptEdits" "$@" }
 sonnet()    { _claude_model sonnet          high  "low medium high max"       "--permission-mode acceptEdits" "$@" }
 # Plan in Fable 5, then approve the plan to drop back into your default model.
+fable()     { _claude_model fable           xhigh "low medium high xhigh max" ""                              "$@" }
 fableplan() { _claude_model fable           xhigh "low medium high xhigh max" "--permission-mode plan"        "$@" }
 
 # Git
