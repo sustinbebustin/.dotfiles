@@ -6,6 +6,15 @@ Reference for the `release` skill: how to finalize a hand-maintained `CHANGELOG.
 
 Commit the finalized changelog first, push, then create the release **targeting that commit**. The tag then points at a commit whose changelog already shows the version as released -- not at a commit that still says "Unreleased". `gh release create` creates the tag for you on the remote, so there's no separate `git tag` / push-tag step.
 
+## `[skip ci]` and the release trigger
+
+The cut commit's message gets `[skip ci]` only when it's safe. GitHub's `[skip ci]` suppresses `push` and `pull_request` events (so it stops the redundant CI/deploy on the push to the default branch) but it does **not** affect the `release` event.
+
+- Release build fires on the **`release` event** (`on: release: types: [published]`): `gh release create` publishes the release, which fires that event regardless of `[skip ci]`. Safe to include `[skip ci]` -- it only skips the default-branch push.
+- Release build fires on **tag push** (`on: push: tags`): the tag lands on the cut commit, and a tag push on a `[skip ci]` commit is skipped -- **GitHub creates no run at all** (it looks like nothing happened, not a failure). Cut these repos **without** `[skip ci]`.
+
+`gather-state.sh` reports this as **Release fires on**. To recover an already-published release whose tag-push build was skipped, move the tag onto a skip-free commit (append `git commit --allow-empty -m "chore(release): <tag>"`, push, then `git tag -fa <tag> <new-sha>` and `git push --force origin refs/tags/<tag>`) -- same tree, so the build is identical.
+
 ## Changelog transformation
 
 Move the `[Unreleased]` entries down into a new dated version section, and leave `[Unreleased]` empty for the next cycle.

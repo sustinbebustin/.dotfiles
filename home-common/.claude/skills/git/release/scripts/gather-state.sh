@@ -157,6 +157,33 @@ report_repo() {
   echo "**Tag prefix:** ${prefix:-<none, tags are bare numbers>}"
   echo ""
 
+  # How the release build fires -- decides whether `[skip ci]` on the cut commit is safe.
+  # `gh release create` both creates the tag and publishes the release. GitHub's
+  # `[skip ci]` suppresses push/tag-push events but NOT the `release` event, so a
+  # release-event build fires regardless while a tag-push build on a `[skip ci]`
+  # commit is silently skipped (no run is ever created).
+  local wf_dir="$top/.github/workflows" rel_evt="" tag_push=""
+  if [ -d "$wf_dir" ]; then
+    if grep -rlE '^[[:space:]]*release:[[:space:]]*$' "$wf_dir" 2>/dev/null \
+         | xargs -r grep -lE 'published' >/dev/null 2>&1; then
+      rel_evt=1
+    fi
+    if grep -rlE '^[[:space:]]*tags:' "$wf_dir" >/dev/null 2>&1; then
+      tag_push=1
+    fi
+  fi
+  printf '%s' "**Release fires on:** "
+  if [ -n "$rel_evt" ] && [ -n "$tag_push" ]; then
+    echo "release event + tag push. The release-event build fires regardless, but a tag-push build on a \`[skip ci]\` commit is skipped. Cut WITHOUT \`[skip ci]\` to be safe."
+  elif [ -n "$rel_evt" ]; then
+    echo "release event (\`gh release create\` fires it). \`[skip ci]\` on the cut commit is SAFE -- it suppresses push/main CI but not the release event."
+  elif [ -n "$tag_push" ]; then
+    echo "tag push (\`on: push: tags\`). \`[skip ci]\` on the cut commit WILL SKIP the release build -- GitHub creates no run for a tag push on a \`[skip ci]\` commit. Cut this repo WITHOUT \`[skip ci]\`."
+  else
+    echo "no release/tag-push workflow detected. \`[skip ci]\` is harmless."
+  fi
+  echo ""
+
   # [Unreleased] section content (informational -- the agent re-reads after pull).
   local body
   body=$(awk '

@@ -41,7 +41,11 @@ Run steps 3-10 independently for each `### Target:` block. Once the target is kn
 4. **Read the changelog fresh.** After the pull, `Read` the changelog file. The gathered `[Unreleased]` preview came from the load-time branch and may be stale; the post-pull file is authoritative for both the notes and the rewrite. If `[Unreleased]` is empty, STOP.
 5. **Determine the version.** Use the requested version if one was given. Otherwise compute the next SemVer from the latest released version and the `[Unreleased]` entries (`### Added` -> minor, `**BREAKING:**` / `### Removed` -> major, else patch), then confirm with `AskUserQuestion` (offer the suggested bump first, plus the other two). Keep the repo's existing tag prefix (Current State reports it; default `v`).
 6. **Finalize the changelog.** Transform it per [references/cut-release.md](references/cut-release.md): move the `[Unreleased]` entries under a new `## [X.Y.Z] - <today>` heading, leave `[Unreleased]` empty, and update the compare-link footer if (and only if) the changelog has one. Use **Today** from Current State for the date.
-7. **Commit the changelog only.** `git -C <root> add <changelog>` then `git -C <root> commit -m "chore(docs): cut <tag> [skip ci]"` (e.g. `chore(docs): cut v1.8.7 [skip ci]`). Stage nothing else.
+7. **Commit the changelog only.** `git -C <root> add <changelog>`, then commit. The message depends on **Release fires on** (Current State), because GitHub's `[skip ci]` suppresses push/tag-push events but never the `release` event:
+   - **release event** (or no release workflow): `git -C <root> commit -m "chore(docs): cut <tag> [skip ci]"`. `[skip ci]` skips the redundant push/main CI; `gh release create` still fires the release-event build.
+   - **tag push** (`on: push: tags`): OMIT `[skip ci]` -- `git -C <root> commit -m "chore(docs): cut <tag>"`. The release tag lands on this commit, and a tag push on a `[skip ci]` commit is skipped entirely (GitHub creates no run), so the build would never happen.
+
+   Stage nothing else.
 8. **Push.** `git -C <root> push origin <default>`.
 9. **Publish the GitHub release.** Write the changelog body you just moved (the section bullets, no heading) to a temp file via `mktemp`, then:
    `gh release create <tag> --target "$(git -C <root> rev-parse HEAD)" --title "<tag>" --notes-file <tmp>`
@@ -52,7 +56,9 @@ Run steps 3-10 independently for each `### Target:` block. Once the target is kn
     sha="$(git -C <root> rev-parse HEAD)"
     gh run list -R <owner/repo> --commit "$sha" -L1 --json databaseId,workflowName,status,conclusion
     ```
-    Then start a Monitor watching `gh run watch <run-id> -R <owner/repo> --exit-status` (exits non-zero on failure). Report the result the moment it resolves: green with the run URL on success, or red with the failing job's log (`gh run view <run-id> -R <owner/repo> --log-failed`) on failure. If the repo has no Actions configured for this event, say so and skip.
+    Then start a Monitor watching `gh run watch <run-id> -R <owner/repo> --exit-status` (exits non-zero on failure). Report the result the moment it resolves: green with the run URL on success, or red with the failing job's log (`gh run view <run-id> -R <owner/repo> --log-failed`) on failure.
+
+    **If no run ever registers** (none within ~90s): distinguish a genuine no-Actions repo from a silently skipped build. If **Release fires on** was **tag push** and the cut commit carried `[skip ci]`, the build was skipped, not absent -- GitHub creates no run for a tag push on a `[skip ci]` commit. Report this explicitly and recover: move the tag onto a skip-free commit (e.g. `git -C <root> commit --allow-empty -m "chore(release): <tag>"`, push the default branch, `git -C <root> tag -fa <tag> <new-sha> -m "<tag>"`, `git -C <root> push --force origin refs/tags/<tag>`) so the tag push fires. Otherwise, if the repo truly has no Actions for this event, say so and skip.
 
 Steps 1-11 only finalize the changelog, publish, and watch -- never edit code or other files in this flow, and never add AI attribution to the commit.
 
