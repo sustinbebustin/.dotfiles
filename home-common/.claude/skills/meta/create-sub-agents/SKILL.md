@@ -2,6 +2,8 @@
 name: create-sub-agents
 description: Expert guidance for designing and authoring Claude Code subagents. Use when creating files under `.claude/agents/` or `~/.claude/agents/`, defining custom subagents, restricting tool access, picking models, wiring memory, or auditing existing subagent definitions.
 disable-model-invocation: true
+metadata:
+  last_reviewed: 2026-05-28
 ---
 
 # Creating Subagents
