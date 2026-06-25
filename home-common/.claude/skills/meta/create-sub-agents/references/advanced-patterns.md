@@ -34,7 +34,13 @@ For multi-step workflows, ask Claude to use subagents in sequence. Each subagent
 Use the code-reviewer subagent to find performance issues, then use the optimizer subagent to fix them
 ```
 
-Subagents cannot spawn other subagents, so the chaining is orchestrated by the main conversation.
+Chaining like this is orchestrated by the main conversation, which passes context between steps.
+
+## Nested Subagents
+
+As of v2.1.172, a subagent can spawn its own subagents through the Agent tool. Use this when a delegated task itself splits into parallel subtasks (e.g. a reviewer that dispatches a verifier per finding) so the intermediate output never reaches your main conversation — only the top-level subagent's summary returns. A nested subagent is configured like a top-level one and resolves from the same scopes.
+
+Chains are capped at five levels below the main conversation; an agent at depth five no longer receives the Agent tool. The limit is fixed and not configurable. To stop a specific subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`.
 
 ## Fork Mode (Experimental)
 
@@ -69,7 +75,7 @@ The fork appears in a panel below your prompt and runs in the background. When i
 
 The fork's first request reuses the parent's prompt cache, making it cheaper than a fresh subagent for context-heavy tasks.
 
-A fork CANNOT spawn further forks. With `isolation: worktree`, the fork's edits go to a separate git worktree.
+A fork CANNOT spawn further forks, though it can spawn other (named) subagent types, which count toward the depth limit. With `isolation: worktree`, the fork's edits go to a separate git worktree.
 
 ### Fork Panel Controls
 
@@ -122,7 +128,7 @@ Each invocation creates a NEW instance with fresh context. To continue prior wor
 Continue that code review and now analyze the authorization logic
 ```
 
-Claude uses `SendMessage({to: agentId})` to resume. Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
+Claude uses `SendMessage({to: agentId})` to resume; the `SendMessage` tool is always available for this. (Structured team-protocol messages such as `shutdown_request` still require agent teams.)
 
 A stopped subagent that receives `SendMessage` auto-resumes in the background.
 

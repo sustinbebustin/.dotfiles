@@ -43,6 +43,7 @@ All fields are optional. Only `description` is recommended.
 | `disable-model-invocation` | No | Set `true` to prevent Claude from auto-loading. Use for manual workflows. Default: `false` |
 | `user-invocable` | No | Set `false` to hide from `/` menu. Use for background knowledge. Default: `true` |
 | `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict tools — every tool remains callable and permission settings still govern unlisted tools. Accepts space-separated string or YAML list. |
+| `disallowed-tools` | No | Tools removed from Claude's available pool while the skill is active. Use for autonomous skills that must never call a tool (e.g. `AskUserQuestion` in a background loop). Restriction clears on the next message. Accepts space/comma-separated string or YAML list. |
 | `model` | No | Model to use. Accepts an alias (`haiku`, `sonnet`, `opus`), a full model ID (e.g. `claude-opus-4-7`, `claude-sonnet-4-6`), or `inherit`. Override applies for the rest of the current turn and is **not** saved to settings — the session model resumes on the next prompt. |
 | `effort` | No | Effort level while skill is active. Options: `low`, `medium`, `high`, `xhigh`, `max`; available levels depend on the model. Overrides session effort. |
 | `context` | No | Set `fork` to run in isolated subagent context |

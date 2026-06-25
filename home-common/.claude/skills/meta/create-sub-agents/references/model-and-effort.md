@@ -11,7 +11,8 @@ Controls which AI model the subagent uses.
 | `haiku` | High-volume, low-latency: codebase search, file discovery, log scanning, large-batch processing. Cheap. |
 | `sonnet` | Default workhorse: most code review, refactoring, implementation, research. |
 | `opus` | Hard reasoning: architecture decisions, complex debugging, deep code review, planning major refactors. |
-| `claude-opus-4-7` | Pin a specific model ID. Same values as `--model` flag. |
+| `fable` | Fable 5 model alias. |
+| `claude-opus-4-8` | Pin a specific model ID. Same values as `--model` flag. |
 | `inherit` | Use the same model as the main conversation. Default. |
 
 Omitting `model` defaults to `inherit`.

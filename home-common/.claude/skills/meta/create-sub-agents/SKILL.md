@@ -3,7 +3,7 @@ name: create-sub-agents
 description: Expert guidance for designing and authoring Claude Code subagents. Use when creating files under `.claude/agents/` or `~/.claude/agents/`, defining custom subagents, restricting tool access, picking models, wiring memory, or auditing existing subagent definitions.
 disable-model-invocation: true
 metadata:
-  last_reviewed: 2026-05-28
+  last_reviewed: 2026-06-23
 ---
 
 # Creating Subagents
@@ -69,7 +69,7 @@ Only `name` and `description` are required. Full details in [frontmatter.md](ref
 | `description` | When Claude should delegate to this subagent. Front-load trigger phrases. |
 | `tools` | Allowlist of tools. If omitted, inherits all tools from parent. |
 | `disallowedTools` | Denylist. Applied before `tools` resolves. |
-| `model` | `sonnet`, `opus`, `haiku`, a full model ID, or `inherit`. Defaults to `inherit`. |
+| `model` | `sonnet`, `opus`, `haiku`, `fable`, a full model ID, or `inherit`. Defaults to `inherit`. |
 | `permissionMode` | `default`, `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, or `plan`. |
 | `maxTurns` | Hard cap on agentic turns before the subagent stops. |
 | `skills` | Skills to fully preload into the subagent's context at startup. |
@@ -145,7 +145,7 @@ Then drop the file in `<project>/.claude/agents/<name>.md` (project) or `~/.clau
 - **Picking Opus for everything** -> use Haiku for high-volume read tasks; reserve Opus for hard reasoning.
 - **Using `bypassPermissions` to silence prompts** -> writes to `.git`, `.claude`, `.vscode` skip approval. Use `acceptEdits` or pre-approve in `permissions.allow` instead.
 - **Putting reusable workflow content in a subagent** when it should be a [skill](https://code.claude.com/docs/en/skills) Claude can load in the main convo.
-- **Trying to nest subagents** -> subagents cannot spawn other subagents. Chain from the main conversation or use [agent teams](https://code.claude.com/docs/en/agent-teams).
+- **Unbounded nested spawning** -> as of v2.1.172 a subagent *can* spawn its own subagents, but chains are capped at five levels deep. To stop a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. For workers that must message each other, use [agent teams](https://code.claude.com/docs/en/agent-teams).
 - **Expecting parent skills to carry over** -> they don't. List required skills in `skills:`.
 - **Overusing `context: fork` skills** for reference-only content -> the fork gets no task and returns nothing.
 - **Editing memory's `MEMORY.md` by hand mid-session** -> the subagent owns curation. Read [memory.md](references/memory.md) for proper usage.
@@ -162,7 +162,7 @@ Then drop the file in `<project>/.claude/agents/<name>.md` (project) or `~/.clau
 - [ ] `skills:` lists every skill the subagent needs (parent skills DON'T inherit)
 - [ ] `memory:` set with right scope if cross-session learning is needed
 - [ ] Plugin subagents avoid `hooks`/`mcpServers`/`permissionMode` (silently ignored)
-- [ ] Subagent doesn't try to spawn other subagents
+- [ ] Nested spawning is intentional — `Agent` is in `tools` only if the subagent should spawn its own subagents (depth capped at 5)
 - [ ] Subagent is committed to version control (if project-scoped and shared)
 
 ## Reference Files

@@ -48,7 +48,7 @@ Run through this checklist. Flag any failure.
 | Output format specified | structured response (TL;DR + sections) |
 | Standing instructions (not one-off) | applies to every invocation, not "in this case" |
 | No reliance on parent history | doesn't reference earlier conversation turns |
-| No subagent spawning instructions | doesn't say "delegate to another subagent" |
+| Nested spawning intentional | `Agent` in `tools` only if it should spawn its own subagents |
 | Standing constraints listed | guardrails on what NOT to do |
 
 ### Step 4: Check For Anti-Patterns
@@ -61,7 +61,7 @@ Scan for:
 | Opus by default | `model: opus` for routine work |
 | `bypassPermissions` for convenience | should be `acceptEdits` plus `permissions.allow` rules |
 | Reusable workflow content | content that should be a SKILL, not a subagent body |
-| Trying to nest subagents | "delegate to ..." in instructions |
+| Unintended nested spawning | `Agent` left in `tools` on an agent that shouldn't spawn others |
 | Expecting parent skills | references to skills not listed in `skills:` |
 | `context: fork` on reference-only skill (if applicable) | skill with no task, just guidelines |
 

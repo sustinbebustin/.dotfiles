@@ -26,7 +26,7 @@ Research agent used during plan mode.
 - **Tools**: Read-only
 - **Purpose**: Codebase research before presenting a plan
 
-When you're in plan mode and Claude needs to understand the codebase, it delegates to `Plan`. This prevents infinite nesting (subagents cannot spawn other subagents) while still letting Claude gather context.
+When you're in plan mode and Claude needs to understand the codebase, it delegates to `Plan` so exploration output stays in a separate context window while the main conversation remains read-only.
 
 Don't manually invoke `Plan` - it's used automatically inside plan mode.
 

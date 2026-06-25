@@ -94,7 +94,8 @@ Which AI model the subagent uses.
 | `haiku` | Fast and cheap. Good for high-volume read tasks. |
 | `sonnet` | Balanced. Good default for most subagents. |
 | `opus` | Hard reasoning. Reserve for review/architecture/debugging tasks. |
-| `claude-opus-4-7` (full ID) | Pin a specific model. |
+| `fable` | Fable 5 model alias. |
+| `claude-opus-4-8` (full ID) | Pin a specific model. |
 | `inherit` | Use the same model as the main conversation. Default. |
 
 Resolution order when invoking:
@@ -222,4 +223,4 @@ initialPrompt: "Analyze the project structure and report key entry points."
 
 Plugin subagents silently IGNORE: `hooks`, `mcpServers`, `permissionMode`. If you need them, copy the file into `.claude/agents/` or `~/.claude/agents/`.
 
-`Agent(type)` syntax in `tools` only restricts spawning when the agent runs as the main thread via `--agent`. It has NO effect in subagent definitions because subagents cannot spawn other subagents anyway.
+`Agent(type)` syntax in `tools` only restricts *which types* can be spawned when the agent runs as the main thread via `--agent`. In a subagent definition (v2.1.172+), listing `Agent` enables nested spawning but the type list inside the parentheses is ignored; omit `Agent` or add it to `disallowedTools` to block a subagent from spawning others. Chains are capped at five levels deep.

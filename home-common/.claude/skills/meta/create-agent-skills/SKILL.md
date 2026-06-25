@@ -3,7 +3,7 @@ name: create-agent-skills
 description: Expert guidance for creating Claude Code skills and slash commands. Use when working with SKILL.md files, authoring new skills, improving existing skills, creating slash commands, or understanding skill structure and best practices.
 disable-model-invocation: true
 metadata:
-  last_reviewed: 2026-05-28
+  last_reviewed: 2026-06-23
 ---
 
 # Creating Skills & Commands
@@ -66,6 +66,7 @@ All fields are optional. Only `description` is recommended.
 | `disable-model-invocation` | No | Set `true` to prevent Claude auto-loading. Use for manual workflows like `/deploy`, `/commit`. Default: `false`. |
 | `user-invocable` | No | Set `false` to hide from `/` menu. Use for background knowledge. Default: `true`. |
 | `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict other tools — add deny rules in `/permissions` for that. Example: `Read, Bash(git *)` |
+| `disallowed-tools` | No | Tools removed from Claude's available pool while the skill is active. Use for autonomous skills that should never call a tool (e.g. `AskUserQuestion` in a background loop). The restriction clears on your next message. Space/comma-separated string or YAML list. |
 | `model` | No | Model to use. Accepts an alias (`haiku`, `sonnet`, `opus`), a full model ID (e.g. `claude-opus-4-7`), or `inherit`. Override applies only for the current turn — session model resumes on the next prompt. |
 | `effort` | No | Effort level while the skill is active. Options: `low`, `medium`, `high`, `xhigh`, `max`; available levels depend on the model. Overrides session effort. |
 | `context` | No | Set `fork` to run in isolated subagent context. |
@@ -160,7 +161,7 @@ Priority order (higher wins on name conflicts): **enterprise > personal > projec
 | Project | `.claude/skills/<name>/SKILL.md` | This repo only |
 | Plugin | `<plugin>/skills/<name>/SKILL.md` | Where plugin is enabled |
 
-**Live change detection:** edits under `~/.claude/skills/`, `.claude/skills/`, or `.claude/skills/` inside an `--add-dir` directory take effect mid-session. Creating a top-level skills directory that didn't exist at startup requires a restart.
+**Live change detection:** edits under `~/.claude/skills/`, `.claude/skills/`, or `.claude/skills/` inside an `--add-dir` directory take effect mid-session. Run `/reload-skills` to force a re-scan without restarting. Creating a top-level skills directory that didn't exist at startup requires a restart.
 
 **Nested discovery:** when editing files in a subdirectory, Claude also picks up skills from nested `.claude/skills/` (e.g. `packages/frontend/.claude/skills/`) — useful for monorepos.
 

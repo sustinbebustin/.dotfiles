@@ -124,9 +124,9 @@ Opus subagents are slow and expensive. Default to Sonnet or Haiku and escalate o
 
 If the content is "how to do X" that any agent might need, it's a SKILL. Subagents are for context isolation and tool restriction, not knowledge sharing.
 
-### Trying To Nest Subagents
+### Unbounded Nested Spawning
 
-Subagents CANNOT spawn other subagents. Chain from the main conversation, or use [agent teams](https://code.claude.com/docs/en/agent-teams) for parallel coordinated work.
+As of v2.1.172 a subagent CAN spawn its own subagents (chains capped at five levels deep). That's useful when a delegated task splits into subtasks, but don't design for deep trees of runaway concurrency. To stop a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. For parallel workers that must coordinate or message each other, use [agent teams](https://code.claude.com/docs/en/agent-teams).
 
 ### Expecting Parent Skills To Carry Over
 
@@ -164,7 +164,7 @@ If `.claude/agents/<name>.md` is shared with the team, commit it. Otherwise team
 - [ ] Specifies "when invoked, do X" workflow
 - [ ] Specifies output format if results return to main conversation
 - [ ] Doesn't rely on parent conversation history
-- [ ] Doesn't try to spawn other subagents
+- [ ] Nested spawning is intentional (`Agent` in `tools` only if it should spawn subagents)
 - [ ] Standing instructions, not one-off steps
 
 ### Discoverability

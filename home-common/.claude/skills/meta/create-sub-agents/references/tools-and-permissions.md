@@ -64,7 +64,7 @@ tools: Agent, Read, Bash
 
 To block all spawning, simply omit `Agent` from `tools`.
 
-This restriction has NO effect inside subagent definitions because subagents cannot spawn other subagents anyway.
+Inside a subagent definition (as of v2.1.172), listing `Agent` in `tools` lets that subagent spawn its own nested subagents — but any type list inside the parentheses is **ignored**; the `Agent(type)` allowlist only constrains types when the agent runs as the main thread via `--agent`. To prevent a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. Chains are capped at five levels below the main conversation; an agent at depth five no longer receives the Agent tool.
 
 ## Disabling Specific Subagents Globally
 

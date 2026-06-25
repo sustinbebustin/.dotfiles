@@ -149,19 +149,20 @@ Only your last message is returned to the main agent. Make it comprehensive yet 
 
 For oracle-style subagents, end with a reminder that only the last message is returned.
 
-## Symptom: Subagent Tries To Spawn Another Subagent
+## Symptom: Subagent Spawns Subagents When It Shouldn't (Or Won't When It Should)
 
-Subagents CANNOT spawn other subagents. The Agent tool is disabled inside subagents.
+As of v2.1.172 a subagent CAN spawn its own subagents (chains capped at five levels deep). Whether it can comes down to the Agent tool being in its pool.
 
 ### Diagnose
 
-Check the subagent's system prompt for instructions like "delegate to ..." or "use the Agent tool to ..."
+- Unwanted spawning: the subagent inherits all tools (no `tools`/`disallowedTools`) or explicitly lists `Agent`.
+- Missing spawning: `Agent` was removed via `tools`/`disallowedTools`, or the agent is already at depth five (the limit), where the Agent tool is withdrawn.
 
 ### Fix
 
-- Remove those instructions from the subagent body
-- If you need nested delegation: chain from the MAIN conversation ("Use subagent A to find X, then use subagent B to do Y")
-- For sustained parallel work with communication, use [agent teams](https://code.claude.com/docs/en/agent-teams)
+- To block spawning: omit `Agent` from `tools`, or add it to `disallowedTools`.
+- To enable spawning: keep `Agent` in the inherited or allowlisted tools.
+- For sustained parallel work where workers must communicate, use [agent teams](https://code.claude.com/docs/en/agent-teams) instead.
 
 ## Symptom: Subagent's Edits Conflict With My Changes
 

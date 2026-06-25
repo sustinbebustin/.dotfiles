@@ -81,7 +81,7 @@ Avoid:
 
 - One-off references to specific files or tasks (this is a STANDING prompt, used many times)
 - Instructions that depend on parent conversation history (subagents don't see it)
-- Instructions to spawn other subagents (subagents can't)
+- Open-ended "spawn more subagents" instructions unless nesting is intentional — a subagent *can* spawn its own subagents (v2.1.172+), so keep `Agent` out of `tools` when you don't want that
 
 ### Step 6: Save And Restart
 
