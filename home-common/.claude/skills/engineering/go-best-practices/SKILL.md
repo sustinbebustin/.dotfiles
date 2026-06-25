@@ -1,6 +1,6 @@
 ---
 name: go-best-practices
-description: Go idioms, clean architecture, concurrency patterns, and production-ready code. Use when writing, reviewing, or refactoring Go code. Triggers on Go modules, handlers, repositories, or any .go file work.
+description: Go idioms, clean architecture, concurrency patterns, and production-ready code. Use when writing, reviewing, or refactoring any Go (.go) code.
 ---
 
 # Go Best Practices

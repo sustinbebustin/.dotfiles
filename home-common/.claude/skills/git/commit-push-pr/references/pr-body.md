@@ -1,6 +1,6 @@
 # PR body voice
 
-The body should read like you dashed it off after the work, not like a model summarized a diff. The [Voice DNA](../../../commands/voice-dna.md) rules apply (contractions, no em dashes, no banned AI phrases, no "not X, but Y" negations). This adds the PR-specific shape.
+The body should read like you dashed it off after the work, not like a model summarized a diff. The [Voice DNA](../../../../commands/voice-dna.md) rules apply (contractions, no em dashes, no banned AI phrases, no "not X, but Y" negations). This adds the PR-specific shape.
 
 ## Shape
 

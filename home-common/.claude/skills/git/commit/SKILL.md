@@ -1,6 +1,6 @@
 ---
 name: commit
-description: Git commit workflow combining atomic scope with conventional message format. Use when committing changes, reviewing history, or structuring commits for clarity and reversibility.
+description: Git commit workflow combining atomic scope with conventional message format.
 allowed-tools: Bash
 argument_hint: [subdir...] [-- note]
 disable-model-invocation: true
@@ -131,8 +131,8 @@ Fixes #892
 ```
 
 **Breaking change:**
-```text
-feat(auth){exclamation point}: require API key for all endpoints (I can't show an actual exclamation point because the skill tries to trigger a command when I run this skill, stupid anthropic)
+```
+feat(auth)!: require API key for all endpoints
 
 BREAKING CHANGE: Anonymous access removed. All requests now
 require X-API-Key header.
@@ -147,29 +147,9 @@ refactor(utils): extract date formatting helpers
 feat(reports): add monthly summary export
 ```
 
-## Quick Reference
-
-```
-feat:     New feature
-fix:      Bug fix
-docs:     Documentation
-style:    Formatting
-refactor: Code restructure
-perf:     Performance
-test:     Tests
-build:    Build/deps
-ci:       CI config
-chore:    Maintenance
-```
-
-Breaking change syntax: add an exclamation point.
-
 ## Authorship
 
-- **Never** add co-author information or AI attribution
-- **Never** include "Co-Authored-By" trailers
-- **Never** add "Generated with Claude" or similar messages
-- Write commit messages as if the user authored them directly
+Never add AI attribution or "Co-Authored-By" trailers. Write commit messages as if the user authored them.
 
 ## Post-Commit: Update CLAUDE.md
 

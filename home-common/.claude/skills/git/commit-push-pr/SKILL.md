@@ -1,7 +1,7 @@
 ---
 name: commit-push-pr
 allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion
-description: Commit, push, and open a GitHub PR in one flow. Use when finishing a branch and ready to ship, or on phrases like "open a PR", "push and PR", or "ship this branch".
+description: Commit, push, and open a GitHub PR in one flow.
 argument_hint: [repo...] [-- note]
 disable-model-invocation: true
 ---
@@ -51,7 +51,7 @@ Repo resolution:
    - `add-changeset` -> write a new file under `.changeset/<kebab-name>.md` per [Changeset handling](#changeset-handling), using **Candidate packages for changeset frontmatter** from the gathered state. Commit it separately as `docs(changeset): ...`.
    - `verify-changeset` -> read the file(s) listed under **Changeset files added on this branch**. If they describe the user-facing changes in this branch's commits, do nothing. Only add another changeset if the existing ones materially miss something.
 6. **Push the branch to origin.**
-7. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject (release tooling reads this when squash-merging) and should match the dominant change type across the branch. Keep the body short and scale its length to the size of the change: no "Test Plan" section, no `## Summary` / `## Changes` headers. Write it in the repo owner's voice following [references/pr-body.md](references/pr-body.md), which builds on the [Voice DNA](../../commands/voice-dna.md) rules (contractions, no em dashes, no banned AI phrases, no "not X, but Y" negations).
+7. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject (release tooling reads this when squash-merging) and should match the dominant change type across the branch. Keep the body short and scale its length to the size of the change: no "Test Plan" section, no `## Summary` / `## Changes` headers. Write it in the repo owner's voice following [references/pr-body.md](references/pr-body.md).
 8. After the target repo is determined, keep output to tool calls only -- no extra prose.
 
 ## Conventional commit format
@@ -108,11 +108,11 @@ Description.
 Rules:
 
 - **Bump type:** `patch` for fixes, `minor` for backwards-compatible features, `major` for breaking changes (also use `!` in the commit subject for breaking).
-- **Packages:** use the names from `**Candidate packages**` in the gathered state. Include only packages whose code actually changed on this branch. If those globs look wrong, read `.changeset/config.json`'s `packages` field for the source of truth.
+- **Packages:** use the names from `**Candidate packages for changeset frontmatter**` in the gathered state. Include only packages whose code actually changed on this branch. If those globs look wrong, read `.changeset/config.json`'s `packages` field for the source of truth.
 - **Filename:** kebab-case, descriptive: `.changeset/fix-auth-redirect.md`. Don't ship the changeset CLI's random `adjective-noun-verb` name -- a descriptive filename reviews better.
 - **Description:** one short sentence, user-facing, imperative or past tense -- match existing changesets in the repo.
 
-Check `**Existing changeset files**` first. If a changeset on this branch already covers the work, do not add another.
+Check `**Changeset files added on this branch**` first. If a changeset on this branch already covers the work, do not add another.
 
 If the gathered state includes **Repo changeset instructions (.changeset/README.md)**, follow those repo-specific instructions. They take precedence over the defaults above when they conflict.
 

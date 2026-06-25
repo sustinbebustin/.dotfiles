@@ -1,14 +1,9 @@
 ---
 name: librarian
-description: "Cache and refresh remote git repositories under ~/.cache/checkouts/<host>/<org>/<repo> so future references can reuse a local copy. Use this skill when the user points you to a remote git repository as reference or you encountered a remote git repo through other means."
+description: "Cache and refresh remote git repositories so future references can reuse a local copy. Use when the user points you to a remote git repository as reference or you encountered a remote git repo through other means."
 ---
 
-Use this skill when the user points you to a remote git repository (GitHub/GitLab/Bitbucket URLs, `git@...`, or `owner/repo` shorthand).
-
-The goal is to keep a reusable local checkout that is:
-- **stable** (predictable path)
-- **up to date** (periodic fetch + fast-forward when safe)
-- **efficient** (partial clone with `--filter=blob:none`, no repeated full clones)
+Accepts GitHub/GitLab/Bitbucket URLs, `git@...` SSH, or `owner/repo` shorthand (shorthand defaults to `github.com`).
 
 ## Cache location
 
@@ -34,13 +29,6 @@ bash checkout.sh github.com/mitsuhiko/minijinja --path-only
 bash checkout.sh https://github.com/mitsuhiko/minijinja --path-only
 ```
 
-The script will:
-1. Parse the repo reference into host/org/repo.
-2. Clone if missing.
-3. Reuse existing checkout if present.
-4. Fetch from `origin` when stale (default interval: 300s).
-5. Attempt a fast-forward merge if the checkout is clean and has an upstream.
-
 ## Update strategy
 
 - Default behavior is **throttled refresh** (every 5 minutes) to avoid unnecessary network calls.
@@ -59,7 +47,3 @@ bash checkout.sh <repo> --force-update --path-only
 ## If edits are needed
 
 Prefer not to edit directly in the shared cache. Create a separate worktree or copy from the cached checkout for task-specific modifications.
-
-## Notes
-
-- `owner/repo` defaults to `github.com`.

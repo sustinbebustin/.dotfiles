@@ -5,16 +5,7 @@ description: React and Next.js performance optimization guidelines from Vercel E
 
 # React Best Practices
 
-Comprehensive performance optimization guide for React and Next.js applications, maintained by Vercel. Contains 64 rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
-
-## When to Apply
-
-Reference these guidelines when:
-- Writing new React components or Next.js pages
-- Implementing data fetching (client or server-side)
-- Reviewing code for performance issues
-- Refactoring existing React/Next.js code
-- Optimizing bundle size or load times
+64 performance rules across 8 categories, prioritized by impact.
 
 ## Effect Correctness (HIGH -- check FIRST)
 
@@ -156,4 +147,4 @@ Each rule file contains:
 
 ## Full Compiled Document
 
-For the complete guide with all rules expanded: `~/.claude/skills/react-best-practices/AGENTS.md`
+For the complete guide with all rules expanded: `AGENTS.md` (same directory).

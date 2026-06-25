@@ -1,12 +1,10 @@
 ---
 name: supabase
-description: Supabase Postgres expert for migrations, RLS policies, database functions, Edge Functions, Realtime, and Postgres performance optimization. Use when working with Supabase projects, writing SQL migrations, creating Row Level Security policies, building database functions or Edge Functions, implementing Realtime, or optimizing Postgres queries, indexes, schema design, connections, or locking.
-user_invocable: false
+description: Supabase Postgres expert. Use when working with Supabase projects, writing SQL migrations, creating RLS policies, building database functions or Edge Functions, implementing Realtime, or optimizing Postgres queries, indexes, schema design, connections, or locking.
+user-invocable: false
 ---
 
 # Supabase Development
-
-Expert guidance for Supabase development including database design, security, serverless functions, and Postgres performance optimization.
 
 ## Quick Reference
 

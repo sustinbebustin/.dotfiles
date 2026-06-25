@@ -7,8 +7,6 @@ description: Turborepo monorepo build system guidance. Triggers on: turbo.json, 
 
 Build system for JavaScript/TypeScript monorepos. Turborepo caches task outputs and runs tasks in parallel based on dependency graph.
 
-Help with monorepo task orchestration: creating workflows, configuring tasks, setting up pipelines, and optimizing builds.
-
 ## Workflow
 
 ### Step 1: Identify task type from user request
@@ -36,16 +34,9 @@ Based on task type, read from `references/<topic>/`:
 
 ### Step 3: Execute task
 
-Apply Turborepo-specific patterns from references to complete the user's request.
+Apply Turborepo-specific patterns from references to complete the user's request. When creating tasks/scripts/pipelines, apply the two core rules stated below: [Package Tasks, Not Root Tasks](#important-package-tasks-not-root-tasks) and [`turbo run` vs `turbo`](#secondary-rule-turbo-run-vs-turbo).
 
-**CRITICAL - When creating tasks/scripts/pipelines:**
-
-1. **Prefer package tasks over Root Tasks.** Root Tasks (`//#taskname`) are only for tasks that truly cannot exist in packages, such as Vitest Projects' `//#test`, repo-wide release scripts, or tooling that does not invoke `turbo` itself.
-2. Add scripts to each relevant package's `package.json` (e.g., `apps/web/package.json`, `packages/ui/package.json`)
-3. Register the task in root `turbo.json`
-4. Root `package.json` only contains `turbo run <task>` - never actual task logic, unless defining a valid Root Task exception
-
-**Other things to verify:**
+**Verify before finishing:**
 
 - `outputs` defined for cacheable tasks
 - `dependsOn` uses correct syntax (`^task` vs `task`)
@@ -264,58 +255,6 @@ Enforce boundaries?
 ```
 
 ## Critical Anti-Patterns
-
-### Using `turbo` Shorthand in Code
-
-**`turbo run` is recommended in package.json scripts and CI pipelines.** The shorthand `turbo <task>` is intended for interactive terminal use.
-
-```json
-// WRONG - using shorthand in package.json
-{
-  "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev"
-  }
-}
-
-// CORRECT
-{
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev"
-  }
-}
-```
-
-```yaml
-# WRONG - using shorthand in CI
-- run: turbo build --affected
-
-# CORRECT
-- run: turbo run build --affected
-```
-
-### Root Scripts Bypassing Turbo
-
-Root `package.json` scripts MUST delegate to `turbo run`, not run tasks directly.
-
-```json
-// WRONG - bypasses turbo entirely
-{
-  "scripts": {
-    "build": "bun build",
-    "dev": "bun dev"
-  }
-}
-
-// CORRECT - delegates to turbo
-{
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev"
-  }
-}
-```
 
 ### Using `&&` to Chain Turbo Tasks
 

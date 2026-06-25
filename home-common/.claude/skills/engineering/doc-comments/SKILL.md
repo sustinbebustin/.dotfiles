@@ -1,11 +1,11 @@
 ---
 name: doc-comments
-description: Best practices for code comments and doc comments. Covers the universal rules (explain WHY, not WHAT; never leave session/task-scoped commentary in the code) and routes to language-specific references for Go (godoc) and TypeScript (TSDoc). Use when writing, reviewing, or auditing comments in any source file.
+description: Best practices for code comments and doc comments -- explain WHY, not WHAT; never leave session/task-scoped commentary in the code. Use when writing, reviewing, or auditing comments in any source file; covers Go (godoc) and TypeScript (TSDoc) conventions for public APIs.
 ---
 
 # Doc Comments
 
-Comments are part of the code. Stale, redundant, or task-scoped comments are bugs -- they mislead readers, rot under refactors, and signal that no one is paying attention. This skill defines what a comment is *for*, what it must never be, and where to find the language-specific conventions.
+Comments are part of the code. Stale, redundant, or task-scoped comments are bugs -- they mislead readers, rot under refactors, and signal that no one is paying attention.
 
 ## The Iron Rule
 
@@ -213,7 +213,7 @@ Acceptable when they are *actionable* and *durable*. The form matters:
 
 ## Boundary Cases and Style Notes
 
-- **Public API doc comments.** Required, language-specific. Go (godoc): see [references/go.md](references/go.md). TypeScript (TSDoc): see [references/typescript.md](references/typescript.md). Both languages have tooling that reads these comments; treat them as part of the type signature.
+- **Public API doc comments.** Required and language-specific -- see Language-Specific References below.
 - **Generated code.** Leave the generator's header alone. Do not add hand-written commentary to a generated file -- it will be wiped on regeneration.
 - **Tests.** The test name is the documentation. A test that needs an explanatory paragraph is a test that should be split. Inline comments only when the *setup* encodes a non-obvious invariant.
 - **Migrations and one-shot scripts.** A short header explaining *why* the migration exists is fine; it is read once during review and never again. Do not narrate the steps -- the SQL is already the steps.

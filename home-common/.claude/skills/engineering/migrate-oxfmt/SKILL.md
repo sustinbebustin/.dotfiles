@@ -1,14 +1,12 @@
 ---
 name: migrate-oxfmt
-description: Guide for migrating a project from Prettier or Biome to Oxfmt. Use when asked to migrate, convert, or switch a JavaScript/TypeScript project's formatter from Prettier or Biome to Oxfmt.
+description: Migrate a JavaScript/TypeScript project's formatter from Prettier or Biome to Oxfmt.
 disable-model-invocation: true
 ---
 
-This skill guides you through migrating a JavaScript/TypeScript project from Prettier or Biome to [Oxfmt](https://oxc.rs/docs/guide/usage/formatter).
-
 ## Overview
 
-Oxfmt is a high-performance, Prettier-compatible code formatter. Most Prettier options are supported directly.
+[Oxfmt](https://oxc.rs/docs/guide/usage/formatter) is a high-performance, Prettier-compatible code formatter. Most Prettier options are supported directly.
 
 An automated migration tool is built into oxfmt, supporting both Prettier and Biome as migration sources.
 
@@ -62,7 +60,7 @@ Notes (both sources):
 
 - Fails if `.oxfmtrc.json` already exists. Delete it first if you want to re-run.
 - If no source config is found, creates a blank `.oxfmtrc.json` instead.
-- `overrides` cannot be auto-migrated for either source and must be converted manually.
+- `overrides` cannot be auto-migrated for either source.
 
 ## Step 2: Review Generated Config
 
@@ -191,7 +189,6 @@ npx oxfmt@latest --check
 ## Tips
 
 - EditorConfig: Oxfmt reads `.editorconfig` automatically for `useTabs`, `tabWidth`, `endOfLine`, `insertFinalNewline`, and `printWidth`. Options in `.oxfmtrc.json` take precedence.
-- CI: Use `npx oxfmt@latest --check` to enforce formatting in CI.
 - LSP: Run `oxfmt --lsp` for editor integration via Language Server Protocol.
 - Schema support: Add `"$schema": "./node_modules/oxfmt/configuration_schema.json"` to `.oxfmtrc.json` for editor autocompletion.
 - Init: Run `npx oxfmt@latest --init` to create a default `.oxfmtrc.json` without migration.

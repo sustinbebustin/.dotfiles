@@ -1,6 +1,6 @@
 ---
 name: better-error-messages
-description: Standards for writing user-facing error messages (UI toasts, alerts, validation copy, error pages, API responses a user might see). Covers tone, jargon, blame, the generic-vs-unclear distinction, and the what-happened / why / reassurance / recovery / way-out template. Use when writing or reviewing any error string a user will read.
+description: Standards for writing user-facing error messages (UI toasts, alerts, validation copy, error pages, API responses a user might see). Covers tone, jargon, blame, and the generic-vs-unclear distinction. Use when writing or reviewing any error string a user will read.
 ---
 
 # Better Error Messages
@@ -217,7 +217,3 @@ A common request: "We don't have time to figure out why this fails -- can you ju
 - A generic message in production is a placeholder, not a feature. It comes with a follow-up: investigate the trigger, map the cause, replace the copy.
 - "We don't know what causes this" is a *data* problem, not a *copy* problem. The fix is instrumentation, not vague language.
 - A reviewer or writer pushed to add a "Something went wrong" string is entitled to ask: when does this fire, what does the server know at that point, and what should the user do next? If those three questions have answers, the message should reflect them.
-
-## The Bottom Line
-
-A user-facing error is a load-bearing piece of the product. Treat it like one. Match the stakes in tone. Say what happened in the user's noun, not the developer's. Tell the user what's still safe, what to do next, and where to go if that fails. Reserve the bare catch-all for the genuinely unknown path, and even there, give a real way out. Generic and unclear are equally bad; both signal that no one took the time to understand the failure. Take the time.

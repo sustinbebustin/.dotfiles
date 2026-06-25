@@ -1,28 +1,9 @@
 ---
 name: gh-fix-ci
-description: "Use when a user asks to debug or fix failing GitHub PR checks that run in GitHub Actions; use `gh` to inspect checks and logs, summarize failure context, draft a fix plan, and implement only after explicit approval. Treat external providers (for example Buildkite) as out of scope and report only the details URL."
+description: Use when a user asks to debug or fix failing GitHub PR checks running in GitHub Actions.
 ---
 
-
-# Gh Pr Checks Plan Fix
-
-## Overview
-
-Use gh to locate failing PR checks, fetch GitHub Actions logs for actionable failures, summarize the failure snippet, then propose a fix plan and implement after explicit approval.
-- Enter plan mode to draft the fix plan and request approval before implementing.
-
-Prereq: authenticate with the standard GitHub CLI once (for example, run `gh auth login`), then confirm with `gh auth status` (repo + workflow scopes are typically required).
-
-## Inputs
-
-- `repo`: path inside the repo (default `.`)
-- `pr`: PR number or URL (optional; defaults to current branch PR)
-- `gh` authentication for the repo host
-
-## Quick start
-
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
-- Add `--json` if you want machine-friendly output for summarization.
+Locate failing PR checks with `gh`, fetch the GitHub Actions logs, summarize the failure, then draft a fix in plan mode and implement only after explicit approval.
 
 ## Workflow
 
@@ -57,13 +38,8 @@ Prereq: authenticate with the standard GitHub CLI once (for example, run `gh aut
 8. Recheck status.
    - After changes, suggest re-running the relevant tests and `gh pr checks` to confirm.
 
-## Bundled Resources
+## scripts/inspect_pr_checks.py
 
-### scripts/inspect_pr_checks.py
+Fetches failing PR checks, pulls GitHub Actions logs, and extracts a failure snippet. Exits non-zero when failures remain, so it can gate automation.
 
-Fetch failing PR checks, pull GitHub Actions logs, and extract a failure snippet. Exits non-zero when failures remain so it can be used in automation.
-
-Usage examples:
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "123"`
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "https://github.com/org/repo/pull/123" --json`
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --max-lines 200 --context 40`
+Flags: `--repo` (path inside repo, default `.`), `--pr` (number or URL; defaults to the current-branch PR), `--json` (emit JSON instead of text), `--max-lines` / `--context` (tune snippet size).

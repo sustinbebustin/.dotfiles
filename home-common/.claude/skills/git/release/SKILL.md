@@ -25,15 +25,13 @@ Run every git command against the target's own repo root with `git -C <root> ...
 
 If a **User note** block appears in Current State, treat it as binding guidance (version override, extra release-notes context, files to leave alone, etc.).
 
-This skill is for repos with a **hand-maintained `CHANGELOG.md`** only. If a target's **Release action** is STOP (release-please or changesets owns releases, no changelog, or empty `[Unreleased]`), report why and skip it -- don't hand-cut.
-
 ## Current State
 
 !`bash ${CLAUDE_SKILL_DIR}/scripts/gather-state.sh "$ARGUMENTS"`
 
 ## Your task
 
-Run steps 3-10 independently for each `### Target:` block. Once the target is known, keep output to tool calls only -- no narration.
+Run steps 3-11 independently for each `### Target:` block. Once the target is known, keep output to tool calls only -- no narration.
 
 1. **Resolve target repo(s).** If Current State shows one or more `### Target:` blocks, they're known. If it shows `### Available repos`, call `AskUserQuestion` to pick exactly one, then re-invoke this skill scoped to it so the gather script produces a full Target block. If no repos were found, STOP and tell the user.
 2. **Honor STOP verdicts.** If a target's **Release action** is STOP, report the reason and skip that target.

@@ -99,6 +99,4 @@ mapfile -t urls < <(
 
 - Keep the script self-contained and re-runnable. The user re-runs it to refresh content.
 - Place `scrape.sh` *inside* the destination dir alongside the `docs/` subfolder it produces. Don't litter the parent.
-- Don't convert HTML to markdown ad-hoc — if no `.md` variant exists, surface that to the user rather than producing low-fidelity output silently.
-- Mirror the URL path structure verbatim so the on-disk tree is greppable and predictable.
 - Default concurrency 8 is safe for most sites. Mention `CONCURRENCY=N ./scrape.sh` as the knob.

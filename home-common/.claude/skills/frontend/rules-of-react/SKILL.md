@@ -7,22 +7,10 @@ description: "React's 10 correctness rules: purity, immutability, and hooks call
 
 10 mandatory correctness rules from [react.dev/reference/rules](https://react.dev/reference/rules) (React v19). These are not guidelines -- they are the contract between your code and React's rendering engine. The React Compiler assumes all 10 are followed; violations cause silent bail-outs or incorrect optimizations.
 
-## When to Apply
-
-Apply these rules to ALL React code:
-- Writing new components or custom hooks
-- Reviewing React code for correctness
-- Refactoring existing components
-- Debugging unexpected re-renders or stale state
-- Investigating React Compiler bail-outs
-
 ## Relationship to `react-best-practices`
 
-These two skills are complementary:
-- **rules-of-react** = correctness (mandatory, your app breaks if violated)
-- **react-best-practices** = performance (graded, your app is slower if ignored)
-
-Performance optimization is meaningless if correctness rules are violated -- the Compiler skips broken components entirely.
+- **rules-of-react** = correctness (mandatory; the app breaks if violated)
+- **react-best-practices** = performance (graded; the app is slower if ignored)
 
 ## Quick Reference
 
@@ -55,19 +43,6 @@ React is responsible for rendering components and executing hooks. Calling compo
 
 Hooks are tracked by call order. Conditional or nested hook calls shift positions and corrupt state. Hooks must only be called from React function components or custom hooks (functions starting with `use`).
 
-## React Compiler Connection
+## Full Rules, Enforcement, and Compiler Bail-Outs
 
-This project has `reactCompiler: true` in `next.config.ts`. The Compiler:
-- **Assumes** all 10 rules are followed
-- **Skips** components that violate them (silently, unless `panicThreshold: "all_errors"` is set)
-- **May produce incorrect output** if violations slip past static analysis
-
-### Enforcement
-
-- **Runtime**: `<StrictMode>` renders components twice in development to surface impure logic
-- **Lint**: `eslint-plugin-react-hooks` v7+ includes Compiler-powered rules (`purity`, `immutability`, `refs`, `set-state-in-render`)
-- **Build**: React Compiler static analysis at compile time
-
-## Full Rules with Code Examples
-
-For complete rules with correct/incorrect code examples, see [AGENTS.md](AGENTS.md).
+[AGENTS.md](AGENTS.md) holds the complete rules with correct/incorrect code examples, the "You Might Not Need an Effect" guidance, the `eslint-plugin-react-hooks` enforcement table, `<StrictMode>` behavior, and known React Compiler bail-out patterns (such as branching expressions inside `try/catch`).

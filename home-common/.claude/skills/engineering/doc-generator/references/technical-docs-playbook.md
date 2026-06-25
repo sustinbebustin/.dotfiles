@@ -13,21 +13,7 @@ Create technical docs that are task-first, specific, and grounded in the codebas
 - Document each endpoint with description, auth, request, response, errors.
 - Provide at least one curl example for key flows.
 
-Endpoint template:
-````markdown
-### <METHOD> <path>
-- **Description:** <what it does>
-- **Auth:** <required or none>
-- **Request:**
-```json
-{}
-```
-- **Response:**
-```json
-{}
-```
-- **Errors:** <4xx/5xx scenarios>
-````
+Endpoint skeleton: [`templates.md`](templates.md).
 
 ## Authentication Docs
 - Describe auth mechanism (JWT, API key, OAuth, sessions).

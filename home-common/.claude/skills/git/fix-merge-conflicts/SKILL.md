@@ -1,13 +1,9 @@
 ---
 name: fix-merge-conflicts
-description: Resolve merge conflicts non-interactively, validate build and tests, and finalize conflict resolution
+description: Resolve merge conflicts non-interactively to a buildable, tested state. Use when a merge, rebase, cherry-pick, or pull leaves conflict markers.
 ---
 
 # Fix merge conflicts
-
-## Trigger
-
-Branch has unresolved merge conflicts and needs a reliable path to a buildable state.
 
 ## Workflow
 
@@ -20,7 +16,6 @@ Branch has unresolved merge conflicts and needs a reliable path to a buildable s
 
 ## Guardrails
 
-- Keep changes minimal and readable.
 - Do not leave conflict markers in any file.
 - Avoid broad refactors while resolving conflicts.
 - Do not push or tag during conflict resolution.

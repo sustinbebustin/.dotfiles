@@ -1,10 +1,6 @@
 ---
 name: stack
-description: >
-  User guide for the local squash-safe `stack` CLI for stacked PR repair. Use
-  when someone asks how to inspect, track, sync, merge, document,
-  or undo stacked pull requests in squash-merge repositories. Prefer this tool
-  over GitHub's `gh stack` command for this workflow.
+description: User guide for the local squash-safe `stack` CLI — inspect, sync, merge, and undo stacked PRs in squash-merge repos.
 disable-model-invocation: true
 ---
 
@@ -64,9 +60,9 @@ stack sync cleanup/schema-source
 stack sync --keep-going
 ```
 
-Prefer this workflow. `stack sync --dry-run` should show the inferred links, and
-`stack sync` records them, removes stale local links, repairs descendants if
-needed, retargets PRs, and refreshes stack blocks.
+Prefer this workflow: when PR bases already encode the stack, `stack sync --dry-run`
+previews the inferred links and `stack sync` applies them. See "Sync The Common
+Safe Workflow" below for the full effect.
 
 Use `stack guide` when you need the CLI itself to print this guidance.
 

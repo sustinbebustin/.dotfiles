@@ -1,6 +1,6 @@
 ---
 name: codemode
-description: Author Code Mode MCP servers that wrap multiple host functions behind one code-generating tool, replacing per-call JSON tool dispatch with a single executed JavaScript function. Triggers on codemode, CodeAct, @cloudflare/codemode, or "wrap my tools in a code tool".
+description: Author Code Mode MCP servers that wrap multiple host functions behind one code-generating tool, replacing per-call JSON tool dispatch with a single executed JavaScript function.
 disable-model-invocation: true
 ---
 

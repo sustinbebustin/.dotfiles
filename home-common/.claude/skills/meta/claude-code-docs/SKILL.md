@@ -1,6 +1,6 @@
 ---
 name: claude-code-docs
-description: Answer Claude Code questions (CLI, Agent SDK, plugins, hooks, skills, slash commands, MCP, settings) from a locally cached copy of the official docs. Use for grounded answers instead of the built-in guide agent.
+description: Answer Claude Code questions (CLI, Agent SDK, plugins, hooks, skills, slash commands, MCP, settings) from a locally cached copy of the official docs.
 argument-hint: [question]
 disable-model-invocation: true
 allowed-tools: Bash(bash:*), Read, Grep, Glob
@@ -8,7 +8,7 @@ allowed-tools: Bash(bash:*), Read, Grep, Glob
 
 # Claude Code Docs
 
-Answer the user's question about Claude Code using the cached docs at `~/.claude/context/`. The cache auto-refreshes weekly from `https://code.claude.com/docs/llms.txt`.
+Answer the user's question about Claude Code using the cached docs at `~/.claude/context/`.
 
 ## Cache status
 

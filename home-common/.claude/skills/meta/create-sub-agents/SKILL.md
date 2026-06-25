@@ -1,6 +1,6 @@
 ---
 name: create-sub-agents
-description: Expert guidance for designing and authoring Claude Code subagents. Use when creating files under `.claude/agents/` or `~/.claude/agents/`, defining custom subagents, restricting tool access, picking models, wiring memory, or auditing existing subagent definitions.
+description: Designing, authoring, and auditing Claude Code subagents — frontmatter, tool scoping, model choice, and memory.
 disable-model-invocation: true
 metadata:
   last_reviewed: 2026-06-23
@@ -19,7 +19,7 @@ Author Claude Code subagents that delegate well, stay focused, and keep the main
 | Work is self-contained and only the summary matters | You're making a quick, targeted change in current context |
 | You keep spawning the same kind of worker with the same instructions | Logic is reusable knowledge or workflow -> use a [skill](https://code.claude.com/docs/en/skills) |
 | You want context isolation for parallel research | Workers need to message each other -> use [agent teams](https://code.claude.com/docs/en/agent-teams) |
-| You want a guarantee that fires on a lifecycle event -> use a [hook](https://code.claude.com/docs/en/hooks) |
+|  | You want a guarantee that fires on a lifecycle event -> use a [hook](https://code.claude.com/docs/en/hooks) |
 
 See [subagents-vs-alternatives.md](references/subagents-vs-alternatives.md) for a full decision matrix.
 

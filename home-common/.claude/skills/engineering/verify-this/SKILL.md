@@ -1,24 +1,15 @@
 ---
 name: verify-this
-description: Verify a claim with fresh local evidence: restate it falsifiably, capture baseline and treatment, compare artifacts, and return VERIFIED, NOT VERIFIED, or INCONCLUSIVE.
+description: Verify a claim with fresh local evidence and return VERIFIED, NOT VERIFIED, or INCONCLUSIVE. Use when the user says "verify this", "prove it works", "did this fix it", or "show me the evidence"; a bug fix needs a before/after repro; a UI, CLI, API, performance, or memory claim needs measurement; or a test passes but user-visible behavior still needs confirmation.
 ---
 
 # Verify This
 
 Verification is not a recap. It proves or disproves a specific claim with repeatable evidence.
 
-## When To Use
-
-- The user asks "verify this", "prove it works", "did this fix it", or "show me the evidence".
-- A bug fix needs a before/after repro.
-- A UI, CLI, API, performance, or memory claim needs measurement.
-- A test passes but the user-visible behavior still needs confirmation.
-
-Do not use this for vague claims like "the code is cleaner". Ask for a measurable claim first.
-
 ## Workflow
 
-1. Restate the claim in falsifiable form: condition, metric, and threshold.
+1. Restate the claim in falsifiable form: condition, metric, and threshold. If it is vague (e.g. "the code is cleaner"), ask for a measurable claim before proceeding.
 2. Pick the smallest local surface that can disprove it.
 3. Capture a baseline from the old state: merge base, parent commit, failing branch, or current broken repro.
 4. Capture treatment from the changed state with the same command, data, warmup, and environment.

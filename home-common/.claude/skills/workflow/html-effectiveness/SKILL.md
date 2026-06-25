@@ -1,18 +1,18 @@
 ---
 name: html-effectiveness
-description: Produce polished, self-contained single-file HTML artifacts in the warm-paper Anthropic visual language — ivory ground, slate ink, clay accent, serif headings, sans body, mono labels, 1.5px-border cards with 12px radius. Use whenever the user wants an HTML page, a one-pager, a static report, a code-review summary, a PR writeup, an implementation plan, an explainer, a slide deck, a flowchart, an SVG illustration sheet, a design-exploration board, an internal-tool mock, or any single .html deliverable. Skip when editing an existing web-app codebase that already has its own design tokens.
+description: Produce polished standalone single-file HTML artifacts in the warm-paper Anthropic editorial visual language.
 disable-model-invocation: true
 ---
 
 # HTML Effectiveness
 
-Produce one-file, self-contained HTML in a consistent editorial visual language. Ivory page, slate ink, clay accent, oat highlight, olive for positive, rust for negative. Serif headings, sans body, mono for code and labels. Cards on a 1.5px hairline grid with 12px corners. No external assets. No frameworks. Real content, not placeholders.
+Produce one-file, self-contained HTML in a consistent editorial visual language. Ivory page, slate ink, clay accent, oat highlight, olive for positive, rust for negative. Serif headings, sans body, mono for code and labels. Cards on a 1.5px hairline grid with 12px corners.
 
 ## Process
 
 1. **Pick the nearest example.** Skim the [Example index](#example-index) below. Read 1–2 matching files from `examples/` in full before writing — the layout vocabulary lives in those files.
 2. **Steal structure, not strings.** Lift the layout, card patterns, and CSS. Replace every word with content grounded in the user's actual request. Never ship `Acme`, `Mira Okafor`, or other sample copy.
-3. **Write one file.** Inline `<style>`. Inline SVG. No web fonts, no CDN scripts, no external images. A small dash of vanilla JS is fine for toggles, tabs, scroll highlights — no frameworks.
+3. **Write one file.** Start from `starter.html`. Inline `<style>`. Inline SVG. No web fonts, no CDN scripts, no external images. A small dash of vanilla JS is fine for toggles, tabs, scroll highlights — no frameworks.
 4. **Verify.** Open the file in a browser, resize to mobile, check for console errors and unstyled flashes of content.
 
 ## Design tokens — copy verbatim
@@ -226,10 +226,3 @@ Match the user's request to a file, read it in full, then adapt. Always rewrite 
 | `examples/18-editor-triage-board.html` | Internal tool: Kanban-style triage board |
 | `examples/19-editor-feature-flags.html` | Internal tool: feature-flag dashboard |
 | `examples/20-editor-prompt-tuner.html` | Internal tool: prompt tuning workbench |
-
-## Quick start
-
-1. Pick the closest example from the table above and `Read` it in full.
-2. Open `starter.html` for the minimal scaffold.
-3. Paste in the patterns you need; rewrite every string with the user's actual content.
-4. Open the file in a browser; check mobile width and console.
