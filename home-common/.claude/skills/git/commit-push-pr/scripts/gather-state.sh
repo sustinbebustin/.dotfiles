@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Gather git state for the commit-push-pr skill.
-# Argument: raw $ARGUMENTS, optionally split as "<repos> -- <user note>".
+# Input: raw $ARGUMENTS on stdin (falls back to $1 for manual runs),
+# optionally split as "<repos> -- <user note>".
+# Read via stdin so embedded quotes/globs/`$` in the note can't break shell quoting.
 #
 # Parsing:
 # - ""                                  -> no scope, no note
@@ -19,7 +21,11 @@
 
 set -u
 
-raw="${1:-}"
+if [ "$#" -gt 0 ]; then
+  raw="$1"
+else
+  raw="$(cat)"
+fi
 args_raw=""
 note=""
 

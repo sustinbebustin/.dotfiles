@@ -27,7 +27,11 @@ If a **User note** block appears in Current State, treat it as binding guidance 
 
 ## Current State
 
-!`bash ${CLAUDE_SKILL_DIR}/scripts/gather-state.sh "$ARGUMENTS"`
+```!
+bash ${CLAUDE_SKILL_DIR}/scripts/gather-state.sh <<'__SKILL_ARGUMENTS__'
+$ARGUMENTS
+__SKILL_ARGUMENTS__
+```
 
 ## Your task
 

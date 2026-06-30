@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Gather git state for the commit skill.
-# Argument: raw $ARGUMENTS string, optionally split as "<scopes> -- <user note>".
+# Input: raw $ARGUMENTS string on stdin (falls back to $1 for manual runs),
+# optionally split as "<scopes> -- <user note>".
+# Read via stdin so embedded quotes/globs/`$` in the note can't break shell quoting.
 #
 # Parsing:
 # - ""                                    -> no scope, no note
@@ -14,7 +16,11 @@
 
 set -u
 
-raw="${1:-}"
+if [ "$#" -gt 0 ]; then
+  raw="$1"
+else
+  raw="$(cat)"
+fi
 scopes_raw=""
 note=""
 
