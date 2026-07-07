@@ -125,7 +125,6 @@
     ],
     "deny": [
       "Bash(wget:*)",
-      "Bash(rm -rf *)",
       "Bash(brew install:*)",
       "Read(**/.env)",
       "Read(**/.env.development)",
@@ -154,6 +153,15 @@
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/block-dangerous-git-bin"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/block-dangerous-rm-bin"
           }
         ]
       },
