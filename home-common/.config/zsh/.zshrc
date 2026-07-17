@@ -213,6 +213,7 @@ alias gss='git status -s'
 alias gstash='git stash'
 alias gpop='git stash pop'
 alias gundo='git reset --soft HEAD~1'
+alias gsync='git fetch origin main:main && git rebase main'
 alias gs='echo ""; echo "*********************************************"; echo -e "   DO NOT FORGET TO PULL BEFORE COMMITTING"; echo "*********************************************"; echo ""; git status'
 
 # ===== Colored man pages (Dracula Pro) =====
