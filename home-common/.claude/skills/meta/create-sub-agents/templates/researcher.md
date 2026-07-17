@@ -7,7 +7,7 @@ Read-only explorer with persistent memory. Use for codebase research, technical 
 name: researcher
 description: Deep codebase researcher. Use for exhaustive investigation of how a system works, where logic lives, and how modules connect. Returns structured findings with citations.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 permissionMode: plan
 memory: project
 ---

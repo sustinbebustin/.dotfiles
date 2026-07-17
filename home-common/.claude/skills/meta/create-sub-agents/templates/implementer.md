@@ -7,7 +7,7 @@ Edit-capable specialist that runs in a git worktree. Use for refactors, bug fixe
 name: implementer
 description: Implements focused code changes (refactors, bug fixes, small features). Use when a clear, well-scoped change needs to be made. Runs in a temporary git worktree so the main checkout stays clean.
 tools: Read, Edit, Write, Glob, Grep, Bash
-model: sonnet
+model: opus
 permissionMode: acceptEdits
 isolation: worktree
 ---

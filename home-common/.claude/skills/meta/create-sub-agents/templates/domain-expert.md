@@ -7,7 +7,7 @@ A specialist with persistent memory and preloaded skills. Use for areas where th
 name: payments-expert
 description: Expert on the payments service. Use for any work touching billing, checkout, refunds, subscriptions, or payment provider integrations.
 tools: Read, Edit, Write, Glob, Grep, Bash
-model: sonnet
+model: opus
 memory: project
 skills:
   - payments-conventions
