@@ -12,6 +12,7 @@
 ^LICENSE.*
 
 # Go source dirs for the hook binaries — only the built *-bin should be linked.
+^/\.claude/hooks/block-aws-cli$
 ^/\.claude/hooks/block-dangerous-git$
 ^/\.claude/hooks/block-dangerous-rm$
 ^/\.claude/hooks/block-env-files$
