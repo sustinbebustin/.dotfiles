@@ -174,6 +174,17 @@ func checkGh(args []string) (verdict, bool) {
 		if len(args) > 1 && (args[1] == "delete" || args[1] == "rename") {
 			return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh repo %s not allowed", args[1])}, true
 		}
+	case "workflow":
+		if len(args) > 1 && args[1] == "run" {
+			return verdict{decision: "ask", reason: "gh workflow run dispatches a workflow (may trigger a deploy) - allow?"}, true
+		}
+	case "run":
+		if len(args) > 1 {
+			switch args[1] {
+			case "cancel", "rerun", "delete":
+				return verdict{decision: "ask", reason: fmt.Sprintf("gh run %s mutates a workflow run - allow?", args[1])}, true
+			}
+		}
 	case "api":
 		for i, a := range args[1:] {
 			if a == "-X" || a == "--method" {
