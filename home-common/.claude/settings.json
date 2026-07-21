@@ -5,7 +5,7 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-4-8",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_NO_FLICKER": "1",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "228000"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "186000"
   },
   "attribution": {
     "commit": "",
