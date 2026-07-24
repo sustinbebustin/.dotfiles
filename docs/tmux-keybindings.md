@@ -18,6 +18,12 @@ All splits and new windows preserve the current pane's working directory.
 |------------------|---------------------------------|
 | `prefix x`       | Kill pane                       |
 | `prefix m`       | Zoom/maximize pane              |
+| `prefix j`       | Join another window in as a side-by-side pane (prompts for source window) |
+
+`prefix j` is the reverse of `prefix !`: run it from the destination window,
+enter the source window's index, and that window's active pane moves in as a
+horizontal split. If the source window has only that one pane, the window
+closes once its pane moves.
 
 ## Pane Resizing
 
