@@ -5,7 +5,7 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-4-8",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_NO_FLICKER": "1",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "186000"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "226000"
   },
   "attribution": {
     "commit": "",
@@ -103,8 +103,6 @@
       "mcp__ide__getDiagnostics",
       "Read($HOME/.claude/**)",
       "Read(~/.claude/**)",
-      "Glob($HOME/.claude/**)",
-      "Glob(~/.claude/**)",
       "Skill(supabase)",
       "mcp__supabase__search_docs",
       "mcp__supabase__list_tables",
@@ -204,6 +202,7 @@
     }
   },
   "spinnerTipsEnabled": false,
+  "model": "claude-opus-5",
   "effortLevel": "high",
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,

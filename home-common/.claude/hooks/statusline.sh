@@ -116,8 +116,20 @@ token_info() {
   fi
 
   used=$(( input_tokens + cache_creation + cache_read ))
-  # Subtract 33k autocompact buffer
-  limit=$(( window_size - 33000 ))
+
+  # Prefer the configured auto-compaction window: it's the real threshold at
+  # which Claude Code compacts, whereas context_window_size is always the
+  # model's full window. Claude Code injects settings.json env into this
+  # process, so $CLAUDE_CODE_AUTO_COMPACT_WINDOW tracks the live setting.
+  # Capped at the model window; falls back to the 33k autocompact buffer.
+  local compact_window="${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-}"
+  if [ -n "$compact_window" ] && [ "$compact_window" -gt 0 ] 2>/dev/null; then
+    limit=$compact_window
+    [ "$limit" -gt "$window_size" ] && limit=$window_size
+  else
+    limit=$(( window_size - 33000 ))
+  fi
+
   if [ "$limit" -gt 0 ]; then
     pct=$(( used * 100 / limit ))
   else
