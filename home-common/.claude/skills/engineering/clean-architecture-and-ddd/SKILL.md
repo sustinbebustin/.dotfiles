@@ -114,7 +114,9 @@ When evaluating a change:
 4. **Contract**: does the change alter a shape consumed across a BC, service, or app boundary without updating consumers (generated types, published language, shared kernel)?
 5. **Screaming**: would a senior engineer opening this module see the *domain* (folders named after the business: `ordering/`, `billing/`, `inventory/`) or the *framework* (`controllers/`, `services/`, `utils/`)? Framework-shaped folders are a signal, not a defect — weigh it alongside the others.
 
-If none of those fire, the change is probably architecturally fine — move on. Over-flagging is a bigger problem than under-flagging in an Opus pipeline where every finding costs reviewer context.
+If none of those fire, the change is probably architecturally fine — move on.
+
+The five heuristics are a severity scale, not a gate on speaking. A change that trips one of them squarely is a loud finding; a change that only brushes against one is a quiet note. Report both, graded honestly — the calling harness decides what reaches the user, and a concern you swallow because it felt minor is one it never gets to weigh. What genuinely does not belong in the output is an observation you cannot tie to a concrete boundary and a concrete alternative shape; that is not a soft finding, it is an unfinished one.
 
 ## References
 
