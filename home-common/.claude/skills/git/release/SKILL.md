@@ -1,9 +1,8 @@
 ---
 name: release
 allowed-tools: Bash(git switch:*), Bash(git checkout:*), Bash(git pull:*), Bash(git fetch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(git commit:*), Bash(git push:*), Bash(git tag:*), Bash(gh release create:*), Bash(gh release view:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(bash:*), Bash(mktemp:*), Bash(rm:*), Monitor, Read, Write, Edit, AskUserQuestion, Skill(gh-fix-ci)
-description: Cut a release for a repo with a self-managed CHANGELOG -- finalize the changelog, tag, and publish a GitHub release from the [Unreleased] notes.
+description: Cut a release for a repo with a self-managed CHANGELOG -- finalize the changelog, tag, and publish a GitHub release from the [Unreleased] notes. Publishes to production; invoke only when the user explicitly asks for a release or the deploy skill directs it -- never on your own initiative.
 argument_hint: [repo...] [version] [-- note]
-disable-model-invocation: true
 ---
 
 ## Scope

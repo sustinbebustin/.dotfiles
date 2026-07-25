@@ -152,7 +152,7 @@ func checkGh(args []string) (verdict, bool) {
 		if len(args) > 1 {
 			switch args[1] {
 			case "merge":
-				return verdict{decision: "deny", reason: "[BLOCKED] gh pr merge - PR merging not allowed"}, true
+				return verdict{decision: "ask", reason: "gh pr merge merges and may delete the branch - allow?"}, true
 			case "close":
 				return verdict{decision: "deny", reason: "[BLOCKED] gh pr close - PR closing not allowed"}, true
 			}

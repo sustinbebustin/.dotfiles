@@ -5,7 +5,7 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-5[1m]",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_NO_FLICKER": "1",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "226000"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "326000"
   },
   "attribution": {
     "commit": "",
@@ -132,6 +132,10 @@
       "Read(**/*.env)",
       "Read(**/secrets.enc)",
       "Read(**/*.key)"
+    ],
+    "ask": [
+      "Skill(release)",
+      "Skill(release *)"
     ],
     "defaultMode": "auto"
   },
