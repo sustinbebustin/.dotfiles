@@ -5,7 +5,7 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-5[1m]",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_NO_FLICKER": "1",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "326000"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "226000"
   },
   "attribution": {
     "commit": "",
@@ -39,15 +39,9 @@
       "Bash(supabase db diff:*)",
       "Bash(python:*)",
       "Bash(python3:*)",
-      "Bash($HOME/.claude/hooks/*)",
-      "Bash(~/.claude/hooks/*)",
-      "Bash($HOME/.claude/scripts/*)",
-      "Bash(~/.claude/scripts/*)",
-      "Bash(bash:$HOME/.claude/scripts/* *)",
-      "Bash(bash:~/.claude/scripts/* *)",
-      "Bash(bash ~/.claude/scripts/generate-reasoning.sh:*)",
-      "Bash(cat:$HOME/.claude/*)",
-      "Bash(cat:~/.claude/*)",
+      "Bash(*/.claude/hooks/*)",
+      "Bash(*/.claude/scripts/*)",
+      "Bash(bash */.claude/skills/*)",
       "Bash(chmod:*)",
       "Bash(mkdir:*)",
       "Bash(touch:*)",
@@ -194,17 +188,9 @@
   },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "document-skills@anthropic-agent-skills": true
+    "typescript-lsp@claude-plugins-official": true
   },
-  "extraKnownMarketplaces": {
-    "anthropic-agent-skills": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/anthropics/skills.git"
-      }
-    }
-  },
+  "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false,
   "effortLevel": "high",
   "awaySummaryEnabled": false,
@@ -212,5 +198,11 @@
   "skipWorkflowUsageWarning": true,
   "remoteControlAtStartup": false,
   "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Running a pre-existing skill helper script at ~/.claude/skills/*/scripts/gather-state.sh is allowed, regardless of how it was invoked, when all of these hold: the agent did not write or edit the script this session (if the transcript shows the agent writing or editing it, judge the written content instead); the script invocation is the whole command, taking no arguments other than a quoted heredoc carrying the slash-command's own arguments; and the script only reads local git and repo state. This covers running the script only -- creating or editing files under .claude/skills/ remains Self-Modification and is not cleared here."
+    ]
+  },
   "voiceEnabled": false
 }
