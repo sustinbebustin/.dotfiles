@@ -81,13 +81,17 @@ In `~/.ssh/config` on the Mac, under the host entry for the VM:
 
 ```
 Host dev
-    RemoteForward /home/austin/.claude/run/sound.sock /Users/austingomez/.claude/run/sound.sock
+    RemoteForward /home/%r/.claude/run/sound.sock %d/.claude/run/sound.sock
 ```
 
-Both paths are absolute and neither expands `~`. The first is the path on the VM,
-the second the path on the Mac. Note the usernames differ between the two
-machines (`austin` on the VM, `austingomez` on the Mac), so the two paths are not
-symmetric even though the trailing components match.
+The first path is the listen socket on the VM, the second is what it connects to
+on the Mac. Neither expands `~`, but both accept the tokens from `ssh_config(5)`:
+`%r` is the remote username and `%d` is the local user's home directory, so the
+line works unchanged on any account, with different usernames on each machine.
+
+There is no token for the *remote* home directory, since ssh cannot know it, so
+`/home/%r` assumes the usual Linux layout on the VM. Spell the path out if that
+is ever untrue.
 
 ### 5. Mac: start the listener
 
@@ -123,7 +127,7 @@ Silence plus `no sound server at ...` means the forward is not up: check that th
 This message in the ssh session comes from the ssh client on the Mac, not the VM:
 
 ```
-connect to /Users/austingomez/.claude/run/sound.sock port -2 failed: No such file or directory
+connect to /Users/<you>/.claude/run/sound.sock port -2 failed: No such file or directory
 ```
 
 It means the opposite: the forward *is* working and the Mac has no listener at the
