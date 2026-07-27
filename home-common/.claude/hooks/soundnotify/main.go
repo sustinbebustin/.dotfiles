@@ -7,7 +7,7 @@
 // Claude Code runs over ssh, the two paths are stitched together by a remote
 // forward in the client's ssh config:
 //
-//	RemoteForward /home/austin/.claude/run/sound.sock /Users/austin/.claude/run/sound.sock
+//	RemoteForward /home/austin/.claude/run/sound.sock /Users/austingomez/.claude/run/sound.sock
 //
 // so neither side needs to know whether it is local or remote. With no forward
 // and no server the client is a silent no-op, which is what makes it safe to

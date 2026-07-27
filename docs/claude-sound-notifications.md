@@ -81,11 +81,13 @@ In `~/.ssh/config` on the Mac, under the host entry for the VM:
 
 ```
 Host dev
-    RemoteForward /home/austin/.claude/run/sound.sock /Users/austin/.claude/run/sound.sock
+    RemoteForward /home/austin/.claude/run/sound.sock /Users/austingomez/.claude/run/sound.sock
 ```
 
 Both paths are absolute and neither expands `~`. The first is the path on the VM,
-the second the path on the Mac.
+the second the path on the Mac. Note the usernames differ between the two
+machines (`austin` on the VM, `austingomez` on the Mac), so the two paths are not
+symmetric even though the trailing components match.
 
 ### 5. Mac: start the listener
 
@@ -121,7 +123,7 @@ Silence plus `no sound server at ...` means the forward is not up: check that th
 This message in the ssh session comes from the ssh client on the Mac, not the VM:
 
 ```
-connect to /Users/austin/.claude/run/sound.sock port -2 failed: No such file or directory
+connect to /Users/austingomez/.claude/run/sound.sock port -2 failed: No such file or directory
 ```
 
 It means the opposite: the forward *is* working and the Mac has no listener at the
