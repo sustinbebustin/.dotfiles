@@ -31,8 +31,10 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. Configs are split i
 │       ├── matugen/             # Material You theming
 │       └── ...                  # cava, fastfetch, kanata, xremap, systemd
 ├── home-macos/                  # stow package -> $HOME (macOS only)
-│   └── .config/
-│       └── karabiner/           # key remapping
+│   ├── .config/
+│   │   └── karabiner/           # key remapping
+│   └── Library/
+│       └── LaunchAgents/        # launchd user agents
 └── docs/                        # documentation
 ```
 
@@ -61,6 +63,7 @@ Each package's directory tree maps 1:1 to `$HOME`:
 | `home-common/.config/zsh/` | `~/.config/zsh/` |
 | `home-arch/.config/hypr/` | `~/.config/hypr/` |
 | `home-macos/.config/karabiner/` | `~/.config/karabiner/` |
+| `home-macos/Library/LaunchAgents/` | `~/Library/LaunchAgents/` |
 
 Stow is run with `--no-folding` to create per-file symlinks rather than directory symlinks, preventing conflicts between packages.
 
@@ -102,21 +105,31 @@ Everything else (nvm, bun, cargo) managed outside Homebrew.
 ├── CLAUDE.md                    # global instructions
 ├── settings.json                # model, permissions, hooks
 ├── mcp.json.example             # MCP server template
-├── hooks/                       # TypeScript quality gates
+├── hooks/                       # Go safety gates + statusline
 ├── commands/                    # slash command workflows
 ├── skills/                      # skill definitions (SKILL.md)
 ├── agents/                      # subagent definitions
 └── rules/                       # always-loaded rules
 ```
 
-### Hooks (TypeScript, esbuild -> ESM)
+### Hooks (Go, one module per hook)
+
+Each hook is a standalone Go module built by `hooks/Makefile` into a `*-bin`
+binary. The binaries are gitignored and built per-machine; only the built
+binary is stowed into `~/.claude/hooks/`, never the source directory.
 
 | Hook | Trigger | Purpose |
 |------|---------|---------|
-| `skill-activation-prompt` | UserPromptSubmit | Match keywords -> inject skill suggestions |
-| `typescript-preflight` | PostToolUse (Edit/Write) | Non-blocking TS type-check warning |
-| `typescript-stop-gate` | Stop | Blocking -- fails if TS errors remain |
-| `statusline` | statusLine | Render branch, tokens, project in status bar |
+| `block-env-files` | PreToolUse (Read/Edit/Write/Bash/Grep) | Deny access to `.env` files |
+| `block-aws-cli` | PreToolUse (Bash) | Ask before any `aws` CLI invocation |
+| `block-dangerous-git` | PreToolUse (Bash) | Ask before push, merge, rebase, and other history- or worktree-destroying git commands |
+| `block-dangerous-rm` | PreToolUse (Bash) | Ask before a recursive `rm` |
+| `enforce-root` | PreToolUse (Bash) | Deny a top-level `cd`, which silently desyncs later commands |
+| `soundnotify` | Notification, PostToolUse, UserPromptSubmit, Stop | Alert on an unanswered permission prompt, played on the workstation rather than the host Claude Code runs on |
+| `statusline.sh` | statusLine | Render branch, tokens, project in status bar |
+
+See [Claude Code Sound Notifications](claude-sound-notifications.md) for how
+`soundnotify` reaches the workstation's speakers over ssh.
 
 ### Workflows (slash commands)
 
