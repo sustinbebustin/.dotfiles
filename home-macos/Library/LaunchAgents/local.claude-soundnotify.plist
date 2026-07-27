@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Keeps `soundnotify serve` running so Claude Code alert sounds play here, on the
+  machine with the speakers, even when Claude Code itself runs on a remote host.
+  See docs/claude-sound-notifications.md for the ssh side of the setup.
+
+  Launched through /bin/sh so $HOME resolves at runtime instead of baking a
+  username into the repo.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.claude-soundnotify</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>mkdir -p "$HOME/.claude/run" &amp;&amp; exec "$HOME/.claude/hooks/soundnotify-bin" serve &gt;&gt; "$HOME/.claude/run/soundnotify.log" 2&gt;&amp;1</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

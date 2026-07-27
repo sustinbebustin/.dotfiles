@@ -5,7 +5,7 @@
 #   make           # build all binaries
 #   make clean     # remove built binaries
 
-HOOKS := block-aws-cli block-dangerous-git block-dangerous-rm block-env-files enforce-root
+HOOKS := block-aws-cli block-dangerous-git block-dangerous-rm block-env-files enforce-root soundnotify
 BINS  := $(addsuffix -bin,$(HOOKS))
 
 .PHONY: all build clean

@@ -17,6 +17,7 @@
 ^/\.claude/hooks/block-dangerous-rm$
 ^/\.claude/hooks/block-env-files$
 ^/\.claude/hooks/enforce-root$
+^/\.claude/hooks/soundnotify$
 
 # Build tooling for those binaries; not needed in ~/.claude/hooks.
 ^/\.claude/hooks/Makefile$
