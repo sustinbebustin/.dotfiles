@@ -106,7 +106,7 @@ launchctl bootout gui/$(id -u)/local.claude-soundnotify
 On the Mac, confirm the server is up:
 
 ```bash
-soundnotify-bin play needs_input          # should be audible
+~/.claude/hooks/soundnotify-bin play needs_input   # should be audible
 ```
 
 Then, from an ssh session on the VM:
@@ -117,6 +117,23 @@ Then, from an ssh session on the VM:
 
 Silence plus `no sound server at ...` means the forward is not up: check that the
 `RemoteForward` line applies to the host you connected to, and reconnect.
+
+This message in the ssh session comes from the ssh client on the Mac, not the VM:
+
+```
+connect to /Users/austin/.claude/run/sound.sock port -2 failed: No such file or directory
+```
+
+It means the opposite: the forward *is* working and the Mac has no listener at the
+other end. Check that the launchd agent is loaded (`launchctl print
+gui/$(id -u)/local.claude-soundnotify`) and see `~/.claude/run/soundnotify.log`.
+`port -2` is just how ssh renders a unix-socket destination.
+
+`remote port forwarding failed for listen path ...` on connect means sshd could not
+bind the socket, which is what `StreamLocalBindUnlink` above prevents. Note that
+`sshd` runs as a persistent daemon here (`sshd -D`), so its children inherit the
+config parsed at daemon start: `sshd -T` will report a new setting off disk while
+live connections still use the old one until `systemctl reload ssh`.
 
 ## CLI
 
