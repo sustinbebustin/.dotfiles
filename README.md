@@ -56,8 +56,10 @@ Stow creates per-file symlinks (`--no-folding`) so packages never conflict with 
 │       ├── fastfetch/               # system info
 │       └── systemd/                 # user services
 ├── home-macos/                      # macOS only
-│   └── .config/
-│       └── karabiner/               # key remapping
+│   ├── .config/
+│   │   └── karabiner/               # key remapping
+│   └── Library/
+│       └── LaunchAgents/            # Claude Code sound notification listener
 └── docs/
 ```
 
@@ -98,5 +100,6 @@ dot completions       Generate zsh completions
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Claude Code Sound Notifications](docs/claude-sound-notifications.md)
 - [Hyprland Keybindings](docs/hyprland-keybindings.md)
 - [Tmux Keybindings](docs/tmux-keybindings.md)
