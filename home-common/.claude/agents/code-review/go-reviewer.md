@@ -1,8 +1,8 @@
 ---
 name: go-reviewer
 description: Reviews Go backend code changes with a high quality bar. Covers error handling, context propagation, concurrency, API design, idioms, and production reliability. Invoked after implementing features, modifying existing code, or creating new Go packages.
-model: inherit
-effort: xhigh
+model: opus
+effort: medium
 skills: go-best-practices
 tools: Bash, Read, Glob, Grep, Write, WebFetch, mcp__context7__query-docs, mcp__context7__resolve-library-id
 memory: project
