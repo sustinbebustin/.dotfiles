@@ -4,7 +4,13 @@ How to scope what a subagent can do, and how permissions interact with the paren
 
 ## Default Behavior
 
-If `tools` is omitted, the subagent inherits ALL tools from the main conversation, including MCP tools and Skill tools. Default to omitting only when you genuinely want full inheritance; otherwise pick an allowlist.
+If `tools` is omitted, the subagent inherits the main conversation's tools, including MCP tools and Skill tools, narrowed by two filters. Default to omitting only when you genuinely want full inheritance; otherwise pick an allowlist.
+
+**Filter 1 — always removed**, even when listed in `tools`: `AskUserQuestion`, `EndConversation`, `EnterPlanMode`, `ExitPlanMode` (unless `permissionMode: plan`), `ScheduleWakeup`, `TaskOutput`, `WaitForMcpServers`, `Workflow`, and `Agent` at the depth limit.
+
+**Filter 2 — background runs** (the default since v2.1.198): every MCP tool survives, but of the built-ins only `Read`, `Grep`, `Glob`, `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `Skill`, `ToolSearch`, `EnterWorktree`, `ExitWorktree`, `Monitor`, `TaskStop`, `SendMessage`, and `Artifact`. Removal is silent unless it leaves `tools` resolving to nothing. Agent-team teammates additionally keep the task and cron tools. Forks skip both filters.
+
+If nothing in `tools` resolves to a real tool, the subagent refuses to launch and the Agent tool returns an error naming the bad entries (v2.1.208+; earlier it launched toolless).
 
 ## Allowlist With `tools`
 
@@ -64,7 +70,7 @@ tools: Agent, Read, Bash
 
 To block all spawning, simply omit `Agent` from `tools`.
 
-Inside a subagent definition (as of v2.1.172), listing `Agent` in `tools` lets that subagent spawn its own nested subagents — but any type list inside the parentheses is **ignored**; the `Agent(type)` allowlist only constrains types when the agent runs as the main thread via `--agent`. To prevent a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. Chains are capped at five levels below the main conversation; an agent at depth five no longer receives the Agent tool.
+Inside a subagent definition, listing `Agent` in `tools` lets that subagent spawn its own nested subagents — but any type list inside the parentheses is **ignored**; the `Agent(type)` allowlist only constrains types when the agent runs as the main thread via `--agent`. To prevent a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. Nesting is capped at three layers below the main conversation by default (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`); at the limit the Agent tool is withheld.
 
 ## Disabling Specific Subagents Globally
 

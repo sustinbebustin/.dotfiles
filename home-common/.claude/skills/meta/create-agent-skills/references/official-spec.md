@@ -40,7 +40,7 @@ All fields are optional. Only `description` is recommended.
 | `when_to_use` | No | Additional context for when Claude should invoke the skill (trigger phrases, example requests). Appended to `description`; counts toward the 1,536-char cap. |
 | `argument-hint` | No | Hint shown during autocomplete. Example: `[issue-number]` or `[filename] [format]` |
 | `arguments` | No | Named positional arguments declared for `$name` substitution. Names map to argument positions in order — `arguments: [issue, branch]` makes `$issue` the first arg and `$branch` the second. Accepts a space-separated string or YAML list. |
-| `disable-model-invocation` | No | Set `true` to prevent Claude from auto-loading. Use for manual workflows. Default: `false` |
+| `disable-model-invocation` | No | Set `true` to prevent Claude from auto-loading. Use for manual workflows. Also blocks preloading into a subagent's `skills:` field, and (v2.1.196+) blocks a scheduled task firing with the skill as its prompt. Default: `false` |
 | `user-invocable` | No | Set `false` to hide from `/` menu. Use for background knowledge. Default: `true` |
 | `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict tools — every tool remains callable and permission settings still govern unlisted tools. Accepts space-separated string or YAML list. |
 | `disallowed-tools` | No | Tools removed from Claude's available pool while the skill is active. Use for autonomous skills that must never call a tool (e.g. `AskUserQuestion` in a background loop). Restriction clears on the next message. Accepts space/comma-separated string or YAML list. |
@@ -48,9 +48,12 @@ All fields are optional. Only `description` is recommended.
 | `effort` | No | Effort level while skill is active. Options: `low`, `medium`, `high`, `xhigh`, `max`; available levels depend on the model. Overrides session effort. |
 | `context` | No | Set `fork` to run in isolated subagent context |
 | `agent` | No | Subagent type when `context: fork`. Options: `Explore`, `Plan`, `general-purpose`, or any custom subagent from `.claude/agents/`. Defaults to `general-purpose`. |
+| `background` | No | Only applies with `context: fork`. Default `true` — the forked subagent runs in the background and returns its result later. `false` waits for it in the invoking turn and keeps the full tool set. Requires v2.1.218+. |
 | `hooks` | No | Hooks scoped to this skill's lifecycle. See [Hooks in skills and agents](https://code.claude.com/docs/en/hooks#hooks-in-skills-and-agents). |
 | `paths` | No | Glob patterns limiting auto-activation. When set, Claude loads the skill automatically only when working with matching files. Comma-separated string or YAML list. Same format as path-specific memory rules. |
-| `shell` | No | Shell for inline and fenced shell-injection blocks. `bash` (default) or `powershell`. `powershell` requires `CLAUDE_CODE_USE_POWERSHELL_TOOL=1`. |
+| `shell` | No | Shell for inline and fenced shell-injection blocks. `bash` (default) or `powershell`. `powershell` requires the PowerShell tool: on by default on Windows without Git Bash, `CLAUDE_CODE_USE_POWERSHELL_TOOL=1` elsewhere. |
+
+Boolean fields accept `yes`, `no`, `on`, `off`, `1`, and `0` in any case as well as `true`/`false` (v2.1.218+; earlier versions recognized only `true`/`false`).
 
 ## Invocation Control
 
@@ -85,17 +88,19 @@ When working with files in subdirectories, Claude Code automatically discovers s
 
 ### Skills from `--add-dir`
 
-The `--add-dir` flag grants file access, not configuration discovery — but skills are an exception: `.claude/skills/` within an added directory is loaded automatically. Other `.claude/` configuration (subagents, commands, output styles) is *not* loaded from additional directories.
+The `--add-dir` flag and `/add-dir` command grant file access, not configuration discovery — but skills are an exception: `.claude/skills/` within an added directory is loaded automatically (as is `.claude/agents/`). Commands and output styles are *not* loaded from additional directories. The exception covers only `--add-dir`/`/add-dir`; the `permissions.additionalDirectories` setting grants file access alone and loads no skills.
 
 ## Bundled Skills
 
-Claude Code ships with prompt-based bundled skills available in every session: `/code-review`, `/batch`, `/debug`, `/loop`, `/claude-api`. Unlike built-in commands (fixed logic), bundled skills are detailed playbooks Claude orchestrates using its tools. Invoke them like any other skill.
+Claude Code ships with prompt-based bundled skills available in every session: `/doctor`, `/code-review`, `/batch`, `/debug`, `/loop`, `/claude-api`, plus `/run`, `/verify`, and `/run-skill-generator` for launching and checking your app. Unlike built-in commands (fixed logic), bundled skills are detailed playbooks Claude orchestrates using its tools. Invoke them like any other skill.
+
+Claude auto-invokes some of them, but since v2.1.215 `/verify` and `/code-review` run only when you invoke them, and neither can be preloaded into a subagent. `disableBundledSkills` turns off every bundled skill except `/doctor` (hide that with `DISABLE_DOCTOR_COMMAND` or a `skillOverrides` entry of `"doctor": "off"`).
 
 `/code-review` (renamed from `/simplify` in v2.1.147) reports correctness bugs at a chosen effort level: e.g. `/code-review high`. Pass `--comment` to post findings as inline GitHub PR comments.
 
 ## How Skills Work
 
-1. **Discovery**: Claude loads only name and description at startup (2% of context window budget)
+1. **Discovery**: Claude loads only name and description at startup (budget: 1% of the model's context window)
 2. **Activation**: When your request matches a skill's description, Claude loads the full content
 3. **Execution**: Claude follows the skill's instructions
 
@@ -110,6 +115,9 @@ Claude Code ships with prompt-based bundled skills available in every session: `
 | `${CLAUDE_SESSION_ID}` | Current session ID. Useful for logging or session-specific files. |
 | `${CLAUDE_EFFORT}` | Current effort level: `low`, `medium`, `high`, `xhigh`, or `max`. Use to adapt skill instructions to the active effort setting. |
 | `${CLAUDE_SKILL_DIR}` | Directory containing the skill's `SKILL.md`. For plugin skills, the skill's subdirectory within the plugin, not the plugin root. Use inside shell-injection blocks to reference bundled scripts regardless of cwd. |
+| `${CLAUDE_PROJECT_DIR}` | Project root — the same path hooks and MCP servers receive. Requires v2.1.196+. |
+
+`${CLAUDE_SKILL_DIR}` and `${CLAUDE_PROJECT_DIR}` are substituted both in the markdown body and in `allowed-tools` Bash rules, so `allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/render.sh *)` matches the exact command the body tells Claude to run and the script executes without prompting. (`allowed-tools` substitution requires v2.1.129+.)
 
 ## Dynamic Context Injection
 
@@ -162,6 +170,10 @@ Research $ARGUMENTS thoroughly...
 
 The skill content becomes the subagent's prompt. It won't have access to conversation history.
 
+**Background by default (v2.1.218+).** The forked subagent runs in the background and its result arrives in the conversation when it finishes; `background: false` waits for it in the invoking turn. Claude Code waits regardless in `-p`/SDK mode, with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, when the same forked skill is already running, and when a scheduled task fires it. A backgrounded fork runs with the narrower background-subagent tool set (the fork-the-conversation exemption doesn't apply — it's a regular agent type), so set `background: false` if the skill needs a tool outside it. Its edits also fall outside `/rewind` checkpoints; revert with git.
+
+`context: fork` skills also end slash-command stacking: `/other-skill /forked-skill args` stops expanding at the forked skill.
+
 **Warning:** `context: fork` only makes sense for skills with explicit task instructions. If a skill contains only guidelines like "use these API conventions," the subagent receives the guidelines but no actionable prompt and returns without meaningful output.
 
 **Avoid self-recursion.** The forked subagent inherits the same skill registry, so a body that restates the description's trigger phrases can re-match its own skill and re-invoke itself. The runtime now guards against tight loops (v2.1.145 fix), but write the body as a direct task ("Research $ARGUMENTS...") rather than "when the user asks for X, do Y".
@@ -169,6 +181,8 @@ The skill content becomes the subagent's prompt. It won't have access to convers
 ## Skill Content Lifecycle
 
 When invoked, rendered `SKILL.md` content enters the conversation as a single message and stays there for the rest of the session. Claude Code does *not* re-read the skill file on later turns — write guidance as standing instructions rather than one-time steps.
+
+The persistence covers instructions, not permissions: an `allowed-tools` grant clears on your next message and re-applies each time you invoke the skill. Re-invoking with identical rendered content adds a short "already loaded" note instead of a second copy (v2.1.202+); content that differs, because arguments or injected command output changed, is appended in full.
 
 **Auto-compaction:** invoked skills are carried forward within a token budget. When the conversation is summarized to free context, Claude Code re-attaches the most recent invocation of each skill after the summary, keeping the first **5,000 tokens** of each. Re-attached skills share a combined budget of **25,000 tokens**, filled starting from the most recently invoked. Older skills can be dropped entirely after compaction if many were invoked.
 
@@ -218,7 +232,10 @@ A skill absent from `skillOverrides` is treated as `"on"`. Plugin skills are not
 
 | Setting / Env Var | Effect |
 |-------------------|--------|
-| `SLASH_COMMAND_TOOL_CHAR_BUDGET` | Raise the skill-listing character budget (default: 1% of context window, 8,000 char fallback). |
+| `skillListingBudgetFraction` | Fraction of the context window the skill listing may use (default `0.01`). |
+| `SLASH_COMMAND_TOOL_CHAR_BUDGET` | Set the skill-listing budget to a fixed character count instead. |
+| `skillListingMaxDescChars` | Per-entry cap on `description` + `when_to_use` (default 1,536). |
+| `disableBundledSkills: true` | Turn off every bundled skill except `/doctor`. |
 | `disableSkillShellExecution: true` | Disable shell-injection preprocessing for user/project/plugin/add-dir skills. Bundled/managed skills unaffected. |
 | `CLAUDE_CODE_USE_POWERSHELL_TOOL=1` | Required for skills with `shell: powershell`. |
 
@@ -232,7 +249,7 @@ A skill absent from `skillOverrides` is treated as `"on"`. Plugin skills are not
 
 **Skill triggers too often:** Tighten the description, or set `disable-model-invocation: true`.
 
-**Descriptions cut short:** All names are always included, but descriptions are shortened to fit the character budget when many skills are loaded. Front-load key use cases, trim `description`/`when_to_use`, or raise `SLASH_COMMAND_TOOL_CHAR_BUDGET`. Each entry is capped at 1,536 chars regardless of budget.
+**Descriptions cut short:** All names are always included, but descriptions are shortened to fit the character budget when many skills are loaded, dropping the least-invoked skills' descriptions first. Run `/doctor` for an estimate of the listing's context cost and its biggest contributors. Front-load key use cases, trim `description`/`when_to_use`, set low-priority skills to `"name-only"` in `skillOverrides`, or raise `skillListingBudgetFraction` / `SLASH_COMMAND_TOOL_CHAR_BUDGET`. Each entry is capped at 1,536 chars regardless of budget.
 
 ## Distribution
 

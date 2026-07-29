@@ -20,7 +20,9 @@ Run `claude agents` (without starting an interactive session) to list all config
 
 `<project>/.claude/agents/` is the right home for subagents specific to a codebase. Check them into version control so the team gets them too.
 
-Discovery walks UP from the current working directory. Directories added with `--add-dir` grant file access only and are NOT scanned for subagents (nor for commands or output styles). To share subagents across projects, use `~/.claude/agents/` or a plugin.
+Discovery walks UP from the current working directory, scanning every `.claude/agents/` between there and the repo root; when several define the same `name`, the one closest to the working directory wins (v2.1.178+). A `.claude/agents/` inside a `--add-dir` directory is also scanned and loads alongside project subagents. To share subagents across projects without `--add-dir`, use `~/.claude/agents/` or a plugin.
+
+All scopes are scanned recursively, so you can organize files into subfolders. Identity comes only from the `name` field, so keep names unique across the whole tree — duplicates in one directory load only one file, chosen by filesystem read order. `/doctor` reports same-directory name collisions.
 
 ## User Subagents
 
@@ -53,15 +55,15 @@ Organization administrators can deploy subagents via `.claude/agents/` inside th
 
 ## Plugin Subagents
 
-Subagents shipped through plugins appear under their plugin's namespace in the `/agents` UI and the typeahead (`<plugin-name>:<agent-name>`).
+Subagents shipped through plugins appear under their plugin's namespace in the typeahead (`<plugin-name>:<agent-name>`). A plugin's `agents/` subfolders become part of the identifier: `agents/review/security.md` registers as `<plugin-name>:review:security`.
 
 Restrictions: plugin subagents IGNORE `hooks`, `mcpServers`, and `permissionMode`. If you need those fields, copy the file into `.claude/agents/` or `~/.claude/agents/`. You can also add rules to `permissions.allow` in settings, but that applies to the entire session, not just the plugin subagent.
 
 ## Loading Behavior
 
-- Subagents are loaded at SESSION START. Adding or editing a file directly on disk requires a restart.
-- Subagents created or edited through the `/agents` interface take effect IMMEDIATELY without a restart.
-- Use `claude agents` to list everything that loaded.
+- Claude Code watches `.claude/agents/` and `~/.claude/agents/`: adding or editing a file takes effect within a few seconds, no restart.
+- Restart is still needed for a scope's first agent file in an `agents` directory that didn't exist at session start, and for sessions launched with `--disable-slash-commands` (which don't watch at all).
+- As of v2.1.198, `/agents` no longer opens a creation wizard — it just points you at `.claude/agents/`. Write the file or ask Claude to.
 
 ## Working Directory
 

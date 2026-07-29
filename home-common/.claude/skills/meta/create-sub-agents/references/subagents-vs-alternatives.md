@@ -66,7 +66,7 @@ They COMBINE: a subagent can have its own `hooks:` in frontmatter for tool-level
 
 ## Subagent Vs `--add-dir`
 
-`--add-dir` grants file access to additional directories. It does NOT scan those directories for subagents (or commands or output styles). To share subagents across projects, use `~/.claude/agents/` or a plugin.
+`--add-dir` grants file access to additional directories, and a `.claude/agents/` inside one is scanned and loaded alongside project subagents (`.claude/skills/` loads too; commands and output styles don't). To share subagents across projects without `--add-dir`, use `~/.claude/agents/` or a plugin.
 
 ## When To Make A Subagent vs CLAUDE.md
 

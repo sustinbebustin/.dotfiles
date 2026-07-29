@@ -38,9 +38,11 @@ Chaining like this is orchestrated by the main conversation, which passes contex
 
 ## Nested Subagents
 
-As of v2.1.172, a subagent can spawn its own subagents through the Agent tool. Use this when a delegated task itself splits into parallel subtasks (e.g. a reviewer that dispatches a verifier per finding) so the intermediate output never reaches your main conversation — only the top-level subagent's summary returns. A nested subagent is configured like a top-level one and resolves from the same scopes.
+A subagent can spawn its own subagents through the Agent tool. Use this when a delegated task itself splits into parallel subtasks (e.g. a reviewer that dispatches a verifier per finding) so the intermediate output never reaches your main conversation — only the top-level subagent's summary returns. A nested subagent is configured like a top-level one and resolves from the same scopes.
 
-Chains are capped at five levels below the main conversation; an agent at depth five no longer receives the Agent tool. The limit is fixed and not configurable. To stop a specific subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`.
+Nesting is capped at three layers below the main conversation by default; at the limit the Agent tool is withheld (a fork keeps it but the tool errors instead of spawning). Set `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` to change it, `1` to turn nesting off. Earlier versions differed: v2.1.172–v2.1.216 allowed five layers with no way to change it, and v2.1.217–v2.1.218 defaulted to one. To stop a specific subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`.
+
+Two other limits apply per session: at most 200 subagents spawned in total (`CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION`, reset by `/clear`) and at most 20 running concurrently (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`; not enforced under ultracode).
 
 ## Fork Mode (Experimental)
 
@@ -49,16 +51,15 @@ A fork is a subagent that inherits the ENTIRE conversation so far instead of sta
 - A named subagent would need too much background to be useful
 - You want to try several approaches in parallel from the same starting point
 
-Enable with `CLAUDE_CODE_FORK_SUBAGENT=1`. Then:
+Fork mode ships behind a staged rollout; force it with `CLAUDE_CODE_FORK_SUBAGENT=1` or disable it with `0`. When on:
 
-- Claude spawns a fork whenever it would otherwise use the `general-purpose` subagent. Named subagents (Explore, custom ones) still spawn fresh.
-- Every subagent spawn runs in the BACKGROUND (forks AND named). Set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` to keep spawns synchronous.
-- The `/fork` command spawns a fork instead of acting as an alias for `/branch`.
+- Claude can spawn a fork by requesting the `fork` subagent type. Untyped requests still get `general-purpose`, and named subagents (Explore, custom ones) still spawn fresh.
+- Every subagent spawn runs in the BACKGROUND (forks AND named), and the frontmatter `background` field has no effect. Set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` to keep spawns synchronous.
 
-Manual fork:
+Manual fork — `/subtask` (v2.1.212+; `/fork` on v2.1.161–v2.1.211, where `/fork` now copies the session into a new background session instead unless agent view is off):
 
 ```text
-/fork draft unit tests for the parser changes so far
+/subtask draft unit tests for the parser changes so far
 ```
 
 The fork appears in a panel below your prompt and runs in the background. When it finishes, its result arrives as a message in your main conversation.
@@ -70,12 +71,13 @@ The fork appears in a panel below your prompt and runs in the background. When i
 | Context | Full conversation history | Fresh, only the prompt you pass |
 | System prompt + tools | Same as main session | From subagent definition |
 | Model | Same as main session | From subagent's `model` field |
-| Permissions | Prompts surface in your terminal | Pre-approved before launch, then auto-deny |
+| Permissions | Prompts surface in your terminal | Prompts surface in your main session when backgrounded |
+| Tools | Main session's exact pool | From the definition, filtered for background runs |
 | Prompt cache | Shared with main session | Separate cache |
 
 The fork's first request reuses the parent's prompt cache, making it cheaper than a fresh subagent for context-heavy tasks.
 
-A fork CANNOT spawn further forks, though it can spawn other (named) subagent types, which count toward the depth limit. With `isolation: worktree`, the fork's edits go to a separate git worktree.
+A fork CANNOT spawn further forks, though it can spawn other (named) subagent types, which count toward the depth limit. A fork also skips both tool filters and receives the main conversation's exact tool pool. With `isolation: worktree`, the fork's edits go to a separate git worktree.
 
 ### Fork Panel Controls
 
@@ -106,11 +108,11 @@ Use this for:
 
 ## Background Subagents
 
-`background: true` always runs the subagent concurrently with the main session.
+Subagents run in the background by default (v2.1.198+); Claude foregrounds one when it needs the result before continuing. `background: true` forces background regardless.
 
-Pre-flight: before launching, Claude Code prompts for any tool permissions the subagent will need. Once running, the subagent has these permissions and AUTO-DENIES anything not pre-approved. Clarifying questions FAIL silently.
+Permissions: as of v2.1.186, a background subagent's permission prompt surfaces in your main session and names the asking subagent. Approve to continue, or Esc to deny that one tool call without stopping the subagent. (Before v2.1.186 background subagents auto-denied anything that would have prompted.)
 
-If a background subagent fails due to missing permissions, retry with a foreground subagent for interactive prompts.
+Background subagents also run with a narrower built-in tool set — see [tools-and-permissions.md](tools-and-permissions.md). If a subagent needs a tool outside that set, ask Claude to run it in the foreground.
 
 ```yaml
 ---

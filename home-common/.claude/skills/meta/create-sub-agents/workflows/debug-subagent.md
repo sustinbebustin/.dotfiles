@@ -21,7 +21,7 @@ Most common cause: description doesn't match the way you phrase tasks.
 
 - Add trigger phrases the user actually says: "Use proactively after writing or modifying code"
 - Include synonyms: "review", "look over", "audit", "check"
-- Run `claude agents` to confirm the subagent is loaded; if not, restart the session
+- Confirm the subagent is loaded (ask "what subagents are available?"); if not, check the scope path, and restart only if the `agents` directory didn't exist at session start
 
 If you NEED the delegation to happen, use `@`-mention to bypass automatic delegation:
 
@@ -49,19 +49,19 @@ There is no `disable-model-invocation` for subagents. To prevent auto-delegation
 
 ## Symptom: Subagent Fails Asking For Tool Permissions
 
-The subagent tried to use a tool that wasn't pre-approved (and the parent isn't around to approve).
+The subagent tried to use a tool it isn't allowed, or one that was filtered out of its pool.
 
 ### Diagnose
 
 1. Read the subagent's `tools:` allowlist
 2. Read the `permissionMode`
-3. Check whether the subagent ran in BACKGROUND (background subagents pre-approve at launch and auto-deny anything not pre-approved)
+3. Check whether the subagent ran in BACKGROUND (the default since v2.1.198) — its prompts surface in your main session, and its built-in tool set is narrowed to the core list in [tools-and-permissions.md](../references/tools-and-permissions.md)
 
 ### Fix
 
 - If the tool is legitimate: add it to `tools:` (e.g. add `Bash` if the subagent needs git commands)
 - If the parent's `permissions.allow` should cover it: pre-approve there
-- If using background mode: ensure the parent pre-approves all needed permissions at launch
+- If the missing tool is one background runs drop (e.g. `AskUserQuestion`, `Workflow`, `TaskOutput`): run the subagent in the foreground, or drop the dependency
 - For `Bash` patterns, use specific allow rules: `Bash(git diff *)`, `Bash(git log *)`
 
 ## Symptom: Subagent Doesn't See A Skill
@@ -111,7 +111,7 @@ Plugin subagents IGNORE `hooks`, `mcpServers`, and `permissionMode`.
 
 ### Diagnose
 
-1. Confirm the subagent is loaded from a plugin (`/agents` listing shows `<plugin-name>:<agent-name>`)
+1. Confirm the subagent is loaded from a plugin (the @-mention typeahead shows `<plugin-name>:<agent-name>`)
 2. Check the frontmatter for `hooks`, `mcpServers`, or `permissionMode`
 3. If any of those are present, they're being silently dropped
 
@@ -151,16 +151,16 @@ For oracle-style subagents, end with a reminder that only the last message is re
 
 ## Symptom: Subagent Spawns Subagents When It Shouldn't (Or Won't When It Should)
 
-As of v2.1.172 a subagent CAN spawn its own subagents (chains capped at five levels deep). Whether it can comes down to the Agent tool being in its pool.
+A subagent CAN spawn its own subagents, capped at three layers below the main conversation by default. Whether it can comes down to the Agent tool being in its pool.
 
 ### Diagnose
 
 - Unwanted spawning: the subagent inherits all tools (no `tools`/`disallowedTools`) or explicitly lists `Agent`.
-- Missing spawning: `Agent` was removed via `tools`/`disallowedTools`, or the agent is already at depth five (the limit), where the Agent tool is withdrawn.
+- Missing spawning: `Agent` was removed via `tools`/`disallowedTools`, or the agent is already at the depth limit, where the Agent tool is withdrawn.
 
 ### Fix
 
-- To block spawning: omit `Agent` from `tools`, or add it to `disallowedTools`.
+- To block spawning: omit `Agent` from `tools`, add it to `disallowedTools`, or set `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` to turn nesting off session-wide.
 - To enable spawning: keep `Agent` in the inherited or allowlisted tools.
 - For sustained parallel work where workers must communicate, use [agent teams](https://code.claude.com/docs/en/agent-teams) instead.
 
@@ -176,19 +176,13 @@ Add `isolation: worktree` so the subagent works in a separate git worktree. The 
 isolation: worktree
 ```
 
-## Symptom: Subagent Disappeared After A Session Restart
+## Symptom: A New Subagent File Isn't Picked Up
 
-Edits to subagent files require a session restart to take effect (unless you used the `/agents` UI). Creating a top-level scope directory that didn't exist at startup also requires a restart.
+Claude Code watches `.claude/agents/` and `~/.claude/agents/` and applies edits within a few seconds. It does NOT watch a scope's `agents` directory that didn't exist at session start, and sessions launched with `--disable-slash-commands` don't watch at all.
 
 ### Fix
 
-Restart Claude Code. Verify the subagent is loaded:
-
-```bash
-claude agents
-```
-
-If it still doesn't appear, check:
+Restart Claude Code, then type `@` in the prompt to confirm it loaded. If it still doesn't appear, run `/doctor` and check:
 
 - Is the file at the correct scope path? (`.claude/agents/<name>.md` or `~/.claude/agents/<name>.md`)
 - Is the YAML frontmatter valid? (Run a YAML linter if unsure)

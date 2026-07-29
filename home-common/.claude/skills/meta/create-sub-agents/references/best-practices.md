@@ -126,7 +126,7 @@ If the content is "how to do X" that any agent might need, it's a SKILL. Subagen
 
 ### Unbounded Nested Spawning
 
-As of v2.1.172 a subagent CAN spawn its own subagents (chains capped at five levels deep). That's useful when a delegated task splits into subtasks, but don't design for deep trees of runaway concurrency. To stop a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. For parallel workers that must coordinate or message each other, use [agent teams](https://code.claude.com/docs/en/agent-teams).
+A subagent CAN spawn its own subagents (capped at three layers below the main conversation by default; `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` changes it, `1` turns it off). That's useful when a delegated task splits into subtasks, but don't design for deep trees of runaway concurrency. To stop a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. For parallel workers that must coordinate or message each other, use [agent teams](https://code.claude.com/docs/en/agent-teams).
 
 ### Expecting Parent Skills To Carry Over
 

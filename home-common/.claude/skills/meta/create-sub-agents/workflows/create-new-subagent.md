@@ -83,19 +83,13 @@ Avoid:
 - Instructions that depend on parent conversation history (subagents don't see it)
 - Open-ended "spawn more subagents" instructions unless nesting is intentional — a subagent *can* spawn its own subagents (v2.1.172+), so keep `Agent` out of `tools` when you don't want that
 
-### Step 6: Save And Restart
+### Step 6: Save And Load
 
 Save to the chosen scope path (e.g. `~/.claude/agents/my-subagent.md`).
 
-Then restart Claude Code so the new file is picked up. Subagents created via `/agents` UI take effect immediately; files added on disk need a restart.
+The directory watcher picks the file up within a few seconds. Restart only if that scope's `agents` directory didn't exist when the session started.
 
-Verify:
-
-```bash
-claude agents
-```
-
-Your subagent should appear in the listing.
+Verify by typing `@` in the prompt: your subagent should appear in the typeahead. `/doctor` reports frontmatter errors and duplicate names.
 
 ### Step 7: Test
 
@@ -108,7 +102,7 @@ Three invocation paths:
 Watch for:
 
 - Did Claude delegate when you expected? If not, tighten the description with more trigger keywords.
-- Did Claude delegate when you didn't expect? Make the description more specific or add `disable-model-invocation` doesn't apply here (subagent equivalent: just narrow the description).
+- Did Claude delegate when you didn't expect? Narrow the description — there is no `disable-model-invocation` for subagents.
 - Did the subagent ask for tools you forgot to allow? Add them.
 - Did the SUMMARY returned to the main convo land useful? If not, add an output format section.
 
@@ -129,7 +123,7 @@ Subagent is ready when:
 - [ ] Tools restricted to least privilege
 - [ ] Model choice justified
 - [ ] System prompt has role, workflow, output format
-- [ ] Listed in `claude agents` without warnings
+- [ ] Appears in the `@`-mention typeahead, with no `/doctor` warnings
 - [ ] Tested via natural language AND `@`-mention
 - [ ] Summary returned to main conversation is useful
 - [ ] Committed to version control if shared with team

@@ -64,7 +64,7 @@ Controls permission prompting. Inherits from parent unless overridden.
 
 | Mode | Behavior |
 | --- | --- |
-| `default` | Standard permission checking with prompts |
+| `default` | Standard permission checking with prompts. `manual` is an alias (v2.1.200+) |
 | `acceptEdits` | Auto-accept file edits and common filesystem commands in working dir / `additionalDirectories` |
 | `auto` | Background classifier reviews commands and protected-directory writes |
 | `dontAsk` | Auto-deny permission prompts (explicitly allowed tools still work) |
@@ -100,7 +100,7 @@ Which AI model the subagent uses.
 
 Resolution order when invoking:
 
-1. `CLAUDE_CODE_SUBAGENT_MODEL` env var
+1. `CLAUDE_CODE_SUBAGENT_MODEL` env var (setting it to `inherit` is the same as leaving it unset, v2.1.196+)
 2. Per-invocation `model` parameter (when Claude calls Agent tool)
 3. The subagent's `model` frontmatter
 4. Main conversation's model
@@ -127,7 +127,7 @@ skills:
   - error-handling-patterns
 ```
 
-You CANNOT preload a skill that sets `disable-model-invocation: true`.
+You CANNOT preload a skill that sets `disable-model-invocation: true` — which since v2.1.215 includes the bundled `/verify` and `/code-review`. Missing or disabled skills are skipped with a debug-log warning.
 
 ### `mcpServers`
 
@@ -181,13 +181,13 @@ memory: project
 
 ### `background`
 
-`true` to always run as a background task (concurrent with main session). Default `false`.
+`true` to always run as a background task, even when Claude needs the result right away. When unset, Claude chooses — and since v2.1.198 it backgrounds by default.
 
 ```yaml
 background: true
 ```
 
-Background subagents pre-approve permissions before launch and auto-deny anything not pre-approved. Clarifying questions fail silently.
+A background subagent's permission prompts surface in your main session and name the asking subagent (v2.1.186+): approve to continue, or Esc to deny that one call without stopping the subagent. Background runs also lose most non-core built-in tools — see [tools-and-permissions.md](tools-and-permissions.md).
 
 Inspect, attach to, rename, or stop background subagents from the **Agent View** dashboard: run `claude agents` (v2.1.139). Press `Ctrl+T` to pin a session so it survives idle/restart and is shed last under memory pressure (v2.1.147). `claude agents --json` lists live sessions for scripting.
 
@@ -223,4 +223,4 @@ initialPrompt: "Analyze the project structure and report key entry points."
 
 Plugin subagents silently IGNORE: `hooks`, `mcpServers`, `permissionMode`. If you need them, copy the file into `.claude/agents/` or `~/.claude/agents/`.
 
-`Agent(type)` syntax in `tools` only restricts *which types* can be spawned when the agent runs as the main thread via `--agent`. In a subagent definition (v2.1.172+), listing `Agent` enables nested spawning but the type list inside the parentheses is ignored; omit `Agent` or add it to `disallowedTools` to block a subagent from spawning others. Chains are capped at five levels deep.
+`Agent(type)` syntax in `tools` only restricts *which types* can be spawned when the agent runs as the main thread via `--agent`. In a subagent definition, listing `Agent` enables nested spawning but the type list inside the parentheses is ignored; omit `Agent` or add it to `disallowedTools` to block a subagent from spawning others. Nesting is capped at three layers by default (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`).

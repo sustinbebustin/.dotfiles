@@ -6,7 +6,7 @@ Claude Code ships with several subagents that are always available. Don't recrea
 
 Fast, read-only agent for searching and analyzing codebases.
 
-- **Model**: Haiku
+- **Model**: Inherits from main conversation, capped at Opus on the Claude API (v2.1.198+; it always ran on Haiku before). Define a user or project subagent named `Explore` with `model: haiku` to override.
 - **Tools**: Read-only (Edit and Write are denied)
 - **Purpose**: File discovery, code search, codebase exploration
 
@@ -40,7 +40,7 @@ Capable agent for complex, multi-step tasks needing both exploration and action.
 
 The default Agent tool target when nothing more specific fits. Claude delegates here when the task requires exploration AND modification, complex reasoning to interpret results, or multiple dependent steps.
 
-When `CLAUDE_CODE_FORK_SUBAGENT=1` is set, `general-purpose` is replaced by FORKS that inherit the parent conversation. Named subagents are unaffected.
+When fork mode is on (`CLAUDE_CODE_FORK_SUBAGENT=1`, or the staged rollout), Claude can spawn a FORK that inherits the parent conversation by requesting the `fork` subagent type. When it requests no type it still gets `general-purpose`; named subagents are unaffected.
 
 ## Helper Subagents
 

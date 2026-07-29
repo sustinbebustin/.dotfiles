@@ -90,18 +90,18 @@ Continue that code review and now analyze the authorization logic
 [Claude resumes the subagent with full prior context]
 ```
 
-When a subagent completes, Claude receives its agent ID and uses `SendMessage({to: agentId})` to resume. `SendMessage` is only available when agent teams are enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`).
+When a subagent completes, Claude receives its agent ID and uses `SendMessage({to: agentId})` to resume. `SendMessage` does NOT require agent teams; only structured team-protocol messages such as `shutdown_request` do. The built-in `Explore` and `Plan` agents are one-shot, return no agent ID, and can't be resumed.
 
-If a stopped subagent receives a `SendMessage`, it auto-resumes in the background without requiring a new `Agent` invocation.
+A completed or Claude-stopped subagent that receives a `SendMessage` auto-resumes in the background without a new `Agent` invocation. A subagent YOU stopped (via `x` in `/tasks`) does not: `SendMessage` returns a refusal, and you clear the stop by typing into that subagent's transcript (v2.1.191+).
 
 Find agent IDs in transcript files at `~/.claude/projects/{project}/{sessionId}/subagents/agent-{agentId}.jsonl`.
 
 ## Foreground Vs Background
 
 - **Foreground**: blocks the main conversation until complete. Permission prompts and clarifying questions pass through to you.
-- **Background**: concurrent with main session. Permissions are pre-approved at launch; anything not pre-approved auto-denies. Clarifying questions FAIL silently.
+- **Background**: concurrent with main session. Permission prompts surface in your main session naming the asking subagent (v2.1.186+); Esc denies one call without stopping it. Background runs get a narrower built-in tool set.
 
-Claude decides based on the task. You can also:
+Since v2.1.198 Claude backgrounds subagents by default and foregrounds one only when it needs the result to continue. You can also:
 
 - Ask Claude to "run this in the background"
 - Press Ctrl+B to background a running task
@@ -111,6 +111,6 @@ To disable all background tasks: `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`.
 
 ## Forks (Experimental)
 
-With `CLAUDE_CODE_FORK_SUBAGENT=1`, the `general-purpose` subagent becomes a "fork" that inherits the entire conversation so far instead of starting fresh. Useful when a generic subagent would need too much background to be useful, or when you want to try several approaches in parallel from the same starting point. Named subagents (Explore, custom ones) still spawn fresh.
+A "fork" is a subagent that inherits the entire conversation so far instead of starting fresh. Useful when a named subagent would need too much background to be useful, or when you want to try several approaches in parallel from the same starting point. Fork mode is a staged rollout; force it with `CLAUDE_CODE_FORK_SUBAGENT=1` or disable with `0`. With it on, Claude spawns a fork by requesting the `fork` subagent type; untyped requests still get `general-purpose` and named subagents spawn fresh.
 
-`/fork <directive>` spawns a fork manually. See [advanced-patterns.md](advanced-patterns.md).
+`/subtask <directive>` spawns a fork manually (v2.1.212+; `/fork` on v2.1.161–v2.1.211). See [advanced-patterns.md](advanced-patterns.md).
