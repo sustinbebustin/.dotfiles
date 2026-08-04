@@ -8,11 +8,15 @@
 # Subcommands:
 #   snapshot [trunk]        Record pre-rebase state, back up uncommitted work, enable rerere.
 #   report   [trunk]        What landed on trunk + semantic-risk analysis. Run after rebasing.
+#   descendants             Local branches stacked on the snapshotted branch's old tip.
 #   restore                 Restore working tree from the snapshot backup.
 #   clean                   Remove snapshot data.
 #
 # Options (report):
 #   --pre <sha>             Override the recorded pre-sync trunk sha (re-run analysis after the fact).
+#
+# Options (any subcommand):
+#   --repo <dir>            Limit to this repo. Repeatable. Default: every direct child repo.
 #
 # Operates on the current repo, or on every direct child that is a repo -- which is
 # how multi-repo workspaces (frontend/ + backend/ side by side) are laid out.
@@ -21,11 +25,27 @@ set -u
 
 SYMBOL_SCAN_CAP=300
 
+# Populated by the arg loop at the bottom; declared here so repos() can read it
+# under `set -u` regardless of whether any --repo flag was passed.
+repo_scopes=()
+
 # ---------------------------------------------------------------------------
 # repo discovery
 # ---------------------------------------------------------------------------
 
 repos() {
+  # An explicit --repo scope wins over discovery: the caller already decided.
+  if [ "${#repo_scopes[@]}" -gt 0 ]; then
+    local r
+    for r in "${repo_scopes[@]}"; do
+      if ! git -C "$r" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Not a git repository: $r" >&2
+        exit 1
+      fi
+      echo "$r"
+    done
+    return
+  fi
   # --is-inside-work-tree is true when any ANCESTOR is a repo, which would
   # silently analyse the wrong project. Only take "." when it is the repo root.
   if [ "$(git rev-parse --show-toplevel 2>/dev/null || true)" = "$PWD" ]; then
@@ -305,6 +325,85 @@ report_repo() {
 }
 
 # ---------------------------------------------------------------------------
+# descendants -- branches stacked on the branch we just rebased
+# ---------------------------------------------------------------------------
+#
+# Rebasing a parent branch strands every branch built off it: their commits still
+# sit on the OLD parent tip, which no longer exists on the parent. A plain
+# `git rebase <parent> <child>` there replays commits the old parent already
+# carried, producing duplicates and avoidable conflicts. The fix is a three-arg
+# rebase, and it needs the old tip -- which is exactly what `snapshot` recorded.
+
+descendants_repo() {
+  local repo="$1" dir meta branch head_before
+  dir="$(state_dir "$repo")"
+  meta="$dir/meta"
+
+  echo "### $repo"
+  if [ ! -f "$meta" ]; then
+    echo "- no snapshot found -- run \`snapshot\` before rebasing to enable this check"
+    echo ""
+    return
+  fi
+  branch=""; head_before=""
+  # shellcheck disable=SC1090
+  . "$meta"
+  head_before="${head_before:-}"
+
+  if [ -z "$head_before" ] || ! git -C "$repo" rev-parse --verify --quiet "${head_before}^{commit}" >/dev/null 2>&1; then
+    echo "- [WARN] no usable pre-rebase tip recorded; cannot detect stacked branches."
+    echo ""
+    return
+  fi
+
+  local cands=() b
+  while IFS= read -r b; do
+    [ "$b" = "$branch" ] && continue
+    if git -C "$repo" merge-base --is-ancestor "$head_before" "$b" 2>/dev/null; then
+      cands+=("$b")
+    fi
+  done < <(git -C "$repo" for-each-ref --format='%(refname:short)' refs/heads/)
+
+  if [ "${#cands[@]}" -eq 0 ]; then
+    echo "- no local branch is stacked on \`$branch\` (old tip \`${head_before:0:12}\`)."
+    echo ""
+    return
+  fi
+
+  echo "- old tip of \`$branch\`: \`${head_before:0:12}\`"
+  echo "- **${#cands[@]} branch(es) still built on it:**"
+  echo ""
+  local c other nearest ahead
+  for c in "${cands[@]}"; do
+    ahead="$(git -C "$repo" rev-list --count "$head_before..$c" 2>/dev/null || echo '?')"
+    # Nearest upstream = another candidate that is itself an ancestor of this one.
+    nearest=""
+    for other in "${cands[@]}"; do
+      [ "$other" = "$c" ] && continue
+      if git -C "$repo" merge-base --is-ancestor "$other" "$c" 2>/dev/null; then
+        if [ -z "$nearest" ] || git -C "$repo" merge-base --is-ancestor "$nearest" "$other" 2>/dev/null; then
+          nearest="$other"
+        fi
+      fi
+    done
+    if [ -z "$nearest" ]; then
+      echo "- \`$c\` -- $ahead commit(s) ahead of the old tip. Direct child of \`$branch\`:"
+      echo '  ```'
+      echo "  git -C $repo rebase --onto $branch $head_before $c"
+      echo '  ```'
+    else
+      echo "- \`$c\` -- $ahead commit(s) ahead, stacked behind \`$nearest\`."
+      echo "  Rebase \`$nearest\` first, then re-run \`snapshot\`/\`descendants\` from it --"
+      echo "  its own old tip is the correct \`--onto\` cut point, not \`${head_before:0:12}\`."
+    fi
+  done
+  echo ""
+  echo "Each rebase above rewrites SHAs on that branch. If it is already pushed, say so"
+  echo "and let the user decide before running it."
+  echo ""
+}
+
+# ---------------------------------------------------------------------------
 # restore / clean
 # ---------------------------------------------------------------------------
 
@@ -346,9 +445,11 @@ shift || true
 
 trunk_arg=""
 pre_override=""
+repo_scopes=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --pre) pre_override="${2:-}"; shift 2 ;;
+    --repo) repo_scopes+=("${2%/}"); shift 2 ;;
     *) trunk_arg="$1"; shift ;;
   esac
 done
@@ -365,6 +466,11 @@ case "$cmd" in
     echo ""
     for r in $(repos); do report_repo "$r" "$trunk_arg" "$pre_override"; done
     ;;
+  descendants)
+    echo "## Stacked branches"
+    echo ""
+    for r in $(repos); do descendants_repo "$r"; done
+    ;;
   restore)
     echo "## Restore from snapshot"
     echo ""
@@ -374,7 +480,7 @@ case "$cmd" in
     for r in $(repos); do clean_repo "$r"; done
     ;;
   *)
-    echo "usage: rebase-guard.sh {snapshot|report|restore|clean} [trunk] [--pre <sha>]" >&2
+    echo "usage: rebase-guard.sh {snapshot|report|descendants|restore|clean} [trunk] [--repo <dir>]... [--pre <sha>]" >&2
     exit 2
     ;;
 esac

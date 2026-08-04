@@ -1,7 +1,7 @@
 ---
 name: rebase
 description: Rebase onto the latest trunk safely, including the semantic conflicts git merges cleanly and never flags. Use for "rebase", "gsync", "sync with main", "update my branch", "catch me up with main", "get up to date with trunk", or after a rebase left the tree broken.
-argument-hint: [trunk-branch]
+argument-hint: [repo...] [base-branch] [-- note]
 disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(bash *), Bash(just *), Read, Edit, Grep, Glob
 ---
@@ -11,7 +11,36 @@ allowed-tools: Bash(git *), Bash(bash *), Bash(just *), Read, Edit, Grep, Glob
 Replaces the habit of running `gsync` (`git fetch origin main:main && git rebase main`)
 and then fixing whatever conflicts appear.
 
-If `$ARGUMENTS` names a branch, treat it as the trunk. Otherwise let the tooling detect it.
+## Scope
+
+Argument: `$ARGUMENTS`
+
+Accepts zero or more repo subdirs, an optional base branch, and an optional free-form note
+separated by ` -- `. A token naming a direct child directory that is a git repo is a **repo
+scope**; any other token is the **base branch**. That is decided against the filesystem, so
+it never guesses.
+
+- `/rebase` -> every child repo, onto its auto-detected trunk
+- `/rebase frontend` -> one repo
+- `/rebase frontend backend` -> both, each independently
+- `/rebase main` -> every child repo, explicitly onto `main`
+- `/rebase frontend refactor/parent` -> frontend, onto another branch (stacked case)
+- `/rebase frontend backend -- keep my gate` -> scopes + note
+
+Run the parser below first and follow its **Plan**. Pass its `--repo` flags through to every
+`$GUARD` call so snapshot, report, and descendants all see the same scope.
+
+```!
+bash ${CLAUDE_SKILL_DIR}/scripts/parse-args.sh <<'__SKILL_ARGUMENTS__'
+$ARGUMENTS
+__SKILL_ARGUMENTS__
+```
+
+If a **User note** block appears above, treat it as binding guidance for this invocation
+(files to leave alone, how to lean on a conflict, whether to touch descendants).
+
+If the parser flags a repo as **already on base**, skip it -- do not rebase it, and say you
+skipped it. A workspace can hold a child repo that has nothing to do with the change.
 
 ## The one idea
 
@@ -31,13 +60,16 @@ This applies identically to merge. Switching to merge does not help.
 GUARD="$HOME/.claude/skills/rebase/scripts/rebase-guard.sh"
 ```
 
-Auto-detects the repo, or every direct child that is a repo (multi-repo workspaces with
-`frontend/` and `backend/` side by side are handled as one unit).
+Without `--repo`, it auto-detects the repo, or every direct child that is a repo (multi-repo
+workspaces with `frontend/` and `backend/` side by side are handled as one unit). With
+`--repo <dir>` (repeatable) it uses exactly the repos named -- pass the flags the parser
+printed.
 
 | Command | When |
 |---|---|
-| `bash "$GUARD" snapshot [trunk]` | **Before** fetching. Records the pre-sync trunk sha, backs up uncommitted work, enables rerere. |
-| `bash "$GUARD" report [trunk]` | After rebasing. What landed + semantic-risk analysis. |
+| `bash "$GUARD" snapshot [trunk] [--repo <dir>]...` | **Before** fetching. Records the pre-sync trunk sha and the branch's own tip, backs up uncommitted work, enables rerere. |
+| `bash "$GUARD" report [trunk] [--repo <dir>]...` | After rebasing. What landed + semantic-risk analysis. |
+| `bash "$GUARD" descendants [--repo <dir>]...` | After rebasing. Local branches stacked on the branch you just moved. |
 | `bash "$GUARD" restore` | Undo: restore the working tree from the snapshot. |
 | `bash "$GUARD" clean` | Drop snapshot data once verified green. |
 
@@ -46,11 +78,12 @@ Auto-detects the repo, or every direct child that is a repo (multi-repo workspac
 ### 1. Snapshot first -- before any fetch
 
 ```bash
-bash "$GUARD" snapshot
+bash "$GUARD" snapshot [base] [--repo <dir>]...
 ```
 
 Order matters and is not recoverable by rerunning: once you fetch, the old trunk tip is
-overwritten and "what landed" is much harder to reconstruct. Never fetch first.
+overwritten and "what landed" is much harder to reconstruct. Never fetch first. The
+snapshot also records the branch's own tip, which step 7 needs and nothing else preserves.
 
 ### 2. Deal with uncommitted work
 
@@ -63,7 +96,7 @@ backup exists.
 
 ### 3. Fetch and rebase
 
-Per repo, with `$T` as the trunk:
+Per repo in scope, with `$T` as the base (the parser's explicit base, else the detected trunk):
 
 ```bash
 git -C <repo> fetch origin "$T:$T"     # fast-forwards local trunk without checking it out
@@ -128,11 +161,40 @@ Two traps worth knowing:
 
 If verification fails, fix it. A rebase is not finished while the tree is red.
 
-### 7. Report to the user
+### 7. Stacked branches -- only once the rebased branch is green
 
-State plainly: what landed, which conflicts you resolved and how you decided, what the
-semantic audit surfaced, and the verification result. Flag anything you resolved on a
-judgment call, so they can overrule it.
+```bash
+bash "$GUARD" descendants [--repo <dir>]...
+```
+
+Moving a branch strands everything built off it: those commits still sit on the *old* tip,
+which the branch no longer contains. `git rebase <parent> <child>` there is wrong -- it
+replays commits the old parent already carried, inventing duplicates and conflicts. The
+correct form is three-arg, cutting at the old tip:
+
+```bash
+git -C <repo> rebase --onto <parent> <old-parent-tip> <child>
+```
+
+`descendants` prints that command per branch, already filled in from the snapshot. It is
+the only place the old tip is still recorded, so run `snapshot` before rebasing or this
+check is unavailable.
+
+- **Ask before each one.** These rewrite SHAs on branches the user did not name. Report
+  what you found and let them choose; do not cascade unprompted.
+- Fix the parent first. Rebasing a child onto a red parent buries the cause.
+- Deeper stacks are handled one link at a time. A branch reported as *stacked behind*
+  another is not yet safe to move -- rebase its own parent, re-run `snapshot` from that
+  branch, then `descendants` again to get the right cut point.
+- Every child is its own rebase, with its own semantic conflicts. Steps 4-6 apply again:
+  resolve, report, verify. A child that merges clean is not a child that works.
+
+### 8. Report to the user
+
+State plainly: which repos you touched and which you skipped, what landed, which conflicts
+you resolved and how you decided, what the semantic audit surfaced, and the verification
+result. Flag anything you resolved on a judgment call, so they can overrule it. If
+descendants were found, list them and say whether they were rebased or left alone.
 
 Then `bash "$GUARD" clean` once green.
 
@@ -172,6 +234,8 @@ Uncommitted work is the one real exception, which is why step 1 exists.
   already pushed, say so and let the user decide.
 - Never fetch before snapshotting.
 - Never report success on "no conflicts" alone -- run the report.
+- Never rebase a repo the user did not put in scope, and never rebase a descendant branch
+  without asking. Both rewrite history the user did not ask you to touch.
 - Do not fix unrelated pre-existing breakage you happen to notice; mention it instead.
 
 ## Background

@@ -46,7 +46,7 @@ __SKILL_ARGUMENTS__
    - If the context above shows one or more `### Target:` blocks, the repo(s) are already known — run steps 2-7 independently for each target.
    - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then re-invoke this skill scoped to the chosen repo so the gather script produces a full `### Target:` block (branch, recent commits, commits-ahead-of-default, cumulative diff stat, staged/unstaged diff, release-notes verdict). Don't try to reassemble that state from ad-hoc `git` calls -- the PR description needs the commits-ahead view that the script computes.
    - If no repos were found, STOP and tell the user.
-2. **Create a new branch if on main.**
+2. **Create a new branch if on main.** Always name it with a conventional prefix. See [Branch naming](#branch-naming).
 3. **Assess atomicity** -- split into multiple commits if changes contain independent logical units. See [When to split commits](#when-to-split-commits).
 4. **Stage selectively per commit** (specific files or `git add -p`) and commit with a conventional message. See [Conventional commit format](#conventional-commit-format). Each commit subject should read as a user-facing sentence; release tooling (e.g., Release Please, GitHub Releases auto-notes) uses these subjects to build release notes verbatim.
 5. **Release-notes handling.** The gathered state above contains a `**Release-notes action:**` line. That verdict is authoritative — do **not** run additional `ls`, `cat`, `grep`, or any other commands to re-detect release tooling. Dispatch on the action:
@@ -57,6 +57,21 @@ __SKILL_ARGUMENTS__
 6. **Push the branch to origin.**
 7. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject (release tooling reads this when squash-merging) and should match the dominant change type across the branch. Keep the body short and scale its length to the size of the change: no "Test Plan" section, no `## Summary` / `## Changes` headers. Write it in the repo owner's voice following [references/pr-body.md](references/pr-body.md).
 8. After the target repo is determined, keep output to tool calls only -- no extra prose.
+
+## Branch naming
+
+```
+<type>/<short-description>
+```
+
+- Types: same set as commit types -- `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
+- Type must match the dominant change on the branch (the same type you'd use for the PR title)
+- Description: kebab-case, imperative, 2-4 words, no trailing slashes or issue-only names
+- Optional issue reference as a suffix: `fix/null-panel-calc-892`
+
+Examples: `feat/signwell-webhook`, `fix/auth-redirect-loop`, `chore/bump-eslint`, `docs/api-auth-guide`
+
+Never use bare or ad-hoc names like `patch-1`, `wip`, `my-branch`, or `update`.
 
 ## Conventional commit format
 
