@@ -67,7 +67,7 @@ printed.
 
 | Command | When |
 |---|---|
-| `bash "$GUARD" snapshot [trunk] [--repo <dir>]...` | **Before** fetching. Records the pre-sync trunk sha and the branch's own tip, backs up uncommitted work, enables rerere. |
+| `bash "$GUARD" snapshot [trunk] [--repo <dir>]...` | **Before** fetching. Records the pre-sync trunk baseline and the branch's own tip, backs up uncommitted work, enables rerere. |
 | `bash "$GUARD" report [trunk] [--repo <dir>]...` | After rebasing. What landed + semantic-risk analysis. |
 | `bash "$GUARD" descendants [--repo <dir>]...` | After rebasing. Local branches stacked on the branch you just moved. |
 | `bash "$GUARD" restore` | Undo: restore the working tree from the snapshot. |
@@ -84,6 +84,12 @@ bash "$GUARD" snapshot [base] [--repo <dir>]...
 Order matters and is not recoverable by rerunning: once you fetch, the old trunk tip is
 overwritten and "what landed" is much harder to reconstruct. Never fetch first. The
 snapshot also records the branch's own tip, which step 7 needs and nothing else preserves.
+
+The baseline it records is the **merge base of your branch and trunk**, not a trunk ref.
+Either ref taken alone lies: `origin/<trunk>` may already be ahead (anything can fetch --
+an IDE, a status script, an earlier command), and local `<trunk>` may be behind the point
+the branch was cut from. If the snapshot notes that the two refs already differ, that is
+informational -- the baseline is unaffected.
 
 ### 2. Deal with uncommitted work
 
@@ -126,7 +132,7 @@ Standard resolution mechanics: see the `fix-merge-conflicts` skill. Beyond those
 ### 5. Report -- the step that catches what git missed
 
 ```bash
-bash "$GUARD" report
+bash "$GUARD" report [base] [--repo <dir>]...
 ```
 
 Three outputs, each needing a different response:

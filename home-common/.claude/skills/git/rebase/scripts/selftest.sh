@@ -99,6 +99,49 @@ out="$(cd "$R/workspace" && bash "$GUARD" snapshot main 2>&1)"
 echo "$out" | grep -q '### child' && scoped=yes || scoped=no
 check "$scoped" "scans child repos instead of latching onto an ancestor repo"
 
+# ---------------------------------------------------------------------------
+# Test 4: a pre-fetched origin must not poison the baseline.
+#
+# Regression: snapshot used to read the remote-tracking ref, so when anything had
+# already fetched origin/main, it recorded the POST-sync tip. report then compared
+# it to itself and reported "nothing landed" for a sync that landed real commits.
+# ---------------------------------------------------------------------------
+UP="$TMP/upstream"
+git init -q -b main --bare "$UP" >/dev/null 2>&1
+
+R="$TMP/prefetched"; mkdir -p "$R/src"
+g() { git -C "$R" "$@"; }
+g init -q -b main .; g config user.email t@t; g config user.name t
+printf 'package p\n\nfunc CalculateHvacPrice(x int) int { return x*2 }\n' >"$R/src/pricing.go"
+g add -A; g commit -qm base
+g remote add origin "$UP"; g push -q origin main
+
+g checkout -qb feature
+printf 'package p\n\nfunc GateHvac() int { return CalculateHvacPrice(10) }\n' >"$R/src/authz.go"
+g add -A; g commit -qm "branch: gate"
+
+# Trunk moves upstream, via a second clone so the local main ref stays behind.
+C="$TMP/other"
+git clone -q "$UP" "$C"
+git -C "$C" config user.email t@t; git -C "$C" config user.name t
+printf 'package p\n' >"$C/src/pricing.go"
+git -C "$C" add -A; git -C "$C" commit -qm "main: remove hvac"
+git -C "$C" push -q origin main
+
+# The poisoning event: origin/main is fetched BEFORE the snapshot, while local
+# main still points at the old tip.
+g fetch -q origin
+(cd "$R" && bash "$GUARD" snapshot main >/dev/null 2>&1)
+g fetch -q origin main:main
+g rebase -q main
+
+out="$(cd "$R" && bash "$GUARD" report main 2>&1)"
+echo "$out" | grep -q 'main: remove hvac' && landed=yes || landed=no
+check "$landed" "pre-fetched origin: report still lists what landed on trunk"
+
+echo "$out" | grep -q 'CalculateHvacPrice' && hit=yes || hit=no
+check "$hit" "pre-fetched origin: report still flags the removed symbol"
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" = "0" ]

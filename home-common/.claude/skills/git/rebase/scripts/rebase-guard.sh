@@ -13,7 +13,7 @@
 #   clean                   Remove snapshot data.
 #
 # Options (report):
-#   --pre <sha>             Override the recorded pre-sync trunk sha (re-run analysis after the fact).
+#   --pre <sha>             Override the recorded pre-sync baseline (re-run analysis after the fact).
 #
 # Options (any subcommand):
 #   --repo <dir>            Limit to this repo. Repeatable. Default: every direct child repo.
@@ -93,12 +93,43 @@ detect_trunk() {
   echo "main"
 }
 
-# Prefer the remote-tracking ref; fall back to the local branch.
+ref_sha() {
+  git -C "$1" rev-parse --verify --quiet "$2" || true
+}
+
+# Post-sync trunk tip. origin-first: after `fetch origin $T:$T` both refs agree,
+# and on the diverged-local-trunk fallback the rebase targets origin/$T, which
+# the local branch never reached.
 trunk_sha() {
-  local repo="$1" trunk="$2"
-  git -C "$repo" rev-parse --verify --quiet "refs/remotes/origin/$trunk" \
-    || git -C "$repo" rev-parse --verify --quiet "refs/heads/$trunk" \
-    || true
+  local repo="$1" trunk="$2" sha
+  sha="$(ref_sha "$repo" "refs/remotes/origin/$trunk")"
+  [ -n "$sha" ] || sha="$(ref_sha "$repo" "refs/heads/$trunk")"
+  echo "$sha"
+}
+
+# Pre-sync baseline: the newest commit the branch and trunk share.
+#
+# NOT a trunk ref. Reading either ref directly is wrong in both directions:
+# origin/$trunk may already be ahead (anything -- an IDE, a status script, an
+# earlier command -- may have fetched), which silently records the POST-sync tip
+# and makes `report` compare it to itself and declare "nothing landed"; local
+# $trunk may be behind the point the branch was actually cut from, which
+# over-reports commits the branch already carries. The merge base is what the
+# branch demonstrably contains, so it is immune to both.
+fork_point() {
+  local repo="$1" head="$2"
+  shift 2
+  local best="" ref mb
+  for ref in "$@"; do
+    [ -n "$ref" ] || continue
+    mb="$(git -C "$repo" merge-base "$head" "$ref" 2>/dev/null || true)"
+    [ -n "$mb" ] || continue
+    # Both are ancestors of HEAD, so the descendant is the later divergence.
+    if [ -z "$best" ] || git -C "$repo" merge-base --is-ancestor "$best" "$mb" 2>/dev/null; then
+      best="$mb"
+    fi
+  done
+  echo "$best"
 }
 
 # ---------------------------------------------------------------------------
@@ -107,14 +138,16 @@ trunk_sha() {
 
 snapshot_repo() {
   local repo="$1" trunk_arg="${2:-}"
-  local trunk dir branch head pre dirty untracked_count
+  local trunk dir branch head local_tip remote_tip pre dirty untracked_count
   trunk="$(detect_trunk "$repo" "$trunk_arg")"
   dir="$(state_dir "$repo")"
   mkdir -p "$dir"
 
   branch="$(git -C "$repo" symbolic-ref --short HEAD 2>/dev/null || echo "DETACHED")"
   head="$(git -C "$repo" rev-parse HEAD)"
-  pre="$(trunk_sha "$repo" "$trunk")"
+  local_tip="$(ref_sha "$repo" "refs/heads/$trunk")"
+  remote_tip="$(ref_sha "$repo" "refs/remotes/origin/$trunk")"
+  pre="$(fork_point "$repo" "$head" "$local_tip" "$remote_tip")"
 
   echo "### $repo"
   if [ "$branch" = "DETACHED" ]; then
@@ -128,7 +161,12 @@ snapshot_repo() {
   if [ -z "$pre" ]; then
     echo "- [WARN] no ref found for trunk \`$trunk\` -- \"what landed\" will be unavailable"
   else
-    echo "- $trunk before: \`${pre:0:12}\`"
+    echo "- $trunk baseline: \`${pre:0:12}\` (newest commit your branch and $trunk share)"
+    if [ -n "$remote_tip" ] && [ -n "$local_tip" ] && [ "$remote_tip" != "$local_tip" ]; then
+      echo "- [i] \`origin/$trunk\` (\`${remote_tip:0:12}\`) already differs from local \`$trunk\`"
+      echo "  (\`${local_tip:0:12}\`) -- something fetched before this snapshot. The baseline above"
+      echo "  is the merge base, so it is unaffected."
+    fi
   fi
 
   # Back up everything not in a commit. Uncommitted work has no reflog; this is
@@ -154,6 +192,8 @@ snapshot_repo() {
     echo "trunk=$trunk"
     echo "head_before=$head"
     echo "pre_trunk=$pre"
+    echo "pre_local_tip=$local_tip"
+    echo "pre_remote_tip=$remote_tip"
     echo "dirty=$dirty"
   } >"$dir/meta"
 
@@ -216,7 +256,8 @@ report_repo() {
     return
   fi
   if [ "$pre" = "$post" ]; then
-    echo "- $trunk did not move (\`${pre:0:12}\`). Nothing landed; no semantic risk from this sync."
+    echo "- Your branch already contains \`$trunk\` (\`${pre:0:12}\`). Nothing landed; no semantic"
+    echo "  risk from this sync."
     echo ""
     return
   fi
