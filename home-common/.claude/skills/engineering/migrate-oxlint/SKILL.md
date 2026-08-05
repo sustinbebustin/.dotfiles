@@ -1,12 +1,13 @@
 ---
 name: migrate-oxlint
-description: Migrate a JavaScript/TypeScript project from ESLint to Oxlint.
-disable-model-invocation: true
+description: Guide for migrating a project from ESLint to Oxlint. Use when asked to migrate, convert, or switch a JavaScript/TypeScript project's linter from ESLint to Oxlint.
 ---
+
+This skill guides you through migrating a JavaScript/TypeScript project from ESLint to [Oxlint](https://oxc.rs/docs/guide/usage/linter/).
 
 ## Overview
 
-[Oxlint](https://oxc.rs/docs/guide/usage/linter/) is a high-performance linter that implements many popular ESLint rules natively in Rust. It can be used alongside ESLint or as a full replacement.
+Oxlint is a high-performance linter that implements many popular ESLint rules natively in Rust. It can be used alongside ESLint or as a full replacement.
 
 An official migration tool is available, and will be used by this skill: [`@oxlint/migrate`](https://github.com/oxc-project/oxlint-migrate)
 
@@ -19,6 +20,8 @@ npx @oxlint/migrate
 ```
 
 This reads your ESLint flat config (`eslint.config.js` for example) and generates a `.oxlintrc.json` file from it. It will find your ESLint config file automatically in most cases.
+
+See options below for more info.
 
 ### Key Options
 
@@ -97,13 +100,13 @@ Review the output and decide whether to keep ESLint for those rules or not. Some
 
 ## Step 3: Install Oxlint
 
-Install the core oxlint package (use `yarn install`, `pnpm install`, `bun install`, etc. depending on your package manager):
+Install the core oxlint package (use `yarn install`, `pnpm install`, `vp install`, `bun install`, etc. depending on your package manager):
 
 ```bash
 npm install -D oxlint
 ```
 
-Add the `oxlint-tsgolint` package if you intend to use type-aware rules that require TypeScript type information:
+If you want to add the `oxlint-tsgolint` package, if you intend to use type-aware rules that require TypeScript type information:
 
 ```bash
 npm install -D oxlint-tsgolint
