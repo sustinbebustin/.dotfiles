@@ -1,7 +1,7 @@
 ---
 name: nextjs-reviewer
 description: Reviews Next.js App Router code for server/client boundaries, data fetching patterns, route conventions, middleware, caching/revalidation, and metadata. Invoked after implementing features, modifying existing code, or creating new routes/pages.
-model: opus
+model: inherit
 effort: medium
 tools: Bash, Read, Glob, Grep, Write, WebFetch, mcp__context7__query-docs, mcp__context7__resolve-library-id
 memory: project

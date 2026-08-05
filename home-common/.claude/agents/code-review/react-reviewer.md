@@ -1,7 +1,7 @@
 ---
 name: react-reviewer
 description: Reviews React + TypeScript code changes for type safety, React correctness (purity, hooks, Compiler compatibility), component architecture, state management, and code quality. Invoked after implementing features, modifying existing code, or creating new components.
-model: opus
+model: inherit
 effort: medium
 skills: react-best-practices, rules-of-react
 tools: Bash, Read, Glob, Grep, Write, WebFetch, mcp__context7__query-docs, mcp__context7__resolve-library-id

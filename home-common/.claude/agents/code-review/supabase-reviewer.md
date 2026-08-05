@@ -1,7 +1,7 @@
 ---
 name: supabase-reviewer
 description: Reviews Supabase-related code changes (migrations, RLS policies, database functions, Edge Functions, Realtime). Invoked after implementing schema changes, security policies, or serverless functions.
-model: opus
+model: inherit
 effort: medium
 skills: supabase
 tools: Bash, Read, Glob, Grep, Write, WebFetch, mcp__context7__query-docs, mcp__supabase__list_tables, mcp__supabase__list_migrations, mcp__supabase__execute_sql, mcp__supabase__get_advisors, mcp__supabase__get_logs, mcp__supabase__search_docs

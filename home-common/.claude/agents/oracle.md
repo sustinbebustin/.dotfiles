@@ -4,7 +4,7 @@ description: Principal engineering advisor for code reviews, architecture decisi
 tools: Read, Glob, Grep, WebFetch, WebSearch
 disallowedTools: Edit, Write, Bash, NotebookEdit, Task
 model: inherit
-effort: xhigh
+effort: medium
 mcpServers:
   - opensrc
   - context7

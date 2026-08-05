@@ -1,7 +1,7 @@
 ---
 name: architecture-strategist
 description: Reviews code changes from an architectural perspective. Evaluates system design decisions, component boundaries, dependency direction, trust boundaries, and contract stability. Invoke for cross-stack changes, new service boundaries, middleware/auth changes, or API contract modifications.
-model: opus
+model: inherit
 effort: medium
 skills: clean-architecture-and-ddd
 tools: Bash, Read, Glob, Grep, Write
