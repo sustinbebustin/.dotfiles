@@ -1,3 +1,6 @@
+# Taps
+tap "sustinbebustin/tap"
+
 # Core
 brew "gawk"
 brew "git"
@@ -20,3 +23,6 @@ brew "eza"
 brew "gh"
 brew "jq"
 brew "ripgrep"
+
+# Personal
+brew "sustinbebustin/tap/mws"
