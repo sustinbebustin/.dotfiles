@@ -1,6 +1,7 @@
 ---
 name: turborepo
 description: Turborepo monorepo build system guidance. Triggers on: turbo.json, task pipelines, dependsOn, caching, remote cache, the "turbo" CLI, --filter, --affected, CI optimization, environment variables, internal packages, monorepo structure/best practices, and boundaries.
+disable-model-invocation: true
 ---
 
 # Turborepo Skill

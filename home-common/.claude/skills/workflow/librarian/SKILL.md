@@ -1,6 +1,7 @@
 ---
 name: librarian
 description: "Cache and refresh remote git repositories so future references can reuse a local copy. Use when the user points you to a remote git repository as reference or you encountered a remote git repo through other means."
+disable-model-invocation: true
 ---
 
 Accepts GitHub/GitLab/Bitbucket URLs, `git@...` SSH, or `owner/repo` shorthand (shorthand defaults to `github.com`).
