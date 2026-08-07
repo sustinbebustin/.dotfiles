@@ -3,8 +3,9 @@
 // rebase, reset --hard, clean, restore, checkout --, branch/tag delete, stash
 // drop/clear) return `ask`, so the user approves each case by case. Operations
 // that are outward-facing and hard to undo return a hard `deny`: gh pr close,
-// gh issue close/delete, gh release delete, gh repo delete/rename, and gh api
-// with an explicit mutating method.
+// gh issue close/delete, gh release delete, gh repo delete/rename, and any
+// writing `gh api` call - both the explicit method flag and the payload flags
+// that make gh choose POST on its own. See checkGhAPI.
 //
 // Compound commands are walked recursively, so a guarded call nested in a
 // subshell or behind && / || is still caught.
@@ -53,19 +54,21 @@ func main() {
 		return
 	}
 
-	file, err := syntax.NewParser().Parse(strings.NewReader(in.ToolInput.Command), "")
-	if err != nil {
-		emit(verdict{decision: "allow"})
-		return
-	}
+	emit(decide(in.ToolInput.Command))
+}
 
+// decide parses command and returns the first guarded call's verdict.
+func decide(command string) verdict {
+	file, err := syntax.NewParser().Parse(strings.NewReader(command), "")
+	if err != nil {
+		return verdict{decision: "allow"}
+	}
 	for _, stmt := range file.Stmts {
 		if v, hit := evaluate(stmt.Cmd); hit {
-			emit(v)
-			return
+			return v
 		}
 	}
-	emit(verdict{decision: "allow"})
+	return verdict{decision: "allow"}
 }
 
 func evaluate(cmd syntax.Command) (verdict, bool) {
@@ -195,28 +198,80 @@ func checkGh(args []string) (verdict, bool) {
 			}
 		}
 	case "api":
-		for i, a := range args[1:] {
-			if a == "-X" || a == "--method" {
-				if i+2 < len(args) {
-					m := strings.ToUpper(args[i+2])
-					if m == "PUT" || m == "POST" || m == "PATCH" || m == "DELETE" {
-						return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh api %s not allowed", m)}, true
-					}
-				}
-			} else if strings.HasPrefix(a, "-X") && len(a) > 2 {
-				m := strings.ToUpper(a[2:])
-				if m == "PUT" || m == "POST" || m == "PATCH" || m == "DELETE" {
-					return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh api %s not allowed", m)}, true
-				}
-			} else if strings.HasPrefix(a, "--method=") {
-				m := strings.ToUpper(strings.TrimPrefix(a, "--method="))
-				if m == "PUT" || m == "POST" || m == "PATCH" || m == "DELETE" {
-					return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh api %s not allowed", m)}, true
-				}
+		return checkGhAPI(args[1:])
+	}
+	return verdict{}, false
+}
+
+// checkGhAPI denies `gh api` calls that write. An explicit method flag settles
+// the question on its own. Failing that, gh switches the request to POST as
+// soon as a payload is supplied - a request parameter (-f/--raw-field,
+// -F/--field) or a body (--input) - so those are writes carrying no method flag
+// at all. An explicit non-mutating method keeps a payload harmless, since gh
+// then sends parameters as a query string, so a payload only counts when no
+// method was given. Both behaviours were confirmed against gh 2.97.0 by
+// observing the method it sent to a local server.
+//
+// args are the tokens following `api`.
+func checkGhAPI(args []string) (verdict, bool) {
+	method := ""
+	payload := ""
+
+	for i, a := range args {
+		switch {
+		case a == "-X" || a == "--method":
+			if i+1 < len(args) {
+				method = strings.ToUpper(args[i+1])
+			}
+		case strings.HasPrefix(a, "-X") && len(a) > 2:
+			method = strings.ToUpper(a[2:])
+		default:
+			if val, ok := strings.CutPrefix(a, "--method="); ok {
+				method = strings.ToUpper(val)
+			} else if kind := payloadFlag(a); kind != "" {
+				payload = kind
 			}
 		}
 	}
+
+	switch {
+	case isMutatingMethod(method):
+		return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh api %s not allowed", method)}, true
+	case method == "" && payload != "":
+		return verdict{decision: "deny", reason: fmt.Sprintf(
+			"[BLOCKED] gh api sends POST when %s is supplied - not allowed. "+
+				"Add `--method GET` if this is meant to be a read.", payload)}, true
+	}
 	return verdict{}, false
+}
+
+// payloadFlag names the kind of payload a carries, or "" when a is not a
+// payload flag. Both the separated (`-f k=v`, `--input file`) and attached
+// (`-fk=v`, `--field=k=v`, `--input=file`) spellings are recognised.
+func payloadFlag(a string) string {
+	switch a {
+	case "-f", "-F", "--raw-field", "--field":
+		return "a request parameter"
+	case "--input":
+		return "a request body"
+	}
+	switch {
+	case strings.HasPrefix(a, "--raw-field=") || strings.HasPrefix(a, "--field="):
+		return "a request parameter"
+	case strings.HasPrefix(a, "--input="):
+		return "a request body"
+	case len(a) > 2 && (strings.HasPrefix(a, "-f") || strings.HasPrefix(a, "-F")):
+		return "a request parameter"
+	}
+	return ""
+}
+
+func isMutatingMethod(m string) bool {
+	switch m {
+	case "PUT", "POST", "PATCH", "DELETE":
+		return true
+	}
+	return false
 }
 
 // gitTopLevelFlags are flags that may appear before the git subcommand and

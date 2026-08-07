@@ -15,11 +15,40 @@ const BLOCKED: Array<[RegExp, string]> = [
   [/\bgh\s+issue\s+(close|delete)\b/, "gh issue close/delete not allowed"],
   [/\bgh\s+release\s+(create|delete)\b/, "gh release create/delete not allowed"],
   [/\bgh\s+repo\s+(delete|rename)\b/, "gh repo delete/rename not allowed"],
-  [
-    /\bgh\s+api\b.*(-X\s*(PUT|POST|PATCH|DELETE)|--method\s*(PUT|POST|PATCH|DELETE))/,
-    "gh api with destructive HTTP method not allowed",
-  ],
 ]
+
+const MUTATING_METHODS = new Set(["PUT", "POST", "PATCH", "DELETE"])
+
+/** `-X POST`, `-XPOST`, `--method POST`, `--method=POST`. */
+const EXPLICIT_METHOD = /(?:-X\s*|--method\s*=?\s*)([A-Za-z]+)/
+
+/**
+ * Payload flags, which make gh choose POST on its own: request parameters
+ * (`-f k=v`, `-fk=v`, `-F k=v`, `--raw-field k=v`, `--field=k=v`) and a request
+ * body (`--input file`, `--input=file`).
+ */
+const PAYLOAD_FLAG =
+  /(?:^|\s)(?:-[fF]\S*|--raw-field(?:=\S*)?|--field(?:=\S*)?|--input(?:=\S*)?)(?=\s|$)/
+
+/**
+ * Mirrors checkGhAPI in the Claude Code hook
+ * (home-common/.claude/hooks/block-dangerous-git). An explicit method flag
+ * settles the verdict; otherwise a payload makes gh send POST on its own, so
+ * those are writes carrying no method flag. An explicit read method keeps a
+ * payload harmless, since gh then sends parameters as a query string.
+ */
+function checkGhApi(norm: string): string | null {
+  if (!/\bgh\s+api\b/.test(norm)) return null
+
+  const method = norm.match(EXPLICIT_METHOD)?.[1]?.toUpperCase()
+  if (method !== undefined) {
+    return MUTATING_METHODS.has(method) ? `gh api ${method} not allowed` : null
+  }
+  if (PAYLOAD_FLAG.test(norm)) {
+    return "gh api sends POST when request parameters or a body are supplied - not allowed. Add `--method GET` if this is meant to be a read."
+  }
+  return null
+}
 
 function normalize(command: string): string {
   return command.replace(/\n/g, " ").replace(/\s+/g, " ").trimStart()
@@ -45,6 +74,11 @@ export const BlockDangerousGit: Plugin = async () => ({
       if (pattern.test(norm)) {
         throw new Error(`[BLOCKED] ${reason}`)
       }
+    }
+
+    const apiReason = checkGhApi(norm)
+    if (apiReason !== null) {
+      throw new Error(`[BLOCKED] ${apiReason}`)
     }
   },
 })
