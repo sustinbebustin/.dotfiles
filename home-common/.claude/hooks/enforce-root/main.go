@@ -1,3 +1,8 @@
+// Command enforce-root is a Claude Code PreToolUse hook that denies a top-level
+// `cd` in a Bash command. The working directory does not persist between Bash
+// tool calls, so a bare `cd` silently desyncs the rest of that command and every
+// later one. A `cd` confined to a subshell is fine and is left alone; the denial
+// message points at that form and at the tool-native -C/--prefix flags.
 package main
 
 import (

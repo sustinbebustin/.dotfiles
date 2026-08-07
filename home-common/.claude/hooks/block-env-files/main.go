@@ -1,3 +1,9 @@
+// Command block-env-files is a Claude Code PreToolUse hook that denies access to
+// secret .env files. Read/Edit/Write are checked by their path argument; Bash
+// commands are parsed and every word is inspected, so reading, copying,
+// sourcing, or redirecting an env file is caught wherever it appears in the
+// command. Example variants (.env.example, .sample, .template) stay allowed so
+// the documented shape of a config remains readable.
 package main
 
 import (
@@ -6,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
@@ -182,12 +189,7 @@ func rawMentionsBlockedEnv(cmd string) bool {
 			return false
 		}
 	})
-	for _, f := range fields {
-		if isBlockedEnv(f) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(fields, isBlockedEnv)
 }
 
 func wordLit(w *syntax.Word) string {

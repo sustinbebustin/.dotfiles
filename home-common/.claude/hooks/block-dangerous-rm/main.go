@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
@@ -134,10 +135,8 @@ func allUnderTmp(paths []string) bool {
 // /tmp to /private/tmp, so both prefixes are treated as scratch. A `..`
 // component disqualifies the path, since it can escape the scratch root.
 func underTmp(p string) bool {
-	for _, seg := range strings.Split(p, "/") {
-		if seg == ".." {
-			return false
-		}
+	if slices.Contains(strings.Split(p, "/"), "..") {
+		return false
 	}
 	return p == "/tmp" || strings.HasPrefix(p, "/tmp/") ||
 		p == "/private/tmp" || strings.HasPrefix(p, "/private/tmp/")

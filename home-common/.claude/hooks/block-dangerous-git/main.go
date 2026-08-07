@@ -1,3 +1,13 @@
+// Command block-dangerous-git is a Claude Code PreToolUse hook guarding git and
+// gh invocations. Commands that publish work or discard it (push, merge,
+// rebase, reset --hard, clean, restore, checkout --, branch/tag delete, stash
+// drop/clear) return `ask`, so the user approves each case by case. Operations
+// that are outward-facing and hard to undo return a hard `deny`: gh pr close,
+// gh issue close/delete, gh release delete, gh repo delete/rename, and gh api
+// with an explicit mutating method.
+//
+// Compound commands are walked recursively, so a guarded call nested in a
+// subshell or behind && / || is still caught.
 package main
 
 import (
@@ -5,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
@@ -122,10 +133,8 @@ func checkGit(args []string) (verdict, bool) {
 			}
 		}
 	case "checkout":
-		for _, a := range rest {
-			if a == "--" {
-				return verdict{decision: "ask", reason: "git checkout -- discards working-tree changes - allow?"}, true
-			}
+		if slices.Contains(rest, "--") {
+			return verdict{decision: "ask", reason: "git checkout -- discards working-tree changes - allow?"}, true
 		}
 	case "restore":
 		return verdict{decision: "ask", reason: "git restore discards changes - allow?"}, true
