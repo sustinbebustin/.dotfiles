@@ -97,12 +97,25 @@ func isCdCall(c *syntax.CallExpr) bool {
 	return ok && lit.Value == "cd"
 }
 
+// deny emits the denial as JSON on stdout. A failed write would leave Claude
+// Code with no decision at all, letting the `cd` run unchecked, so this falls
+// back to exit 2 - which blocks the tool call on PreToolUse and hands stderr to
+// Claude as the reason.
+//
+// This covers a genuine write failure on the target (a full disk, EIO). It does
+// not cover stdout being closed outright: the Go runtime reopens closed standard
+// descriptors onto /dev/null before main runs, so the write reports success and
+// the decision is silently discarded. That branch is therefore unreachable from
+// a closed stdout and is left unverified.
 func deny(reason string) {
 	out := hookOutput{}
 	out.HookSpecificOutput.HookEventName = "PreToolUse"
 	out.HookSpecificOutput.PermissionDecision = "deny"
 	out.HookSpecificOutput.PermissionDecisionReason = reason
-	json.NewEncoder(os.Stdout).Encode(out)
+	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
+		fmt.Fprintf(os.Stderr, "enforce-root: could not write the hook decision (%v). %s\n", err, reason)
+		os.Exit(2)
+	}
 	os.Exit(0)
 }
 

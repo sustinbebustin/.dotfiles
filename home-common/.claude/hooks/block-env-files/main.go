@@ -218,7 +218,7 @@ func emitAllow() {
 	out := hookOutput{}
 	out.HookSpecificOutput.HookEventName = "PreToolUse"
 	out.HookSpecificOutput.PermissionDecision = "allow"
-	json.NewEncoder(os.Stdout).Encode(out)
+	write(out)
 }
 
 func emitDeny(reason string) {
@@ -226,5 +226,23 @@ func emitDeny(reason string) {
 	out.HookSpecificOutput.HookEventName = "PreToolUse"
 	out.HookSpecificOutput.PermissionDecision = "deny"
 	out.HookSpecificOutput.PermissionDecisionReason = reason
-	json.NewEncoder(os.Stdout).Encode(out)
+	write(out)
+}
+
+// write emits the decision as JSON on stdout. A failed write would leave Claude
+// Code with no decision at all, and a guard hook that says nothing lets the
+// access through unchecked. So this fails closed: exit 2 blocks the tool call
+// on PreToolUse and hands stderr to Claude as the reason.
+//
+// This covers a genuine write failure on the target (a full disk, EIO). It does
+// not cover stdout being closed outright: the Go runtime reopens closed standard
+// descriptors onto /dev/null before main runs, so the write reports success and
+// the decision is silently discarded. That branch is therefore unreachable from
+// a closed stdout and is left unverified.
+func write(out hookOutput) {
+	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
+		fmt.Fprintf(os.Stderr, "block-env-files: could not write the hook decision (%v). "+
+			"Blocking this access rather than allowing it unchecked; retry once stdout works.\n", err)
+		os.Exit(2)
+	}
 }

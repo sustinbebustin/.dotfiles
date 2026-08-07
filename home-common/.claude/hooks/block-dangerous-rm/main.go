@@ -18,6 +18,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"slices"
@@ -383,10 +384,24 @@ func (s *scope) lookupParam(pe *syntax.ParamExp, pos uint) (string, bool) {
 	return best, found
 }
 
+// emit writes the decision as JSON on stdout. A failed write would leave Claude
+// Code with no decision at all, and a guard hook that says nothing lets the
+// command through unchecked. So this fails closed: exit 2 blocks the tool call
+// on PreToolUse and hands stderr to Claude as the reason.
+//
+// This covers a genuine write failure on the target (a full disk, EIO). It does
+// not cover stdout being closed outright: the Go runtime reopens closed standard
+// descriptors onto /dev/null before main runs, so the write reports success and
+// the decision is silently discarded. That branch is therefore unreachable from
+// a closed stdout and is left unverified.
 func emit(v verdict) {
 	out := hookOutput{}
 	out.HookSpecificOutput.HookEventName = "PreToolUse"
 	out.HookSpecificOutput.PermissionDecision = v.decision
 	out.HookSpecificOutput.PermissionDecisionReason = v.reason
-	json.NewEncoder(os.Stdout).Encode(out)
+	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
+		fmt.Fprintf(os.Stderr, "block-dangerous-rm: could not write the hook decision (%v). "+
+			"Blocking this command rather than running it unchecked; re-run it once stdout works.\n", err)
+		os.Exit(2)
+	}
 }
