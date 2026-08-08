@@ -154,6 +154,37 @@ prune_broken_stow_links() {
     fi
 }
 
+# --- Claude Code hooks ---
+
+hooks_src_dir() { printf '%s\n' "${DOTFILES_DIR}/home-common/.claude/hooks"; }
+
+# The Go hook binaries are per-machine, per-platform and therefore gitignored,
+# so `git pull` never refreshes them -- without this, stow relinks the previous
+# build and the hooks keep running stale code after a source change. The
+# Makefile's per-binary rules make this a no-op when nothing changed.
+build_hooks() {
+    local src
+    src="$(hooks_src_dir)"
+    [[ -f "$src/Makefile" ]] || return 0
+
+    local missing=()
+    command_exists make || missing+=("make")
+    command_exists go || missing+=("go")
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        warn "Skipping hook build -- ${missing[*]} not installed ($(install_hint "${missing[0]}"))"
+        warn "  Existing hook binaries (if any) are left in place"
+        return 0
+    fi
+
+    info "Building Claude Code hooks..."
+    if make -C "$src"; then
+        ok "Hooks built"
+    else
+        warn "Hook build failed -- previously built binaries are left in place"
+        warn "  Re-run manually to see why: make -C $src"
+    fi
+}
+
 # --- Skills (flattened category support) ---
 
 # Claude Code only reads ~/.claude/skills/<name>/SKILL.md (depth 1), so the
@@ -552,6 +583,7 @@ cmd_stow() {
     fi
     local packages=()
     while IFS= read -r pkg; do packages+=("$pkg"); done < <(stow_packages)
+    build_hooks
     info "Stowing dotfiles (${packages[*]})..."
     prune_broken_stow_links
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "${packages[@]}"
