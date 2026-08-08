@@ -1,8 +1,10 @@
 // Command block-dangerous-rm is a Claude Code PreToolUse hook that prompts
 // before a recursive `rm` runs. It mirrors block-dangerous-git: instead of a
 // hard `deny`, it returns `ask` so the user can approve destructive removals
-// case by case. Absolute paths under /tmp (the scratchpad area) are exempt so
-// routine scratch cleanup stays friction-free.
+// case by case. Two kinds of target are exempt so routine cleanup stays
+// friction-free: absolute paths under /tmp (the scratchpad area), and relative
+// paths inside a toolchain artifact directory such as var/cache or node_modules
+// (see artifactDirs).
 //
 // Targets are resolved through simple literal variable assignments made earlier
 // in the same command, so the common `R=/tmp/probe; rm -rf "$R"` shape is
@@ -213,8 +215,8 @@ func (s *scope) recordRedirect(r *syntax.Redirect) {
 	s.created = append(s.created, createdPath{path: tok, pos: pos})
 }
 
-// checkRm returns an "ask" verdict when c is a recursive `rm` whose targets are
-// not confined to the /tmp scratchpad.
+// checkRm returns an "ask" verdict when c is a recursive `rm` with at least one
+// target that is neither scratch nor a regenerable artifact directory.
 func (s *scope) checkRm(c *syntax.CallExpr) (verdict, bool) {
 	if len(c.Args) == 0 {
 		return verdict{}, false
@@ -257,14 +259,14 @@ func (s *scope) checkRm(c *syntax.CallExpr) (verdict, bool) {
 	if !recursive {
 		return verdict{}, false
 	}
-	if len(paths) > 0 && allUnderTmp(paths) {
+	if len(paths) > 0 && allDisposable(paths) {
 		return verdict{}, false
 	}
 	return verdict{decision: "ask", reason: s.reasonFor(paths, c.Pos().Offset())}, true
 }
 
 // unresolvedPath stands in for a target the resolver could not pin to a
-// literal. It matches no /tmp prefix, so such targets always prompt.
+// literal. It matches no exempt path, so such targets always prompt.
 const unresolvedPath = "\x00unresolved"
 
 // reasonFor picks the scratchpad hint when every target has a path created
@@ -298,13 +300,103 @@ func (s *scope) createdBeneath(target string, rmPos uint) bool {
 	return false
 }
 
-func allUnderTmp(paths []string) bool {
+// allDisposable reports whether every target is one the hook waves through:
+// scratchpad space, or a directory the toolchain regenerates on demand.
+func allDisposable(paths []string) bool {
 	for _, p := range paths {
-		if !underTmp(p) {
+		if !underTmp(p) && !underArtifactDir(p) {
 			return false
 		}
 	}
 	return true
+}
+
+// artifactDirs are directory paths whose contents are produced by a toolchain
+// and rebuilt on the next install, build, or test run. Removing one costs time,
+// never work: nothing hand-written lives there by convention, so a recursive rm
+// aimed inside one does not need approval.
+//
+// Every entry is a name reserved by its tool. Generic output names (dist, build,
+// out, target) are deliberately absent - repos do keep sources under those - as
+// are vendor and .venv, which are regenerable but expensive and sometimes
+// committed. Go needs no entry: its build and module caches live outside the
+// repository.
+var artifactDirs = []string{
+	// JavaScript / TypeScript
+	"node_modules",
+	".next",
+	".nuxt",
+	".svelte-kit",
+	".astro",
+	".angular",
+	".docusaurus",
+	".turbo",
+	".vite",
+	".swc",
+	".parcel-cache",
+	".pnpm-store",
+	".cache",
+	"coverage",
+	".nyc_output",
+	"playwright-report",
+
+	// Python
+	"__pycache__",
+	".pytest_cache",
+	".mypy_cache",
+	".ruff_cache",
+	".tox",
+	"htmlcov",
+	".ipynb_checkpoints",
+
+	// PHP
+	"var/cache",
+	"var/log",
+	"bootstrap/cache",
+	".phpunit.cache",
+
+	// JVM / infrastructure
+	".gradle",
+	".terraform",
+	".terragrunt-cache",
+}
+
+// underArtifactDir reports whether p names an artifact directory or something
+// inside one, at any depth of a monorepo (`apps/web/.next/cache` qualifies).
+//
+// The path must be relative: `/var/cache` is the system package cache, not a
+// Symfony build directory, and the same name means something very different
+// there. A `..` component or a `~` prefix disqualifies it for the same reason -
+// neither stays where the rest of the path says it does.
+func underArtifactDir(p string) bool {
+	if p == "" || strings.HasPrefix(p, "/") || strings.HasPrefix(p, "~") {
+		return false
+	}
+	segs := pathSegments(p)
+	if slices.Contains(segs, "..") {
+		return false
+	}
+	for _, dir := range artifactDirs {
+		want := pathSegments(dir)
+		for i := 0; i+len(want) <= len(segs); i++ {
+			if slices.Equal(segs[i:i+len(want)], want) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// pathSegments splits p on "/", dropping empty and "." components so that
+// `./var//cache/` yields the same segments as `var/cache`.
+func pathSegments(p string) []string {
+	var segs []string
+	for seg := range strings.SplitSeq(p, "/") {
+		if seg != "" && seg != "." {
+			segs = append(segs, seg)
+		}
+	}
+	return segs
 }
 
 // underTmp reports whether p is an absolute path inside the /tmp scratchpad

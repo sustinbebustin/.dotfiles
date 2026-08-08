@@ -161,6 +161,85 @@ func TestEvaluate(t *testing.T) {
 			cmd:      `rm -rf -- /tmp/probe`,
 			decision: "allow",
 		},
+
+		// Artifact directories.
+		{
+			name:     "symfony cache subdirectory is exempt",
+			cmd:      `rm -rf var/cache/test`,
+			decision: "allow",
+		},
+		{
+			name:     "artifact directory itself is exempt",
+			cmd:      `rm -rf node_modules`,
+			decision: "allow",
+		},
+		{
+			name:     "artifact directory nested in a monorepo is exempt",
+			cmd:      `rm -rf apps/web/.next`,
+			decision: "allow",
+		},
+		{
+			name:     "leading dot-slash and glob are exempt",
+			cmd:      `rm -rf ./var/cache/*`,
+			decision: "allow",
+		},
+		{
+			name:     "several artifact targets are exempt together",
+			cmd:      `rm -rf .pytest_cache __pycache__ coverage`,
+			decision: "allow",
+		},
+		{
+			name:     "variable pointing at an artifact directory is exempt",
+			cmd:      `R=var/cache; rm -rf "$R/test"`,
+			decision: "allow",
+		},
+		{
+			name:     "absolute system var cache still asks",
+			cmd:      `rm -rf /var/cache`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "home-relative artifact path still asks",
+			cmd:      `rm -rf ~/var/cache`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "dotdot escape from an artifact directory still asks",
+			cmd:      `rm -rf node_modules/../src`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "var without cache still asks",
+			cmd:      `rm -rf var`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "generic output names still ask",
+			cmd:      `rm -rf dist build out target vendor`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "one non-artifact target among artifacts still asks",
+			cmd:      `rm -rf node_modules src`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "artifact-suffixed name is not an artifact directory",
+			cmd:      `rm -rf node_modules_backup`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "cd into a repo then clear its cache is exempt",
+			cmd:      `(cd /Users/me/project && rm -rf var/cache/test && vendor/bin/phpunit)`,
+			decision: "allow",
+		},
 	}
 
 	for _, tc := range cases {
