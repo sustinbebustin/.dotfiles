@@ -23,6 +23,8 @@ Configs live in stow packages that mirror `$HOME`. `dot stow` selects packages b
 
 Stow creates per-file symlinks (`--no-folding`) so packages never conflict with each other.
 
+Agent skills are the exception. They map to no single `$HOME` path -- Claude Code reads `~/.claude/skills` and Codex reads `~/.agents/skills` -- so `dot stow` links the shared `skills/` tree into both. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
+
 ## Structure
 
 ```
@@ -31,9 +33,11 @@ Stow creates per-file symlinks (`--no-folding`) so packages never conflict with 
 ├── packages/
 │   ├── Brewfile                     # Homebrew packages (macOS)
 │   └── Pacfile                      # pacman + AUR packages (Arch)
+├── skills/                          # agent skills (not a stow package)
 ├── home-common/                     # all platforms
 │   ├── .zshenv
 │   ├── .claude/                     # Claude Code config
+│   ├── .codex/                      # Codex config
 │   └── .config/
 │       ├── zsh/                     # shell (ZDOTDIR)
 │       ├── starship.toml            # prompt
