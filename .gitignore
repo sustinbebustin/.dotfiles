@@ -1,6 +1,6 @@
 # Zsh generated files
-home-common/.config/zsh/.zcompdump*
-home-common/.config/zsh/.zsh_history
+home/.config/zsh/.zcompdump*
+home/.config/zsh/.zsh_history
 
 # macOS
 .DS_Store
@@ -44,7 +44,7 @@ credentials/
 **/tokens*
 **/*secret*
 !**/*secret*.md
-home-common/.claude/mcp.json
+home/.claude/mcp.json
 
 # Node (if any scripts use it)
 node_modules/
@@ -63,7 +63,7 @@ venv/
 # Build outputs
 dist/
 !.claude/hooks/dist
-!home-common/.claude/hooks/dist
+!home/.claude/hooks/dist
 build/
 *.o
 *.a
@@ -76,17 +76,14 @@ build/
 !*/**/tmux/plugins/tpm
 backups/
 packages/failed_packages_*.txt
-home-common/.config/ngrok
-home-common/.config/opencode/package-lock.json
-home-common/.claude/context/*.md
+home/.config/ngrok
+home/.config/opencode/package-lock.json
+home/.claude/context/*.md
 
 # pi agent runtime/state (keep settings + customization resources tracked)
-home-common/.pi/
+home/.pi/
 
-# Personal
-home-macos/.config/raycast
-
-home-common/.claude/hooks/_archived
+home/.claude/hooks/_archived
 
 docs/skills
 docs/codex

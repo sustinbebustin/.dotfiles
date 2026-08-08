@@ -1,6 +1,6 @@
 # dotfiles
 
-GNU Stow-based dotfiles for Arch Linux and macOS. Configs are split into platform-specific stow packages so each machine only gets what it needs.
+GNU Stow-based dotfiles for macOS and Linux. One stow package, `home/`, mirrors `$HOME`.
 
 ## Quickstart
 
@@ -9,19 +9,11 @@ git clone --recursive https://github.com/sustinbebustin/dotfiles.git ~/.dotfiles
 ~/.dotfiles/dot init
 ```
 
-`dot init` auto-detects the platform, installs packages, symlinks configs, and sets zsh as the default shell. Open a new terminal when it finishes.
+`dot init` installs Homebrew packages, symlinks configs, and sets zsh as the default shell. Open a new terminal when it finishes.
 
 ## How it works
 
-Configs live in stow packages that mirror `$HOME`. `dot stow` selects packages based on the detected platform:
-
-| Platform | Packages |
-|----------|----------|
-| Arch | `home-common` + `home-arch` |
-| macOS | `home-common` + `home-macos` |
-| Other Linux | `home-common` |
-
-Stow creates per-file symlinks (`--no-folding`) so packages never conflict with each other.
+Everything under `home/` maps 1:1 to `$HOME` -- `home/.config/zsh/` becomes `~/.config/zsh/`. Stow is run with `--no-folding` so each file gets its own symlink rather than the directory being linked wholesale.
 
 Agent skills are the exception. They map to no single `$HOME` path -- Claude Code reads `~/.claude/skills` and Codex reads `~/.agents/skills` -- so `dot stow` links the shared `skills/` tree into both. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
 
@@ -29,12 +21,11 @@ Agent skills are the exception. They map to no single `$HOME` path -- Claude Cod
 
 ```
 ~/.dotfiles/
-├── dot                              # CLI (v3.0.0)
+├── dot                              # CLI (v4.0.0)
 ├── packages/
-│   ├── Brewfile                     # Homebrew packages (macOS)
-│   └── Pacfile                      # pacman + AUR packages (Arch)
+│   └── Brewfile                     # Homebrew packages
 ├── skills/                          # agent skills (not a stow package)
-├── home-common/                     # all platforms
+├── home/                            # the stow package -> $HOME
 │   ├── .zshenv
 │   ├── .claude/                     # Claude Code config
 │   ├── .codex/                      # Codex config
@@ -45,51 +36,19 @@ Agent skills are the exception. They map to no single `$HOME` path -- Claude Cod
 │       ├── ghostty/                 # terminal
 │       ├── tmux/                    # tmux + TPM (submodule)
 │       ├── ripgrep/                 # rg defaults
+│       ├── karabiner/               # key remapping (macOS)
 │       └── opencode/                # opencode.ai config
-├── home-arch/                       # Arch only
-│   └── .config/
-│       ├── btop/                    # system monitor
-│       ├── hypr/                    # Hyprland + Hyprlock + Hyprpaper
-│       ├── waybar/                  # status bar
-│       ├── swaync/                  # notification center
-│       ├── walker/                  # app launcher
-│       ├── matugen/                 # Material You theming
-│       ├── kanata/                  # keyboard remapper
-│       ├── xremap/                  # key remapper (macOS-style shortcuts)
-│       ├── cava/                    # audio visualizer
-│       ├── fastfetch/               # system info
-│       └── systemd/                 # user services
-├── home-macos/                      # macOS only
-│   └── .config/
-│       └── karabiner/               # key remapping
 └── docs/
 ```
-
-## Desktop (Arch)
-
-Hyprland-based Wayland desktop with Material You theming via matugen.
-
-| Component | Role |
-|-----------|------|
-| Hyprland | Tiling compositor (dwindle layout, 5120x1440 ultrawide) |
-| Waybar | Status bar (workspaces, clock, system stats, media) |
-| SwayNC | Notification center |
-| Walker | Application launcher |
-| Hyprlock | Lock screen |
-| Hyprpaper | Wallpaper daemon |
-| Matugen | Generates Material You colors from wallpaper |
-| Kanata + Xremap | macOS-style key remapping |
-
-Matugen templates theme: ghostty, waybar, swaync, walker, hyprland, hyprlock, btop, cava, gtk, chromium, firefox.
 
 ## Commands
 
 ```
-dot init              Full bootstrap (auto-detects platform)
+dot init              Full bootstrap (packages, stow, shell)
 dot stow              Re-stow dotfiles
 dot update            Pull, update packages, re-stow
 dot doctor            Health check with remediation hints
-dot package add       Install and track in Brewfile/Pacfile
+dot package add       Install and track in Brewfile
 dot package remove    Remove from package list
 dot package list      Show packages with install status
 dot retry-failed      Retry failed package installations
@@ -102,5 +61,4 @@ dot completions       Generate zsh completions
 ## Documentation
 
 - [Architecture](docs/architecture.md)
-- [Hyprland Keybindings](docs/hyprland-keybindings.md)
 - [Tmux Keybindings](docs/tmux-keybindings.md)

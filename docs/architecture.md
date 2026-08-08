@@ -2,7 +2,7 @@
 
 ## Overview
 
-GNU Stow-based dotfiles system. `dot` bootstraps everything. Configs are split into platform-specific stow packages (`home-common/`, `home-arch/`, `home-macos/`) that mirror `$HOME`. No templating, no custom scripts.
+GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow package, `home/`, mirrors `$HOME`. No templating, no custom scripts.
 
 ## Components
 
@@ -10,59 +10,40 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. Configs are split i
 .dotfiles/
 ├── dot                          # bootstrap entry point
 ├── packages/
-│   ├── Brewfile                 # Homebrew deps (macOS)
-│   └── Pacfile                  # pacman + AUR deps (Arch)
-├── home-common/                 # stow package -> $HOME (all platforms)
+│   └── Brewfile                 # Homebrew deps
+├── skills/                      # agent skills (not a stow package)
+├── home/                        # stow package -> $HOME
 │   ├── .zshenv                  # sets ZDOTDIR, XDG dirs
 │   ├── .claude/                 # Claude Code framework
+│   ├── .codex/                  # Codex config
 │   └── .config/
 │       ├── zsh/                 # shell config (ZDOTDIR)
 │       ├── git/                 # git config + aliases
 │       ├── ghostty/             # terminal emulator
 │       ├── tmux/                # tmux + TPM
 │       ├── ripgrep/             # rg defaults
+│       ├── karabiner/           # key remapping (macOS)
 │       └── opencode/            # opencode.ai config
-├── home-arch/                   # stow package -> $HOME (Arch only)
-│   └── .config/
-│       ├── hypr/                # Hyprland compositor
-│       ├── waybar/              # status bar
-│       ├── swaync/              # notifications
-│       ├── walker/              # app launcher
-│       ├── matugen/             # Material You theming
-│       └── ...                  # cava, fastfetch, kanata, xremap, systemd
-├── home-macos/                  # stow package -> $HOME (macOS only)
-│   └── .config/
-│       └── karabiner/           # key remapping
 └── docs/                        # documentation
 ```
 
 ## Bootstrap: `dot`
 
-Single script, auto-detects platform:
-
-**Arch:** pacman/AUR packages -> stow `home-common` + `home-arch` -> set zsh default
-**macOS:** Homebrew -> brew bundle -> npm globals -> stow `home-common` + `home-macos` -> set zsh default
+Single script: Homebrew -> brew bundle -> npm globals -> stow `home` -> set zsh default.
 
 ## Stow Strategy
 
-Configs are organized into per-platform stow packages. `dot stow` selects the right packages based on detected platform:
-
-| Platform | Packages stowed |
-|----------|----------------|
-| Arch | `home-common`, `home-arch` |
-| macOS | `home-common`, `home-macos` |
-| Other Linux | `home-common` |
-
-Each package's directory tree maps 1:1 to `$HOME`:
+The package tree maps 1:1 to `$HOME`:
 
 | Source | Target |
 |--------|--------|
-| `home-common/.zshenv` | `~/.zshenv` |
-| `home-common/.config/zsh/` | `~/.config/zsh/` |
-| `home-arch/.config/hypr/` | `~/.config/hypr/` |
-| `home-macos/.config/karabiner/` | `~/.config/karabiner/` |
+| `home/.zshenv` | `~/.zshenv` |
+| `home/.config/zsh/` | `~/.config/zsh/` |
+| `home/.config/karabiner/` | `~/.config/karabiner/` |
 
-Stow is run with `--no-folding` to create per-file symlinks rather than directory symlinks, preventing conflicts between packages.
+Stow is run with `--no-folding` to create per-file symlinks rather than directory symlinks, so a directory holding both stowed and unstowed files stays intact.
+
+Agent skills are the exception: they map to no single `$HOME` path (Claude Code reads `~/.claude/skills`, Codex reads `~/.agents/skills`), so `dot stow` links the shared `skills/` tree into both. An optional one-level category dir is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
 
 ## Shell Config
 
@@ -78,9 +59,7 @@ Key tools loaded: nvm, bun, starship, eza, zsh-autosuggestions, zsh-syntax-highl
 
 ## Packages
 
-`packages/Brewfile` (macOS) and `packages/Pacfile` (Arch) are the source of truth for system deps:
-
-### macOS
+`packages/Brewfile` is the source of truth for system deps:
 
 | Category | Packages |
 |----------|----------|
@@ -93,7 +72,7 @@ Everything else (nvm, bun, cargo) managed outside Homebrew.
 
 ## Claude Code Framework
 
-`home-common/.claude/` is the largest component -- a full AI workflow layer.
+`home/.claude/` is the largest component -- a full AI workflow layer.
 
 ### Structure
 
@@ -147,7 +126,7 @@ binary is stowed into `~/.claude/hooks/`, never the source directory.
 
 ## OpenCode (Parallel AI Config)
 
-`home-common/.config/opencode/` mirrors the Claude framework: agents, commands, skills, custom tools. Configured with Dracula theme.
+`home/.config/opencode/` mirrors the Claude framework: agents, commands, skills, custom tools. Configured with Dracula theme.
 
 ## Key Patterns
 

@@ -32,7 +32,7 @@ const PAYLOAD_FLAG =
 
 /**
  * Mirrors checkGhAPI in the Claude Code hook
- * (home-common/.claude/hooks/block-dangerous-git). An explicit method flag
+ * (home/.claude/hooks/block-dangerous-git). An explicit method flag
  * settles the verdict; otherwise a payload makes gh send POST on its own, so
  * those are writes carrying no method flag. An explicit read method keeps a
  * payload harmless, since gh then sends parameters as a query string.
