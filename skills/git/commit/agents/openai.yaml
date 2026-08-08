@@ -1,0 +1,5 @@
+interface:
+  display_name: "Commit"
+  short_description: "Atomic commits with conventional messages"
+policy:
+  allow_implicit_invocation: false

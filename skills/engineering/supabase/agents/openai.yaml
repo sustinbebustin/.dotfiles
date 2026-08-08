@@ -1,0 +1,3 @@
+interface:
+  display_name: "Supabase"
+  short_description: "Migrations, RLS, functions, and Postgres tuning"

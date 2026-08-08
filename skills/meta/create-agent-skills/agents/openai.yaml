@@ -1,0 +1,5 @@
+interface:
+  display_name: "Create Agent Skills"
+  short_description: "Author and improve skills and slash commands"
+policy:
+  allow_implicit_invocation: false

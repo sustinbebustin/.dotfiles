@@ -1,0 +1,3 @@
+interface:
+  display_name: "Rules of React"
+  short_description: "The 10 correctness rules for components and hooks"

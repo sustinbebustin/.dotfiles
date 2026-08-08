@@ -185,16 +185,47 @@ build_hooks() {
     fi
 }
 
-# --- Skills (flattened category support) ---
+# --- Skills (multi-agent fan-out, flattened category support) ---
 
-# Claude Code only reads ~/.claude/skills/<name>/SKILL.md (depth 1), so the
-# dotfiles source may organize skills under an optional one-level category
-# dir for human clarity (e.g. skills/meta/claude-code-docs/) -- we flatten
-# that layer away when linking into $HOME. The skills tree is excluded from
-# GNU Stow in .stow-local-ignore; these helpers replace stow for that subtree.
+# Skills are the one artifact Claude Code and Codex share verbatim, but each
+# discovers them under its own root and neither reads the other's. So the
+# canonical tree lives outside the stow packages (it maps to no single $HOME
+# path) and these helpers mirror it into every destination -- stow can't
+# express a one-to-many fan-out.
+#
+# Both CLIs only read <root>/<name>/SKILL.md (depth 1), so the source may
+# group skills under an optional one-level category dir for human clarity
+# (e.g. skills/meta/claude-code-docs/); that layer is flattened away here.
 
-skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/home-common/.claude/skills"; }
-skills_dst_dir() { printf '%s\n' "${HOME}/.claude/skills"; }
+skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/skills"; }
+
+# Where each agent CLI discovers user-scope skills, as "<dir>|<excluded-subdir>".
+# Codex reads ~/.agents/skills (its ~/.codex tree holds Codex-specific config
+# only). The per-skill agents/ dir carries Codex-only metadata (openai.yaml)
+# that Claude Code has no use for, so it's excluded from the Claude side
+# rather than left as clutter in ~/.claude/skills.
+skill_destinations() {
+    printf '%s|%s\n' "${HOME}/.claude/skills" "agents"
+    printf '%s|%s\n' "${HOME}/.agents/skills" ""
+}
+
+# True when $1 is safe for link_skill_tree to replace: absent, a symlink, or
+# a dir we built ourselves (every file under it is a symlink into the dotfiles
+# dir). Guards against blowing away a hand-installed skill that happens to
+# share a name with one of ours.
+skill_dst_is_ours() {
+    local path="$1"
+    [[ -e "$path" || -L "$path" ]] || return 0
+    [[ -L "$path" ]] && return 0
+    [[ -d "$path" ]] || return 1
+    local marker entry
+    marker="/$(basename "$DOTFILES_DIR")/"
+    while IFS= read -r -d '' entry; do
+        [[ -L "$entry" ]] || return 1
+        [[ "$(readlink "$entry")" == *"$marker"* ]] || return 1
+    done < <(find "$path" -mindepth 1 ! -type d -print0 2>/dev/null)
+    return 0
+}
 
 # Returns: flat | category | invalid
 skill_dir_kind() {
@@ -221,55 +252,72 @@ skill_dir_kind() {
     fi
 }
 
-# Delete *broken* symlinks under ~/.claude/skills/ that point into the
+# Delete *broken* symlinks under every skill destination that point into the
 # dotfiles dir (orphans from removed sources), then rmdir empty parents.
-# Links to still-existing sources are left alone -- link_skill_tree() will
-# overwrite them in place via `ln -snf` if the target needs to change
-# (e.g. a skill moved between categories).
+# Links to still-existing sources are left alone -- link_skill_tree() replaces
+# those itself if the target needs to change (e.g. a skill moved categories).
 prune_skill_links() {
-    local dst marker pattern
-    dst="$(skills_dst_dir)"
-    [[ -d "$dst" ]] || return 0
+    local marker pattern removed=0 entry dst link
     marker="/$(basename "$DOTFILES_DIR")/"
     pattern="*${marker}*"
-    local removed=0 link
-    while IFS= read -r -d '' link; do
-        [[ -e "$link" ]] && continue
-        rm -f "$link"
-        ((++removed))
-    done < <(find "$dst" -type l -lname "$pattern" -print0 2>/dev/null)
-    find "$dst" -mindepth 1 -depth -type d -empty -delete 2>/dev/null || true
+    while IFS= read -r entry; do
+        dst="${entry%%|*}"
+        [[ -d "$dst" ]] || continue
+        while IFS= read -r -d '' link; do
+            [[ -e "$link" ]] && continue
+            rm -f "$link"
+            ((++removed))
+        done < <(find "$dst" -type l -lname "$pattern" -print0 2>/dev/null)
+        find "$dst" -mindepth 1 -depth -type d -empty -delete 2>/dev/null || true
+    done < <(skill_destinations)
     if [[ $removed -gt 0 ]]; then
         info "Pruned $removed orphaned skill symlink(s)"
     fi
 }
 
-# Mirror $src_skill into $dst_skill with real dirs + per-file symlinks
-# (mimics `stow --no-folding`).
+# Publish $src_skill at $dst_skill.
+#
+# With no $exclude the whole skill dir is symlinked, so source edits and new
+# files show up without re-stowing. This is also the only form Codex accepts:
+# it follows a symlinked skill *folder*, but ignores a real folder holding a
+# symlinked SKILL.md.
+#
+# $exclude names a top-level subdir to hold back from this destination, which
+# rules out a single link -- that tree is reproduced with real dirs and
+# per-file symlinks instead (mimics `stow --no-folding`).
 link_skill_tree() {
-    local src_skill="$1" dst_skill="$2"
+    local src_skill="$1" dst_skill="$2" exclude="${3:-}"
+    if ! skill_dst_is_ours "$dst_skill"; then
+        err "Refusing to replace $dst_skill -- it holds files not linked from $DOTFILES_DIR"
+        err "  Move or delete it, or rename the skill in $(skills_src_dir), then re-run"
+        return 1
+    fi
+    if [[ -z "$exclude" ]]; then
+        rm -rf "$dst_skill"
+        ln -snf "$src_skill" "$dst_skill"
+        return 0
+    fi
+    [[ -L "$dst_skill" ]] && rm -f "$dst_skill"
     mkdir -p "$dst_skill"
     local file rel target_file
     while IFS= read -r -d '' file; do
         rel="${file#"$src_skill"/}"
+        [[ "$rel" == "$exclude"/* ]] && continue
         target_file="${dst_skill}/${rel}"
         mkdir -p "$(dirname "$target_file")"
         ln -snf "$file" "$target_file"
     done < <(find "$src_skill" -type f -print0 2>/dev/null)
 }
 
-stow_skills() {
-    local src dst
+# Emit "<skill-name>|<source-dir>" for every skill in the canonical tree,
+# with the optional category layer flattened away. Fails on duplicate names,
+# which would otherwise silently collide in the destination roots.
+enumerate_skills() {
+    local src seen_names="" entry kind name child child_name
     src="$(skills_src_dir)"
-    dst="$(skills_dst_dir)"
-    [[ -d "$src" ]] || return 0
-    info "Linking Claude skills..."
-    mkdir -p "$dst"
-    prune_skill_links
-    local seen_names="" entry kind name child child_name
     while IFS= read -r -d '' entry; do
         name="${entry##*/}"
-        case "$name" in .stow-local-ignore|.git*|README*|LICENSE*) continue ;; esac
+        case "$name" in .git*|README*|LICENSE*) continue ;; esac
         [[ -d "$entry" ]] || continue
         kind="$(skill_dir_kind "$entry")"
         case "$kind" in
@@ -281,7 +329,7 @@ stow_skills() {
                         ;;
                 esac
                 seen_names="${seen_names}:${name}"
-                link_skill_tree "$entry" "$dst/$name"
+                printf '%s|%s\n' "$name" "$entry"
                 ;;
             category)
                 while IFS= read -r -d '' child; do
@@ -295,7 +343,7 @@ stow_skills() {
                             ;;
                     esac
                     seen_names="${seen_names}:${child_name}"
-                    link_skill_tree "$child" "$dst/$child_name"
+                    printf '%s|%s\n' "$child_name" "$child"
                 done < <(find "$entry" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
                 ;;
             invalid)
@@ -304,7 +352,32 @@ stow_skills() {
                 ;;
         esac
     done < <(find "$src" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
-    ok "Skills linked"
+}
+
+stow_skills() {
+    local src listing
+    src="$(skills_src_dir)"
+    [[ -d "$src" ]] || return 0
+    info "Linking agent skills..."
+    # Command substitution (not a pipe) so an enumeration failure -- duplicate
+    # name, malformed skill dir -- aborts before anything is linked.
+    listing="$(enumerate_skills)" || return 1
+    prune_skill_links
+    local dest_entry dst exclude skill name skill_src count=0
+    while IFS= read -r dest_entry; do
+        dst="${dest_entry%%|*}"
+        exclude="${dest_entry#*|}"
+        mkdir -p "$dst"
+        count=0
+        while IFS= read -r skill; do
+            [[ -n "$skill" ]] || continue
+            name="${skill%%|*}"
+            skill_src="${skill#*|}"
+            link_skill_tree "$skill_src" "$dst/$name" "$exclude" || return 1
+            ((++count))
+        done <<< "$listing"
+        ok "Linked $count skill(s) -> $dst"
+    done < <(skill_destinations)
 }
 
 # --- Core operations ---

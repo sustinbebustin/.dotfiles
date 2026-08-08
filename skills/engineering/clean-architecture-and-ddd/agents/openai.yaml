@@ -1,0 +1,3 @@
+interface:
+  display_name: "Clean Architecture and DDD"
+  short_description: "Review boundaries, dependencies, and aggregates"

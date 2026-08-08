@@ -1,0 +1,5 @@
+interface:
+  display_name: "Migrate to Oxfmt"
+  short_description: "Switch a project from Prettier or Biome to Oxfmt"
+policy:
+  allow_implicit_invocation: false

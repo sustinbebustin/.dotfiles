@@ -1,0 +1,5 @@
+interface:
+  display_name: "Autoresearch"
+  short_description: "Run an autonomous experiment loop"
+policy:
+  allow_implicit_invocation: false

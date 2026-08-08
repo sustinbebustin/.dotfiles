@@ -1,0 +1,5 @@
+interface:
+  display_name: "shadcn/ui"
+  short_description: "Add, compose, and debug shadcn/ui components"
+policy:
+  allow_implicit_invocation: false

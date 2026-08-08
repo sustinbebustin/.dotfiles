@@ -1,0 +1,5 @@
+interface:
+  display_name: "Create Code Mode MCP"
+  short_description: "Author a Code Mode MCP server"
+policy:
+  allow_implicit_invocation: false

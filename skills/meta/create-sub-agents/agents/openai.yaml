@@ -1,0 +1,5 @@
+interface:
+  display_name: "Create Subagents"
+  short_description: "Design, author, and audit subagents"
+policy:
+  allow_implicit_invocation: false

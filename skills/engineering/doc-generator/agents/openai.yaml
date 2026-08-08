@@ -1,0 +1,3 @@
+interface:
+  display_name: "Doc Generator"
+  short_description: "Generate or update technical docs from the codebase"

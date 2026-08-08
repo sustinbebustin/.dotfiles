@@ -1,0 +1,3 @@
+interface:
+  display_name: "Better Error Messages"
+  short_description: "Write user-facing error copy that helps recovery"
