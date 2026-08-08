@@ -31,10 +31,8 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. Configs are split i
 │       ├── matugen/             # Material You theming
 │       └── ...                  # cava, fastfetch, kanata, xremap, systemd
 ├── home-macos/                  # stow package -> $HOME (macOS only)
-│   ├── .config/
-│   │   └── karabiner/           # key remapping
-│   └── Library/
-│       └── LaunchAgents/        # launchd user agents
+│   └── .config/
+│       └── karabiner/           # key remapping
 └── docs/                        # documentation
 ```
 
@@ -63,7 +61,6 @@ Each package's directory tree maps 1:1 to `$HOME`:
 | `home-common/.config/zsh/` | `~/.config/zsh/` |
 | `home-arch/.config/hypr/` | `~/.config/hypr/` |
 | `home-macos/.config/karabiner/` | `~/.config/karabiner/` |
-| `home-macos/Library/LaunchAgents/` | `~/Library/LaunchAgents/` |
 
 Stow is run with `--no-folding` to create per-file symlinks rather than directory symlinks, preventing conflicts between packages.
 
@@ -125,11 +122,7 @@ binary is stowed into `~/.claude/hooks/`, never the source directory.
 | `block-dangerous-git` | PreToolUse (Bash) | Ask before push, merge, rebase, and other history- or worktree-destroying git commands |
 | `block-dangerous-rm` | PreToolUse (Bash) | Ask before a recursive `rm` |
 | `enforce-root` | PreToolUse (Bash) | Deny a top-level `cd`, which silently desyncs later commands |
-| `soundnotify` | Notification, PostToolUse, UserPromptSubmit, Stop | Alert on an unanswered permission prompt, played on the workstation rather than the host Claude Code runs on |
 | `statusline.sh` | statusLine | Render branch, tokens, project in status bar |
-
-See [Claude Code Sound Notifications](claude-sound-notifications.md) for how
-`soundnotify` reaches the workstation's speakers over ssh.
 
 ### Workflows (slash commands)
 
