@@ -32,7 +32,6 @@
       "Bash(python3:*)",
       "Bash(*/.claude/hooks/*)",
       "Bash(*/.agents/hooks/*)",
-      "Bash(*/.claude/scripts/*)",
       "Bash(bash */.claude/skills/*)",
       "Bash(chmod:*)",
       "Bash(mkdir:*)",
@@ -164,7 +163,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "$HOME/.agents/hooks/statusline.sh"
+    "command": "$HOME/.claude/statusline.sh"
   },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
