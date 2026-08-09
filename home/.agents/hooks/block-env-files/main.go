@@ -1,50 +1,35 @@
-// Command block-env-files is a Claude Code PreToolUse hook that denies access to
-// secret .env files. Read/Edit/Write are checked by their path argument; Bash
-// commands are parsed and every word is inspected, so reading, copying,
-// sourcing, or redirecting an env file is caught wherever it appears in the
-// command. Example variants (.env.example, .sample, .template) stay allowed so
-// the documented shape of a config remains readable.
+// Command block-env-files is a PreToolUse hook that denies access to secret .env
+// files. Read/Edit/Write are checked by their path argument; Bash commands are
+// parsed and every word is inspected, so reading, copying, sourcing, or
+// redirecting an env file is caught wherever it appears in the command. Example
+// variants (.env.example, .sample, .template) stay allowed so the documented
+// shape of a config remains readable.
+//
+// The tool names differ by harness. Claude Code sends Read/Edit/Write/Grep for
+// file access; Codex has no such tools -- it reads files through the shell (so
+// the Bash arm covers reads) and edits them through apply_patch, whose target
+// paths live in the patch headers rather than in a file_path field.
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"path"
 	"slices"
 	"strings"
 
+	"agent-hooks/internal/hookio"
+
 	"mvdan.cc/sh/v3/syntax"
 )
 
-type hookInput struct {
-	ToolName  string `json:"tool_name"`
-	ToolInput struct {
-		FilePath string `json:"file_path"`
-		Path     string `json:"path"`
-		Command  string `json:"command"`
-	} `json:"tool_input"`
-}
-
-type hookOutput struct {
-	HookSpecificOutput struct {
-		HookEventName            string `json:"hookEventName"`
-		PermissionDecision       string `json:"permissionDecision"`
-		PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
-	} `json:"hookSpecificOutput"`
-}
+const hookName = "block-env-files"
 
 func main() {
-	raw, err := io.ReadAll(os.Stdin)
+	harness := hookio.ParseHarness(hookName)
+
+	in, err := hookio.Read()
 	if err != nil {
-		emitAllow()
-		return
-	}
-	var in hookInput
-	if err := json.Unmarshal(raw, &in); err != nil {
-		emitAllow()
-		return
+		hookio.Render(hookName, harness, hookio.Allowed())
 	}
 
 	filePath := in.ToolInput.FilePath
@@ -55,31 +40,65 @@ func main() {
 	switch in.ToolName {
 	case "Read":
 		if isBlockedEnv(filePath) {
-			emitDeny(fmt.Sprintf("Access to .env files is blocked for security. Use .env.example as a reference. (path: %s)", filePath))
-			return
+			hookio.Render(hookName, harness, hookio.Denied(fmt.Sprintf("Access to .env files is blocked for security. Use .env.example as a reference. (path: %s)", filePath)))
 		}
 	case "Edit":
 		if isBlockedEnv(filePath) {
-			emitDeny(fmt.Sprintf("Editing .env files is blocked for security. (path: %s)", filePath))
-			return
+			hookio.Render(hookName, harness, hookio.Denied(fmt.Sprintf("Editing .env files is blocked for security. (path: %s)", filePath)))
 		}
 	case "Write":
 		if isBlockedEnv(filePath) {
-			emitDeny(fmt.Sprintf("Writing to .env files is blocked for security. (path: %s)", filePath))
-			return
+			hookio.Render(hookName, harness, hookio.Denied(fmt.Sprintf("Writing to .env files is blocked for security. (path: %s)", filePath)))
 		}
 	case "Grep":
 		if isBlockedEnv(filePath) {
-			emitDeny(fmt.Sprintf("Searching .env files is blocked for security. (path: %s)", filePath))
-			return
+			hookio.Render(hookName, harness, hookio.Denied(fmt.Sprintf("Searching .env files is blocked for security. (path: %s)", filePath)))
 		}
 	case "Bash":
 		if reason := checkBash(in.ToolInput.Command); reason != "" {
-			emitDeny(reason)
-			return
+			hookio.Render(hookName, harness, hookio.Denied(reason))
+		}
+	case "apply_patch":
+		if target := patchTouchesBlockedEnv(in.ToolInput.Command); target != "" {
+			hookio.Render(hookName, harness, hookio.Denied(fmt.Sprintf("Editing .env files is blocked for security. (path: %s)", target)))
 		}
 	}
-	emitAllow()
+	hookio.Render(hookName, harness, hookio.Allowed())
+}
+
+// patchHeaders name a file an apply_patch envelope operates on. "*** Move to:"
+// is included because a rename can land a tracked file at a blocked path just
+// as surely as an add can.
+var patchHeaders = []string{
+	"*** Add File: ",
+	"*** Update File: ",
+	"*** Delete File: ",
+	"*** Move to: ",
+}
+
+// patchTouchesBlockedEnv returns the first blocked env path an apply_patch
+// envelope names, or "" if it names none.
+//
+// Only header lines are inspected, not the diff body: a body line is file
+// content, and content that merely mentions ".env" is not access to one. The
+// headers are the complete set of paths the patch can touch.
+func patchTouchesBlockedEnv(patch string) string {
+	if patch == "" {
+		return ""
+	}
+	for line := range strings.Lines(patch) {
+		line = strings.TrimSpace(line)
+		for _, h := range patchHeaders {
+			target, ok := strings.CutPrefix(line, h)
+			if !ok {
+				continue
+			}
+			if target = strings.TrimSpace(target); isBlockedEnv(target) {
+				return target
+			}
+		}
+	}
+	return ""
 }
 
 // isBlockedEnv returns true when the basename names an env file that is NOT
@@ -212,37 +231,4 @@ func wordLit(w *syntax.Word) string {
 		}
 	}
 	return sb.String()
-}
-
-func emitAllow() {
-	out := hookOutput{}
-	out.HookSpecificOutput.HookEventName = "PreToolUse"
-	out.HookSpecificOutput.PermissionDecision = "allow"
-	write(out)
-}
-
-func emitDeny(reason string) {
-	out := hookOutput{}
-	out.HookSpecificOutput.HookEventName = "PreToolUse"
-	out.HookSpecificOutput.PermissionDecision = "deny"
-	out.HookSpecificOutput.PermissionDecisionReason = reason
-	write(out)
-}
-
-// write emits the decision as JSON on stdout. A failed write would leave Claude
-// Code with no decision at all, and a guard hook that says nothing lets the
-// access through unchecked. So this fails closed: exit 2 blocks the tool call
-// on PreToolUse and hands stderr to Claude as the reason.
-//
-// This covers a genuine write failure on the target (a full disk, EIO). It does
-// not cover stdout being closed outright: the Go runtime reopens closed standard
-// descriptors onto /dev/null before main runs, so the write reports success and
-// the decision is silently discarded. That branch is therefore unreachable from
-// a closed stdout and is left unverified.
-func write(out hookOutput) {
-	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
-		fmt.Fprintf(os.Stderr, "block-env-files: could not write the hook decision (%v). "+
-			"Blocking this access rather than allowing it unchecked; retry once stdout works.\n", err)
-		os.Exit(2)
-	}
 }

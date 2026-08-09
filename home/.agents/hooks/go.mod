@@ -1,4 +1,4 @@
-module claude-hooks/enforce-root
+module agent-hooks
 
 go 1.25.0
 

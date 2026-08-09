@@ -1,4 +1,4 @@
-// Command block-dangerous-git is a Claude Code PreToolUse hook guarding git and
+// Command block-dangerous-git is a PreToolUse hook guarding git and
 // gh invocations. Commands that publish work or discard it (push, merge,
 // rebase, reset --hard, clean, restore, checkout --, branch/tag delete, stash
 // drop/clear) return `ask`, so the user approves each case by case. Operations
@@ -12,66 +12,43 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"slices"
 	"strings"
+
+	"agent-hooks/internal/hookio"
 
 	"mvdan.cc/sh/v3/syntax"
 )
 
-type hookInput struct {
-	ToolName  string `json:"tool_name"`
-	ToolInput struct {
-		Command string `json:"command"`
-	} `json:"tool_input"`
-}
-
-type hookOutput struct {
-	HookSpecificOutput struct {
-		HookEventName            string `json:"hookEventName"`
-		PermissionDecision       string `json:"permissionDecision"`
-		PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
-	} `json:"hookSpecificOutput"`
-}
-
-type verdict struct {
-	decision string
-	reason   string
-}
+const hookName = "block-dangerous-git"
 
 func main() {
-	raw, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		emit(verdict{decision: "allow"})
-		return
-	}
-	var in hookInput
-	if err := json.Unmarshal(raw, &in); err != nil || in.ToolName != "Bash" || in.ToolInput.Command == "" {
-		emit(verdict{decision: "allow"})
-		return
+	harness := hookio.ParseHarness(hookName)
+
+	in, err := hookio.Read()
+	if err != nil || in.ToolName != "Bash" || in.ToolInput.Command == "" {
+		hookio.Render(hookName, harness, hookio.Allowed())
 	}
 
-	emit(decide(in.ToolInput.Command))
+	hookio.Render(hookName, harness, decide(in.ToolInput.Command))
 }
 
 // decide parses command and returns the first guarded call's verdict.
-func decide(command string) verdict {
+func decide(command string) hookio.Verdict {
 	file, err := syntax.NewParser().Parse(strings.NewReader(command), "")
 	if err != nil {
-		return verdict{decision: "allow"}
+		return hookio.Allowed()
 	}
 	for _, stmt := range file.Stmts {
 		if v, hit := evaluate(stmt.Cmd); hit {
 			return v
 		}
 	}
-	return verdict{decision: "allow"}
+	return hookio.Allowed()
 }
 
-func evaluate(cmd syntax.Command) (verdict, bool) {
+func evaluate(cmd syntax.Command) (hookio.Verdict, bool) {
 	switch c := cmd.(type) {
 	case *syntax.CallExpr:
 		return checkCall(c)
@@ -93,12 +70,12 @@ func evaluate(cmd syntax.Command) (verdict, bool) {
 			}
 		}
 	}
-	return verdict{}, false
+	return hookio.Verdict{}, false
 }
 
-func checkCall(c *syntax.CallExpr) (verdict, bool) {
+func checkCall(c *syntax.CallExpr) (hookio.Verdict, bool) {
 	if len(c.Args) == 0 {
-		return verdict{}, false
+		return hookio.Verdict{}, false
 	}
 	args := make([]string, len(c.Args))
 	for i, a := range c.Args {
@@ -111,96 +88,96 @@ func checkCall(c *syntax.CallExpr) (verdict, bool) {
 	case "gh":
 		return checkGh(args[1:])
 	}
-	return verdict{}, false
+	return hookio.Verdict{}, false
 }
 
-func checkGit(args []string) (verdict, bool) {
+func checkGit(args []string) (hookio.Verdict, bool) {
 	sub, rest := subcommand(args, gitTopLevelFlags)
 	switch sub {
 	case "push":
-		return verdict{decision: "ask", reason: "git push detected - allow?"}, true
+		return hookio.Asked("git push detected - allow?"), true
 	case "merge":
-		return verdict{decision: "ask", reason: "git merge detected - allow?"}, true
+		return hookio.Asked("git merge detected - allow?"), true
 	case "rebase":
-		return verdict{decision: "ask", reason: "git rebase detected - allow?"}, true
+		return hookio.Asked("git rebase detected - allow?"), true
 	case "reset":
 		if hasFlag(rest, "--hard") {
-			return verdict{decision: "ask", reason: "git reset --hard discards uncommitted changes - allow?"}, true
+			return hookio.Asked("git reset --hard discards uncommitted changes - allow?"), true
 		}
 	case "clean":
-		return verdict{decision: "ask", reason: "git clean removes untracked files - allow?"}, true
+		return hookio.Asked("git clean removes untracked files - allow?"), true
 	case "branch":
 		for _, a := range rest {
 			if a == "-d" || a == "-D" || a == "--delete" {
-				return verdict{decision: "ask", reason: "git branch delete detected - allow?"}, true
+				return hookio.Asked("git branch delete detected - allow?"), true
 			}
 		}
 	case "checkout":
 		if slices.Contains(rest, "--") {
-			return verdict{decision: "ask", reason: "git checkout -- discards working-tree changes - allow?"}, true
+			return hookio.Asked("git checkout -- discards working-tree changes - allow?"), true
 		}
 	case "restore":
-		return verdict{decision: "ask", reason: "git restore discards changes - allow?"}, true
+		return hookio.Asked("git restore discards changes - allow?"), true
 	case "stash":
 		if len(rest) > 0 && (rest[0] == "drop" || rest[0] == "clear") {
-			return verdict{decision: "ask", reason: fmt.Sprintf("git stash %s discards stashed changes - allow?", rest[0])}, true
+			return hookio.Asked(fmt.Sprintf("git stash %s discards stashed changes - allow?", rest[0])), true
 		}
 	case "tag":
 		for _, a := range rest {
 			if a == "-d" || a == "--delete" {
-				return verdict{decision: "ask", reason: "git tag delete detected - allow?"}, true
+				return hookio.Asked("git tag delete detected - allow?"), true
 			}
 		}
 	}
-	return verdict{}, false
+	return hookio.Verdict{}, false
 }
 
-func checkGh(args []string) (verdict, bool) {
+func checkGh(args []string) (hookio.Verdict, bool) {
 	if len(args) == 0 {
-		return verdict{}, false
+		return hookio.Verdict{}, false
 	}
 	switch args[0] {
 	case "pr":
 		if len(args) > 1 {
 			switch args[1] {
 			case "merge":
-				return verdict{decision: "ask", reason: "gh pr merge merges and may delete the branch - allow?"}, true
+				return hookio.Asked("gh pr merge merges and may delete the branch - allow?"), true
 			case "close":
-				return verdict{decision: "deny", reason: "[BLOCKED] gh pr close - PR closing not allowed"}, true
+				return hookio.Denied("[BLOCKED] gh pr close - PR closing not allowed"), true
 			}
 		}
 	case "issue":
 		if len(args) > 1 && (args[1] == "close" || args[1] == "delete") {
-			return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh issue %s not allowed", args[1])}, true
+			return hookio.Denied(fmt.Sprintf("[BLOCKED] gh issue %s not allowed", args[1])), true
 		}
 	case "release":
 		if len(args) > 1 {
 			switch args[1] {
 			case "create":
-				return verdict{decision: "ask", reason: "gh release create publishes a release and tag - allow?"}, true
+				return hookio.Asked("gh release create publishes a release and tag - allow?"), true
 			case "delete":
-				return verdict{decision: "deny", reason: "[BLOCKED] gh release delete not allowed"}, true
+				return hookio.Denied("[BLOCKED] gh release delete not allowed"), true
 			}
 		}
 	case "repo":
 		if len(args) > 1 && (args[1] == "delete" || args[1] == "rename") {
-			return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh repo %s not allowed", args[1])}, true
+			return hookio.Denied(fmt.Sprintf("[BLOCKED] gh repo %s not allowed", args[1])), true
 		}
 	case "workflow":
 		if len(args) > 1 && args[1] == "run" {
-			return verdict{decision: "ask", reason: "gh workflow run dispatches a workflow (may trigger a deploy) - allow?"}, true
+			return hookio.Asked("gh workflow run dispatches a workflow (may trigger a deploy) - allow?"), true
 		}
 	case "run":
 		if len(args) > 1 {
 			switch args[1] {
 			case "cancel", "rerun", "delete":
-				return verdict{decision: "ask", reason: fmt.Sprintf("gh run %s mutates a workflow run - allow?", args[1])}, true
+				return hookio.Asked(fmt.Sprintf("gh run %s mutates a workflow run - allow?", args[1])), true
 			}
 		}
 	case "api":
 		return checkGhAPI(args[1:])
 	}
-	return verdict{}, false
+	return hookio.Verdict{}, false
 }
 
 // checkGhAPI denies `gh api` calls that write. An explicit method flag settles
@@ -213,7 +190,7 @@ func checkGh(args []string) (verdict, bool) {
 // observing the method it sent to a local server.
 //
 // args are the tokens following `api`.
-func checkGhAPI(args []string) (verdict, bool) {
+func checkGhAPI(args []string) (hookio.Verdict, bool) {
 	method := ""
 	payload := ""
 
@@ -236,13 +213,13 @@ func checkGhAPI(args []string) (verdict, bool) {
 
 	switch {
 	case isMutatingMethod(method):
-		return verdict{decision: "deny", reason: fmt.Sprintf("[BLOCKED] gh api %s not allowed", method)}, true
+		return hookio.Denied(fmt.Sprintf("[BLOCKED] gh api %s not allowed", method)), true
 	case method == "" && payload != "":
-		return verdict{decision: "deny", reason: fmt.Sprintf(
+		return hookio.Denied(fmt.Sprintf(
 			"[BLOCKED] gh api sends POST when %s is supplied - not allowed. "+
-				"Add `--method GET` if this is meant to be a read.", payload)}, true
+				"Add `--method GET` if this is meant to be a read.", payload)), true
 	}
-	return verdict{}, false
+	return hookio.Verdict{}, false
 }
 
 // payloadFlag names the kind of payload a carries, or "" when a is not a
@@ -340,26 +317,4 @@ func wordLit(w *syntax.Word) string {
 		}
 	}
 	return sb.String()
-}
-
-// emit writes the decision as JSON on stdout. A failed write would leave Claude
-// Code with no decision at all, and a guard hook that says nothing lets the
-// command through unchecked. So this fails closed: exit 2 blocks the tool call
-// on PreToolUse and hands stderr to Claude as the reason.
-//
-// This covers a genuine write failure on the target (a full disk, EIO). It does
-// not cover stdout being closed outright: the Go runtime reopens closed standard
-// descriptors onto /dev/null before main runs, so the write reports success and
-// the decision is silently discarded. That branch is therefore unreachable from
-// a closed stdout and is left unverified.
-func emit(v verdict) {
-	out := hookOutput{}
-	out.HookSpecificOutput.HookEventName = "PreToolUse"
-	out.HookSpecificOutput.PermissionDecision = v.decision
-	out.HookSpecificOutput.PermissionDecisionReason = v.reason
-	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
-		fmt.Fprintf(os.Stderr, "block-dangerous-git: could not write the hook decision (%v). "+
-			"Blocking this command rather than running it unchecked; re-run it once stdout works.\n", err)
-		os.Exit(2)
-	}
 }

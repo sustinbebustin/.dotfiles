@@ -123,9 +123,11 @@ prune_broken_stow_links() {
     fi
 }
 
-# --- Claude Code hooks ---
+# --- Agent hooks ---
 
-hooks_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude/hooks"; }
+# Shared by Claude Code and Codex: both point their hook configs at the same
+# ~/.agents/hooks binaries, so unlike skills this needs no per-agent fan-out.
+hooks_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.agents/hooks"; }
 
 # The Go hook binaries are per-machine, per-platform and therefore gitignored,
 # so `git pull` never refreshes them -- without this, stow relinks the previous
@@ -145,7 +147,7 @@ build_hooks() {
         return 0
     fi
 
-    info "Building Claude Code hooks..."
+    info "Building agent hooks..."
     if make -C "$src"; then
         ok "Hooks built"
     else

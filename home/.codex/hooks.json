@@ -1,0 +1,47 @@
+{
+  "description": "Guard hooks shared with Claude Code. Binaries are built from home/.agents/hooks and stowed to ~/.agents/hooks; -harness=codex selects the Codex permission mapping (an explicit allow is suppressed so Codex's own approval flow stays in charge, and an ask becomes a deny because Codex cannot prompt from a PreToolUse hook). enforce-root is deliberately absent: it forbids a top-level cd because Claude Code does not persist the working directory between Bash calls, which is not Codex's exec model.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.agents/hooks/block-env-files-bin -harness=codex",
+            "statusMessage": "Checking for env-file access"
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.agents/hooks/block-aws-cli-bin -harness=codex",
+            "statusMessage": "Checking for AWS CLI use"
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.agents/hooks/block-dangerous-git-bin -harness=codex",
+            "statusMessage": "Checking git/gh command"
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.agents/hooks/block-dangerous-rm-bin -harness=codex",
+            "statusMessage": "Checking for recursive rm"
+          }
+        ]
+      }
+    ]
+  }
+}

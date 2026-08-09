@@ -76,8 +76,8 @@ func TestDecide(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := decide(tc.cmd)
-			if got.decision != tc.decision {
-				t.Fatalf("decide(%q) = %q, want %q (reason: %s)", tc.cmd, got.decision, tc.decision, got.reason)
+			if got.Decision.String() != tc.decision {
+				t.Fatalf("decide(%q) = %q, want %q (reason: %s)", tc.cmd, got.Decision, tc.decision, got.Reason)
 			}
 		})
 	}

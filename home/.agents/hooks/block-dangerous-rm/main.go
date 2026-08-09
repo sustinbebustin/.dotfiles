@@ -1,4 +1,4 @@
-// Command block-dangerous-rm is a Claude Code PreToolUse hook that prompts
+// Command block-dangerous-rm is a PreToolUse hook that prompts
 // before a recursive `rm` runs. It mirrors block-dangerous-git: instead of a
 // hard `deny`, it returns `ask` so the user can approve destructive removals
 // case by case. Two kinds of target are exempt so routine cleanup stays
@@ -19,35 +19,15 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"os"
 	"slices"
 	"strings"
+
+	"agent-hooks/internal/hookio"
 
 	"mvdan.cc/sh/v3/syntax"
 )
 
-type hookInput struct {
-	ToolName  string `json:"tool_name"`
-	ToolInput struct {
-		Command string `json:"command"`
-	} `json:"tool_input"`
-}
-
-type hookOutput struct {
-	HookSpecificOutput struct {
-		HookEventName            string `json:"hookEventName"`
-		PermissionDecision       string `json:"permissionDecision"`
-		PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
-	} `json:"hookSpecificOutput"`
-}
-
-type verdict struct {
-	decision string
-	reason   string
-}
+const hookName = "block-dangerous-rm"
 
 const (
 	reasonGeneric = "recursive rm detected - permanently deletes files/directories. Allow?"
@@ -58,32 +38,28 @@ const (
 )
 
 func main() {
-	raw, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		emit(verdict{decision: "allow"})
-		return
-	}
-	var in hookInput
-	if err := json.Unmarshal(raw, &in); err != nil || in.ToolName != "Bash" || in.ToolInput.Command == "" {
-		emit(verdict{decision: "allow"})
-		return
+	harness := hookio.ParseHarness(hookName)
+
+	in, err := hookio.Read()
+	if err != nil || in.ToolName != "Bash" || in.ToolInput.Command == "" {
+		hookio.Render(hookName, harness, hookio.Allowed())
 	}
 
-	emit(evaluate(in.ToolInput.Command))
+	hookio.Render(hookName, harness, evaluate(in.ToolInput.Command))
 }
 
 // evaluate parses cmd and decides whether a recursive rm in it needs approval.
-func evaluate(cmd string) verdict {
+func evaluate(cmd string) hookio.Verdict {
 	file, err := syntax.NewParser().Parse(strings.NewReader(cmd), "")
 	if err != nil {
-		return verdict{decision: "allow"}
+		return hookio.Allowed()
 	}
 
 	scope := scan(file)
 
 	// Walk the whole tree so rm nested in pipelines, subshells, command
 	// substitutions, && / || chains, etc. is still caught.
-	var hit *verdict
+	var hit *hookio.Verdict
 	syntax.Walk(file, func(n syntax.Node) bool {
 		if hit != nil {
 			return false
@@ -100,7 +76,7 @@ func evaluate(cmd string) verdict {
 	if hit != nil {
 		return *hit
 	}
-	return verdict{decision: "allow"}
+	return hookio.Allowed()
 }
 
 // assignment records a `NAME=literal` whose value resolved to a plain string.
@@ -217,12 +193,12 @@ func (s *scope) recordRedirect(r *syntax.Redirect) {
 
 // checkRm returns an "ask" verdict when c is a recursive `rm` with at least one
 // target that is neither scratch nor a regenerable artifact directory.
-func (s *scope) checkRm(c *syntax.CallExpr) (verdict, bool) {
+func (s *scope) checkRm(c *syntax.CallExpr) (hookio.Verdict, bool) {
 	if len(c.Args) == 0 {
-		return verdict{}, false
+		return hookio.Verdict{}, false
 	}
 	if name, ok := s.resolveWord(c.Args[0], c.Pos().Offset()); !ok || name != "rm" {
-		return verdict{}, false
+		return hookio.Verdict{}, false
 	}
 
 	recursive := false
@@ -257,12 +233,12 @@ func (s *scope) checkRm(c *syntax.CallExpr) (verdict, bool) {
 	}
 
 	if !recursive {
-		return verdict{}, false
+		return hookio.Verdict{}, false
 	}
 	if len(paths) > 0 && allDisposable(paths) {
-		return verdict{}, false
+		return hookio.Verdict{}, false
 	}
-	return verdict{decision: "ask", reason: s.reasonFor(paths, c.Pos().Offset())}, true
+	return hookio.Asked(s.reasonFor(paths, c.Pos().Offset())), true
 }
 
 // unresolvedPath stands in for a target the resolver could not pin to a
@@ -474,26 +450,4 @@ func (s *scope) lookupParam(pe *syntax.ParamExp, pos uint) (string, bool) {
 		best, found = a.value, true
 	}
 	return best, found
-}
-
-// emit writes the decision as JSON on stdout. A failed write would leave Claude
-// Code with no decision at all, and a guard hook that says nothing lets the
-// command through unchecked. So this fails closed: exit 2 blocks the tool call
-// on PreToolUse and hands stderr to Claude as the reason.
-//
-// This covers a genuine write failure on the target (a full disk, EIO). It does
-// not cover stdout being closed outright: the Go runtime reopens closed standard
-// descriptors onto /dev/null before main runs, so the write reports success and
-// the decision is silently discarded. That branch is therefore unreachable from
-// a closed stdout and is left unverified.
-func emit(v verdict) {
-	out := hookOutput{}
-	out.HookSpecificOutput.HookEventName = "PreToolUse"
-	out.HookSpecificOutput.PermissionDecision = v.decision
-	out.HookSpecificOutput.PermissionDecisionReason = v.reason
-	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
-		fmt.Fprintf(os.Stderr, "block-dangerous-rm: could not write the hook decision (%v). "+
-			"Blocking this command rather than running it unchecked; re-run it once stdout works.\n", err)
-		os.Exit(2)
-	}
 }

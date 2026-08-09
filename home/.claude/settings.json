@@ -31,6 +31,7 @@
       "Bash(python:*)",
       "Bash(python3:*)",
       "Bash(*/.claude/hooks/*)",
+      "Bash(*/.agents/hooks/*)",
       "Bash(*/.claude/scripts/*)",
       "Bash(bash */.claude/skills/*)",
       "Bash(chmod:*)",
@@ -119,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/block-env-files-bin"
+            "command": "$HOME/.agents/hooks/block-env-files-bin"
           }
         ]
       },
@@ -128,7 +129,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/block-aws-cli-bin"
+            "command": "$HOME/.agents/hooks/block-aws-cli-bin"
           }
         ]
       },
@@ -137,7 +138,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/block-dangerous-git-bin"
+            "command": "$HOME/.agents/hooks/block-dangerous-git-bin"
           }
         ]
       },
@@ -146,7 +147,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/block-dangerous-rm-bin"
+            "command": "$HOME/.agents/hooks/block-dangerous-rm-bin"
           }
         ]
       },
@@ -155,7 +156,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/enforce-root-bin"
+            "command": "$HOME/.agents/hooks/enforce-root-bin"
           }
         ]
       }
@@ -163,7 +164,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "$HOME/.claude/hooks/statusline.sh"
+    "command": "$HOME/.agents/hooks/statusline.sh"
   },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,

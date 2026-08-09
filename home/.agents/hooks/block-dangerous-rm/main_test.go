@@ -245,11 +245,11 @@ func TestEvaluate(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := evaluate(tc.cmd)
-			if got.decision != tc.decision {
-				t.Fatalf("decision = %q, want %q (reason: %s)", got.decision, tc.decision, got.reason)
+			if name := got.Decision.String(); name != tc.decision {
+				t.Fatalf("decision = %q, want %q (reason: %s)", name, tc.decision, got.Reason)
 			}
-			if tc.reason != "" && got.reason != tc.reason {
-				t.Fatalf("reason = %q, want %q", got.reason, tc.reason)
+			if tc.reason != "" && got.Reason != tc.reason {
+				t.Fatalf("reason = %q, want %q", got.Reason, tc.reason)
 			}
 		})
 	}
