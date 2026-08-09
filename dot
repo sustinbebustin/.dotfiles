@@ -157,16 +157,18 @@ build_hooks() {
 # --- Skills (multi-agent fan-out, flattened category support) ---
 
 # Skills are the one artifact Claude Code and Codex share verbatim, but each
-# discovers them under its own root and neither reads the other's. So the
-# canonical tree lives outside the stow packages (it maps to no single $HOME
-# path) and these helpers mirror it into every destination -- stow can't
-# express a one-to-many fan-out.
+# discovers them under its own root and neither reads the other's. The canonical
+# tree lives at Codex's root inside the stow package, but is stow-ignored (see
+# home/.stow-local-ignore) because stow can express none of what publishing it
+# requires: the one-to-many fan-out, the category flattening below, or the
+# folder-level symlink Codex needs (see link_skill_tree). These helpers publish
+# it to every destination instead.
 #
 # Both CLIs only read <root>/<name>/SKILL.md (depth 1), so the source may
 # group skills under an optional one-level category dir for human clarity
 # (e.g. skills/meta/claude-code-docs/); that layer is flattened away here.
 
-skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/skills"; }
+skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.agents/skills"; }
 
 # Where each agent CLI discovers user-scope skills, as "<dir>|<excluded-subdir>".
 # Codex reads ~/.agents/skills (its ~/.codex tree holds Codex-specific config

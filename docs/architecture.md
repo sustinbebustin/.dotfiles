@@ -11,9 +11,9 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow packa
 ├── dot                          # bootstrap entry point
 ├── packages/
 │   └── Brewfile                 # Homebrew deps
-├── skills/                      # agent skills (not a stow package)
 ├── home/                        # stow package -> $HOME
 │   ├── .zshenv                  # sets ZDOTDIR, XDG dirs
+│   ├── .agents/skills/          # shared agent skills (published by dot, not stow)
 │   ├── .claude/                 # Claude Code framework
 │   ├── .codex/                  # Codex config
 │   └── .config/
@@ -43,7 +43,7 @@ The package tree maps 1:1 to `$HOME`:
 
 Stow is run with `--no-folding` to create per-file symlinks rather than directory symlinks, so a directory holding both stowed and unstowed files stays intact.
 
-Agent skills are the exception: they map to no single `$HOME` path (Claude Code reads `~/.claude/skills`, Codex reads `~/.agents/skills`), so `dot stow` links the shared `skills/` tree into both. An optional one-level category dir is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
+Agent skills are the exception. Claude Code reads `~/.claude/skills` and Codex reads `~/.agents/skills`, and neither reads the other's. The shared tree lives at Codex's root (`home/.agents/skills/`) but is stow-ignored, since stow can express none of what publishing it requires: the one-to-many fan-out, the category flattening, or the folder-level symlink Codex needs to follow a skill. `dot stow` publishes it to both roots instead. An optional one-level category dir is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
 
 ## Shell Config
 

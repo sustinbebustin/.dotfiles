@@ -15,7 +15,7 @@ git clone --recursive https://github.com/sustinbebustin/dotfiles.git ~/.dotfiles
 
 Everything under `home/` maps 1:1 to `$HOME` -- `home/.config/zsh/` becomes `~/.config/zsh/`. Stow is run with `--no-folding` so each file gets its own symlink rather than the directory being linked wholesale.
 
-Agent skills are the exception. They map to no single `$HOME` path -- Claude Code reads `~/.claude/skills` and Codex reads `~/.agents/skills` -- so `dot stow` links the shared `skills/` tree into both. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
+Agent skills are the exception. Claude Code reads `~/.claude/skills` and Codex reads `~/.agents/skills`, and neither reads the other's, so the shared tree at `home/.agents/skills/` is skipped by stow and published to both roots by `dot stow` itself. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
 
 ## Structure
 
@@ -24,9 +24,9 @@ Agent skills are the exception. They map to no single `$HOME` path -- Claude Cod
 ├── dot                              # CLI (v4.0.0)
 ├── packages/
 │   └── Brewfile                     # Homebrew packages
-├── skills/                          # agent skills (not a stow package)
 ├── home/                            # the stow package -> $HOME
 │   ├── .zshenv
+│   ├── .agents/skills/              # shared agent skills (published by dot, not stow)
 │   ├── .claude/                     # Claude Code config
 │   ├── .codex/                      # Codex config
 │   └── .config/

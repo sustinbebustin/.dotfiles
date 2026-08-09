@@ -23,3 +23,7 @@
 
 # Bash hooks that have been replaced; kept on disk for reference only.
 ^/\.claude/hooks/_archived$
+
+# The canonical skills tree. Published by dot's stow_skills fan-out instead --
+# categories flattened, each skill linked as a folder (what Codex requires).
+^/\.agents/skills$
