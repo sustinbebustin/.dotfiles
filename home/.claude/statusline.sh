@@ -96,6 +96,40 @@ git_status() {
 
 # ── Token usage ──────────────────────────────────────────────────────────────
 
+# Cache what token_info computed so non-statusline callers can report the same
+# numbers. Only the status_line hook receives the context_window payload on
+# stdin, so anything else (see scripts/context-usage.sh) has to read it from here.
+cache_tokens() {
+  local used="$1" limit="$2" pct="$3"
+  local session dir file
+
+  # json_val's two branches disagree on key syntax (jq path vs bare key), so
+  # extract the one field this needs directly.
+  if command -v jq &>/dev/null; then
+    session=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+  else
+    session=$(json_val "session_id")
+  fi
+  [ -n "$session" ] || return 0
+
+  dir="${XDG_CACHE_HOME:-$HOME/.cache}/claude-code-statusline"
+  mkdir -p "$dir" 2>/dev/null || return 0
+  file="$dir/$session.stat"
+
+  {
+    printf 'session=%s\n' "$session"
+    printf 'cwd=%s\n' "$PWD"
+    printf 'used=%s\n' "$used"
+    printf 'limit=%s\n' "$limit"
+    printf 'pct=%s\n' "$pct"
+  } > "$file.tmp" 2>/dev/null && mv -f "$file.tmp" "$file" 2>/dev/null
+
+  # One file per session accumulates forever otherwise; keep the 50 newest.
+  ls -1t "$dir"/*.stat 2>/dev/null | tail -n +51 | xargs -r rm -f 2>/dev/null
+
+  return 0
+}
+
 token_info() {
   local input_tokens cache_creation cache_read window_size used limit pct color
 
@@ -134,6 +168,8 @@ token_info() {
   else
     pct=0
   fi
+
+  cache_tokens "$used" "$limit" "$pct"
 
   color=$(token_color "$pct")
   printf '%b%s/%s (%s%%)%b' "$color" "$(format_tokens $used)" "$(format_tokens $limit)" "$pct" "$RESET"

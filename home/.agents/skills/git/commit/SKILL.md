@@ -154,36 +154,3 @@ feat(reports): add monthly summary export
 ## Authorship
 
 Never add AI attribution or "Co-Authored-By" trailers. Write commit messages as if the user authored them.
-
-## Post-Commit: Update CLAUDE.md
-
-After committing, assess whether CLAUDE.md files need updates.
-
-### When to Update
-
-| Change Type | Action |
-|-------------|--------|
-| New module/directory | Add to relevant CLAUDE.md |
-| Renamed/moved files | Update WHERE TO LOOK, STRUCTURE |
-| New conventions introduced | Add to CONVENTIONS |
-| Anti-patterns discovered | Add to ANTI-PATTERNS |
-| Commands changed | Update COMMANDS section |
-| Entry points modified | Update root CLAUDE.md |
-
-### When NOT to Update
-
-- Bug fixes that don't change architecture
-- Internal implementation changes
-- Test additions (unless they introduce new patterns)
-- Minor refactors within existing structure
-
-### Update Process
-
-1. **Check scope** -- Did the commit touch module boundaries, conventions, or structure?
-2. **Identify files** -- Which CLAUDE.md files cover the affected areas?
-3. **Minimal edits** -- Update only the specific sections affected
-4. **Commit separately** -- Use `docs(claude): update knowledge base` for CLAUDE.md changes
-
-### Full Regeneration
-
-For large refactors that change multiple module boundaries, use `/index-knowledge` to regenerate the hierarchical CLAUDE.md knowledge base instead of manual updates.

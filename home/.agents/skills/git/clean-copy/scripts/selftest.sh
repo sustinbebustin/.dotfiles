@@ -270,6 +270,112 @@ check "$( [ "$leaked" = "no" ] && echo yes || echo no )" \
   "the work list excludes the other author's file"
 
 # ---------------------------------------------------------------------------
+# Test 9: a poly-repo change -- two sibling checkouts copied in one invocation,
+# sliced into matching storylines, and verified together.
+# ---------------------------------------------------------------------------
+W="$TMP/poly"
+mkdir -p "$W"
+for name in frontend backend; do
+  R="$(newrepo "poly/$name")"
+  printf 'base\n' >"$R/base.txt"
+  git -C "$R" add -A >/dev/null; git -C "$R" commit -qm base
+  git -C "$R" checkout -qb feature
+  printf 'schema\n' >"$R/schema.txt"
+  printf 'wire\n' >"$R/wire.txt"
+  git -C "$R" add -A >/dev/null; git -C "$R" commit -qm "everything at once"
+done
+FE="$W/frontend"; BE="$W/backend"
+
+out="$( (cd "$W" && bash "$CC" state) 2>&1 )" && st=yes || st=no
+check "$st" "state accepts a workspace of sibling repos"
+echo "$out" | grep -q '## Repo: frontend' && both=yes || both=no
+check "$both" "state reports each repo in its own block"
+echo "$out" | grep -q '^- repos: backend frontend' && scoped=yes || scoped=no
+check "$scoped" "state lists the discovered scope"
+
+sout="$( (cd "$W" && bash "$CC" state frontend) 2>&1 )"
+echo "$sout" | grep -q 'backend' && narrowed=no || narrowed=yes
+check "$narrowed" "a repo token narrows the scope to that repo"
+
+# Ambiguity is refused, not guessed: staging into the wrong repo is silent.
+(cd "$W" && bash "$CC" stage schema.txt >/dev/null 2>&1) && amb=no || amb=yes
+check "$amb" "stage refuses to guess which repo when several have state"
+
+# A workspace holds repos that are not part of the change. Discovering one must
+# not fail the run -- but naming it must, since the user asked for it.
+R="$(newrepo poly/unrelated)"
+printf 'x\n' >"$R/x.txt"
+git -C "$R" add -A >/dev/null; git -C "$R" commit -qm base
+nout="$( (cd "$W" && bash "$CC" state) 2>&1 )" && nok=yes || nok=no
+check "$nok" "a neighbour repo with nothing to copy does not fail the run"
+echo "$nout" | grep -q '\[SKIP\].*nothing to copy' && said=yes || said=no
+check "$said" "and the skip is reported, not silent"
+(cd "$W" && bash "$CC" state unrelated >/dev/null 2>&1) && named=no || named=yes
+check "$named" "naming that same repo is still a refusal"
+rm -rf "$R"
+
+(cd "$W" && bash "$CC" state >/dev/null 2>&1)
+for R in "$FE" "$BE"; do
+  git -C "$R" switch -q -c feature-clean feature
+  git -C "$R" reset -q --mixed main
+done
+# Same idea, same position, same subject in both histories.
+(cd "$W" && bash "$CC" stage --repo frontend schema.txt >/dev/null)
+(cd "$W" && bash "$CC" stage --repo backend schema.txt >/dev/null)
+git -C "$FE" commit -q --no-verify -m "feat(quotes): add the schema"
+git -C "$BE" commit -q --no-verify -m "feat(quotes): add the schema"
+(cd "$W" && bash "$CC" stage --repo frontend wire.txt >/dev/null)
+(cd "$W" && bash "$CC" stage --repo backend wire.txt >/dev/null)
+git -C "$FE" commit -q --no-verify -m "feat(quotes): wire it up"
+git -C "$BE" commit -q --no-verify -m "feat(quotes): wire it up"
+
+vout="$( (cd "$W" && bash "$CC" verify) 2>&1 )" && vok=yes || vok=no
+check "$vok" "verify passes over every repo in one call"
+[ "$(echo "$vout" | grep -c 'tree identical')" = "2" ] && gates=yes || gates=no
+check "$gates" "verify gates both repos, not just the first"
+echo "$vout" | grep -q 'Storyline alignment' && aligned=yes || aligned=no
+check "$aligned" "verify prints the cross-repo storyline alignment"
+echo "$vout" | grep -qE '^ +2\. +frontend +feat\(quotes\): wire it up' && paired=yes || paired=no
+check "$paired" "the alignment table pairs commits by position"
+echo "$vout" | grep -q 'different position' && falsepos=yes || falsepos=no
+check "$( [ "$falsepos" = "no" ] && echo yes || echo no )" \
+  "an aligned storyline draws no ordering warning"
+
+# The same idea told in a different order in each repo is the failure mode the
+# table exists to catch; the tree gates cannot see it.
+git -C "$BE" reset -q --hard HEAD~2
+(cd "$W" && bash "$CC" stage --repo backend wire.txt >/dev/null)
+git -C "$BE" commit -q --no-verify -m "feat(quotes): wire it up"
+(cd "$W" && bash "$CC" stage --repo backend schema.txt >/dev/null)
+git -C "$BE" commit -q --no-verify -m "feat(quotes): add the schema"
+dout="$( (cd "$W" && bash "$CC" verify) 2>&1 )" && dok=yes || dok=no
+check "$dok" "a reordered repo still passes its own tree gate"
+echo "$dout" | grep -q 'different position' && drift=yes || drift=no
+check "$drift" "and the alignment table flags the reordering"
+git -C "$BE" reset -q --hard HEAD~2
+(cd "$W" && bash "$CC" stage --repo backend schema.txt >/dev/null)
+git -C "$BE" commit -q --no-verify -m "feat(quotes): add the schema"
+(cd "$W" && bash "$CC" stage --repo backend wire.txt >/dev/null)
+git -C "$BE" commit -q --no-verify -m "feat(quotes): wire it up"
+
+# One repo failing must fail the whole run: a half-copied poly-repo change is
+# worse than none, because the tree gate passed on the half that is done.
+git -C "$BE" reset -q --soft HEAD~1
+(cd "$W" && bash "$CC" verify >/dev/null 2>&1) && anyfail=no || anyfail=yes
+check "$anyfail" "verify fails the run when any repo's tree diverges"
+git -C "$BE" commit -q --no-verify -m "feat(quotes): wire it up"
+
+(cd "$W" && bash "$CC" abort >/dev/null 2>&1) && aok=yes || aok=no
+check "$aok" "abort unwinds every repo in one call"
+left=0
+for R in "$FE" "$BE"; do
+  [ "$(git -C "$R" symbolic-ref --short HEAD)" = "feature" ] || left=1
+  git -C "$R" rev-parse --verify -q refs/heads/feature-clean >/dev/null && left=1
+done
+check "$( [ "$left" = "0" ] && echo yes || echo no )" \
+  "both repos are back on their source branch with the clean branch gone"
+
+# ---------------------------------------------------------------------------
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1
