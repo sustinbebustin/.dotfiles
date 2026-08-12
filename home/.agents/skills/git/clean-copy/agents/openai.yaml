@@ -1,0 +1,5 @@
+interface:
+  display_name: "Clean copy"
+  short_description: "Rebuild a branch as narrative commits over an identical tree"
+policy:
+  allow_implicit_invocation: false
