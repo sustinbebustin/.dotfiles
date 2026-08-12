@@ -5,6 +5,7 @@ tap "sustinbebustin/tap"
 brew "gawk"
 brew "git"
 brew "just"
+brew "shellcheck"
 brew "stow"
 brew "zsh"
 
