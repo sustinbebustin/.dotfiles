@@ -140,7 +140,7 @@ echo "Files to package:"
 FILE_COUNT=0
 TOTAL_SIZE=0
 while IFS= read -r -d '' file; do
-    rel_path="${file#$SKILL_DIR/}"
+    rel_path="${file#"$SKILL_DIR"/}"
     
     # Check against exclude patterns
     skip=false

@@ -206,7 +206,7 @@ fi
 if [[ -d "$SKILL_DIR/references" ]]; then
     while IFS= read -r -d '' ref_file; do
         ref_lines="$(wc -l < "$ref_file" | tr -d ' ')"
-        ref_name="${ref_file#$SKILL_DIR/}"
+        ref_name="${ref_file#"$SKILL_DIR"/}"
         if [[ "$ref_lines" -gt 200 ]]; then
             log_warning "$ref_name has $ref_lines lines (recommend < 200)"
         fi

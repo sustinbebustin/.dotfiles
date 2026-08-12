@@ -70,7 +70,7 @@ emit_pkg() {
   local name rel
   name=$(sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$pj" | head -n1)
   [ -z "$name" ] && return
-  rel="${pj#$base/}"
+  rel="${pj#"$base"/}"
   [ "$rel" = "$pj" ] && rel="$pj"
   echo "- $name ($rel)"
 }
@@ -179,7 +179,7 @@ report_repo() {
     shopt -s nullglob
     for wf in "$dir"/.github/workflows/*.yml "$dir"/.github/workflows/*.yaml; do
       found_wf=1
-      echo "- ${wf#$dir/}"
+      echo "- ${wf#"$dir"/}"
     done
     shopt -u nullglob
     [ "$found_wf" = "0" ] && echo "(none)"

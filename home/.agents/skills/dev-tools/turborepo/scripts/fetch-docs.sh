@@ -77,7 +77,7 @@ done < <(echo "$LLMS_CONTENT" | perl -ne '
     echo
     # List every cached file in path-sorted order, preserving directory layout.
     while IFS= read -r f; do
-        rel="${f#${DOCS_DIR}/}"
+        rel="${f#"${DOCS_DIR}"/}"
         [[ "$rel" == "INDEX.md" ]] && continue
         meta="${META_OF[$rel]:-}"
         title="${meta%%|*}"

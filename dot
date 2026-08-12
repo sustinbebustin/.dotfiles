@@ -44,7 +44,8 @@ detect_platform() {
         echo "linux"
     fi
 }
-readonly PLATFORM="$(detect_platform)"
+PLATFORM="$(detect_platform)"
+readonly PLATFORM
 
 install_hint() { echo "brew install $1"; }
 
@@ -428,7 +429,8 @@ install_brew_packages() {
     if [[ ${#failed[@]} -gt 0 ]]; then
         warn "Failed to install ${#failed[@]} packages:"
         printf "  - %s\n" "${failed[@]}"
-        local failed_file="${PACKAGES_DIR}/failed_packages_$(date +%Y%m%d_%H%M%S).txt"
+        local failed_file
+        failed_file="${PACKAGES_DIR}/failed_packages_$(date +%Y%m%d_%H%M%S).txt"
         printf "%s\n" "${failed[@]}" > "$failed_file"
         info "Failures saved to $failed_file"
     fi
@@ -478,7 +480,8 @@ backup_conflicts() {
     printf "  %s\n" "${files_to_backup[@]}"
 
     if confirm "Back them up first?" "y"; then
-        local backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
+        local backup_dir
+        backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
         mkdir -p "$backup_dir"
         for file in "${files_to_backup[@]}"; do
             local src="${HOME}/${file}"
@@ -900,7 +903,8 @@ cmd_gen_ssh_key() {
         if ! confirm "Overwrite? (old key will be backed up)" "n"; then
             return 0
         fi
-        local backup="${key_path}.bak.$(date +%Y%m%d_%H%M%S)"
+        local backup
+        backup="${key_path}.bak.$(date +%Y%m%d_%H%M%S)"
         cp "$key_path" "$backup"
         cp "${key_path}.pub" "${backup}.pub" 2>/dev/null || true
         ok "Backed up existing key to $backup"
