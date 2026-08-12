@@ -264,6 +264,7 @@ report_repo() {
     fi
     echo "**Changeset files added on this branch:**"
     if [ -n "$new" ]; then
+      # shellcheck disable=SC2001  # per-line prefix on a multi-line value; ${//} can't anchor to ^
       echo "$new" | sed 's/^/- /'
     else
       echo "(none)"

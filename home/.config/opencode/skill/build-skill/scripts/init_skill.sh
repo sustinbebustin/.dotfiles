@@ -11,11 +11,10 @@ set -euo pipefail
 # Colors
 if [[ -t 1 ]]; then
     GREEN='\033[0;32m'
-    YELLOW='\033[0;33m'
     RED='\033[0;31m'
     NC='\033[0m'
 else
-    GREEN='' YELLOW='' RED='' NC=''
+    GREEN='' RED='' NC=''
 fi
 
 usage() {

@@ -231,6 +231,7 @@ report_repo() {
     # shellcheck disable=SC1090
     . "$meta"
     trunk="${trunk_arg:-$trunk}"
+    # shellcheck disable=SC2154  # pre_trunk is assigned by sourcing "$meta" above
     pre="$pre_trunk"
   fi
   [ -n "$pre_override" ] && pre="$pre_override"

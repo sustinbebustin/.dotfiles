@@ -189,7 +189,6 @@ esac
 
 # Report confidence
 if [ "$CONFIDENCE" != "null" ]; then
-  CONF_LEVEL="noise"
   CONF_VAL=$(echo "$CONFIDENCE" | awk '{ if ($1 >= 2.0) print "strong"; else if ($1 >= 1.0) print "marginal"; else print "noise" }')
   echo "Confidence: ${CONFIDENCE}x ($CONF_VAL)"
 else

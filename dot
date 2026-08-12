@@ -735,6 +735,7 @@ cmd_package_remove() {
     fi
 
     local escaped
+    # shellcheck disable=SC2016  # the $( is a literal inside the sed character class, not an expansion
     escaped=$(printf '%s' "$name" | sed 's/[.[*^$()+?{|\\]/\\&/g')
 
     if ! grep -q "^\(brew\|cask\)[[:space:]]*\"${escaped}\"" "$BREWFILE" 2>/dev/null; then

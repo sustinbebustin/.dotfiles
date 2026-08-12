@@ -145,6 +145,7 @@ while IFS= read -r -d '' file; do
     # Check against exclude patterns
     skip=false
     for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+        # shellcheck disable=SC2053  # EXCLUDE_PATTERNS are globs; matching them unquoted is the point
         if [[ "$rel_path" == $pattern ]] || [[ "$(basename "$rel_path")" == $pattern ]]; then
             skip=true
             break
