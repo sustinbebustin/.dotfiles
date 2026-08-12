@@ -10,6 +10,7 @@
 # - "<repo1> <repo2> ..."               -> multiple subdirs (space-separated)
 # - "-- <note text>"                    -> no scope, emit note
 # - "<repos> -- <note text>"            -> scopes + note
+# - "--merge" anywhere before " -- "    -> merge mode (watch CI, merge, sync main)
 #
 # Subdir names with spaces are not supported in the multi-scope form;
 # use the single-scope form for those.
@@ -40,12 +41,27 @@ else
   args_raw="$raw"
 fi
 
-# Split scopes on whitespace into an array.
-read -r -a scopes <<< "$args_raw"
+# Split scopes on whitespace, pulling out the --merge flag wherever it appears.
+merge=0
+scopes=()
+read -r -a raw_scopes <<< "$args_raw"
+for tok in ${raw_scopes[@]+"${raw_scopes[@]}"}; do
+  if [ "$tok" = "--merge" ]; then
+    merge=1
+  else
+    scopes+=("$tok")
+  fi
+done
 
 if [ -n "$note" ]; then
   echo "### User note"
   echo "$note"
+  echo ""
+fi
+
+if [ "$merge" = "1" ]; then
+  echo "### Merge mode: ON"
+  echo "After the PR is created, run the merge flow (step 8) for that target."
   echo ""
 fi
 
@@ -154,6 +170,21 @@ report_repo() {
 
   echo "**Default branch:** $default_branch"
   echo ""
+
+  # Only relevant in merge mode: knowing up front whether the repo has any
+  # workflow files distinguishes "CI hasn't reported yet" from "no CI at all".
+  if [ "$merge" = "1" ]; then
+    local wf found_wf=0
+    echo "**CI workflow files:**"
+    shopt -s nullglob
+    for wf in "$dir"/.github/workflows/*.yml "$dir"/.github/workflows/*.yaml; do
+      found_wf=1
+      echo "- ${wf#$dir/}"
+    done
+    shopt -u nullglob
+    [ "$found_wf" = "0" ] && echo "(none)"
+    echo ""
+  fi
   echo "**Branch commits ahead of origin/$default_branch (these will all be in the PR):**"
   if [ -n "$base" ]; then
     ahead=$(git -C "$dir" log --format='%h %s%n%b' "$base"..HEAD 2>/dev/null)

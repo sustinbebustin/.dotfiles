@@ -1,8 +1,8 @@
 ---
 name: commit-push-pr
-allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion
-description: Commit, push, and open a GitHub PR in one flow.
-argument_hint: [repo...] [-- note]
+allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git pull:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(gh pr checks:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh run:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion
+description: Commit, push, and open a GitHub PR in one flow; optionally watch CI and merge.
+argument_hint: [repo...] [--merge] [-- note]
 disable-model-invocation: true
 ---
 
@@ -17,6 +17,10 @@ Accepts zero or more repo subdirs and/or a free-form user note separated by ` --
 - `/commit-push-pr frontend backend` -> operate on both subdirs (independent flows)
 - `/commit-push-pr -- skip lockfile` -> note only
 - `/commit-push-pr frontend backend -- skip lockfile` -> scopes + note
+- `/commit-push-pr --merge` -> also watch CI, merge the PR, and sync local default branch
+- `/commit-push-pr frontend --merge -- skip lockfile` -> scope + merge + note
+
+`--merge` may appear anywhere before the ` -- ` note separator and applies to every target in the invocation. When it's present the gathered state below starts with a `### Merge mode: ON` block.
 
 Subdir names with spaces aren't supported in the multi-scope form -- use the single-scope form for those.
 
@@ -43,8 +47,8 @@ __SKILL_ARGUMENTS__
 ## Your task
 
 1. **Determine the target repo(s):**
-   - If the context above shows one or more `### Target:` blocks, the repo(s) are already known — run steps 2-7 independently for each target.
-   - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then re-invoke this skill scoped to the chosen repo so the gather script produces a full `### Target:` block (branch, recent commits, commits-ahead-of-default, cumulative diff stat, staged/unstaged diff, release-notes verdict). Don't try to reassemble that state from ad-hoc `git` calls -- the PR description needs the commits-ahead view that the script computes.
+   - If the context above shows one or more `### Target:` blocks, the repo(s) are already known — run steps 2-8 independently for each target.
+   - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then re-invoke this skill scoped to the chosen repo (carrying `--merge` through if it was passed) so the gather script produces a full `### Target:` block (branch, recent commits, commits-ahead-of-default, cumulative diff stat, staged/unstaged diff, release-notes verdict). Don't try to reassemble that state from ad-hoc `git` calls -- the PR description needs the commits-ahead view that the script computes.
    - If no repos were found, STOP and tell the user.
 2. **Create a new branch if on main.** Always name it with a conventional prefix. See [Branch naming](#branch-naming).
 3. **Assess atomicity** -- split into multiple commits if changes contain independent logical units. See [When to split commits](#when-to-split-commits).
@@ -56,7 +60,19 @@ __SKILL_ARGUMENTS__
    - `verify-changeset` -> read the file(s) listed under **Changeset files added on this branch**. If they describe the user-facing changes in this branch's commits, do nothing. Only add another changeset if the existing ones materially miss something.
 6. **Push the branch to origin.**
 7. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject (release tooling reads this when squash-merging) and should match the dominant change type across the branch. Keep the body short and scale its length to the size of the change: no "Test Plan" section, no `## Summary` / `## Changes` headers. Write it in the repo owner's voice following [references/pr-body.md](references/pr-body.md).
-8. After the target repo is determined, keep output to tool calls only -- no extra prose.
+8. **Merge mode (only if `### Merge mode: ON` appears in the gathered state).** Watch CI, merge the PR, and resync the local default branch. See [Merge mode](#merge-mode). Without that block, stop after step 7 -- never merge a PR that wasn't asked to be merged.
+9. After the target repo is determined, keep output to tool calls only -- no extra prose.
+
+## Merge mode
+
+Runs only when the gathered state contains `### Merge mode: ON`. Run it per target, right after that target's PR is created. `gh` has no `-C` flag, so run every `gh` command for a target in a subshell: `(cd <target> && gh ...)`, using the relative path from the `### Target:` block.
+
+1. **Wait for CI.** `gh pr checks --watch --fail-fast --interval 30`. It blocks until every check completes, then exits 0 if all passed and non-zero if any failed.
+   - If it reports `no checks reported`, compare against **CI workflow files** in the gathered state. Workflows listed -> checks haven't registered yet; wait ~20s and retry, up to 3 times. Still nothing, or `(none)` listed -> the repo has no CI; skip to step 2.
+   - Required reviewers, merge queues, or other non-check blockers are not CI failures -- see step 4.
+2. **Merge.** `gh pr merge <number> --squash --delete-branch`. Squash is the default because the PR title is written as a conventional-commit subject that release tooling reads. If the repo disallows squash, retry with the method its error names (`--merge` or `--rebase`). Never pass `--admin` and never merge a draft PR.
+3. **Resync local.** `git -C <target> checkout <default branch>` then `git -C <target> pull`. Use the `**Default branch:**` value from the gathered state.
+4. **On any failure, stop -- do not merge.** Report which checks failed (`gh pr checks` output, plus `gh run view --log-failed <run-id>` for detail) or what blocked the merge, and leave the branch checked out. Don't attempt fixes, re-runs, or a second merge unless the user asks.
 
 ## Branch naming
 
