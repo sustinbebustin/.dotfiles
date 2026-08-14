@@ -454,7 +454,7 @@ install_brew_packages() {
 }
 
 # Node toolchain. pnpm is the single source of truth: the standalone
-# installer provides pnpm, and `pnpm env use --global` provides node.
+# installer provides pnpm, and `pnpm runtime set` provides node.
 # Deliberately not corepack -- upstream advises against installing pnpm
 # that way. Keep NODE_VERSION in step with what projects expect.
 install_node_toolchain() {
@@ -497,9 +497,9 @@ install_node_toolchain() {
     esac
 
     info "Setting up Node $NODE_VERSION via pnpm..."
-    if ! pnpm env use --global "$NODE_VERSION"; then
+    if ! pnpm runtime set node "$NODE_VERSION" -g; then
         err "pnpm could not install Node $NODE_VERSION"
-        info "  -> retry manually: pnpm env use --global $NODE_VERSION"
+        info "  -> retry manually: pnpm runtime set node $NODE_VERSION -g"
         return 1
     fi
     ok "Node $(node --version 2>/dev/null || echo "$NODE_VERSION") active"
@@ -696,12 +696,12 @@ cmd_doctor() {
             ok "node $(node --version) (pnpm-managed)"
         else
             warn "node $(node --version) resolves outside pnpm: $node_path"
-            info "  -> pnpm env use --global $NODE_VERSION, then remove the other install"
+            info "  -> pnpm runtime set node $NODE_VERSION -g, then remove the other install"
             ((++issues))
         fi
     else
         warn "node not found"
-        info "  -> pnpm env use --global $NODE_VERSION"
+        info "  -> pnpm runtime set node $NODE_VERSION -g"
         ((++issues))
     fi
 

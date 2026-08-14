@@ -60,7 +60,7 @@ path_prepend "$HOME/.qlty/bin"
 # ===== Node toolchain =====
 # pnpm is the single source of truth: the standalone installer provides pnpm
 # (never corepack -- upstream advises against installing pnpm that way), and
-# `pnpm env use --global` provides node. `dot init` sets both up.
+# `pnpm runtime set` provides node. `dot init` sets both up.
 #
 # These live in .zshenv, not .zshrc, so non-interactive shells (scripts, git
 # hooks, ssh commands, agent tooling) resolve the same node and the same

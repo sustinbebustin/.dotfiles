@@ -62,7 +62,7 @@ Key tools loaded: pnpm, bun, starship, eza, zsh-autosuggestions, zsh-syntax-high
 
 ## Node Toolchain
 
-pnpm is the single source of truth, installed by `dot init` from the standalone `get.pnpm.io` installer -- deliberately not via corepack, which pnpm upstream advises against. `pnpm env use --global` then provides node, pinned by `NODE_VERSION` in `dot`.
+pnpm is the single source of truth, installed by `dot init` from the standalone `get.pnpm.io` installer -- deliberately not via corepack, which pnpm upstream advises against. `pnpm runtime set node <version> -g` then provides it, pinned by `NODE_VERSION` in `dot`.
 
 Global packages are declared in `PNPM_GLOBALS` in `dot` and installed with `pnpm add -g`. `dot doctor` warns if node resolves outside `$PNPM_HOME`, which means a second manager (nvm, brew, corepack) is competing for PATH.
 
