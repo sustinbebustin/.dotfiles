@@ -10,6 +10,21 @@ readonly BREWFILE="${PACKAGES_DIR}/Brewfile"
 # The single stow package; its tree mirrors $HOME.
 readonly STOW_PACKAGE="home"
 
+# Node toolchain. Must stay in step with PNPM_HOME in home/.config/zsh/.zshenv.
+readonly PNPM_HOME_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
+readonly NODE_VERSION="24"
+
+# Globally installed CLIs, as "package:command" -- the command a package
+# provides often differs from its name (@kitlangton/stack -> stack), and
+# `dot doctor` needs the command to check the install. Assigned then marked
+# readonly separately so this still parses under bash 3.2 on stock macOS.
+PNPM_GLOBALS=(
+    "opensrc:opensrc"
+    "@kitlangton/stack:stack"
+    "effect-solutions:effect-solutions"
+)
+readonly PNPM_GLOBALS
+
 # --- Output helpers ---
 
 info() { printf '\033[0;34m[info]\033[0m %s\n' "$1"; }
@@ -438,10 +453,70 @@ install_brew_packages() {
     ok "Installed $count packages"
 }
 
-install_npm_globals() {
-    info "Installing global npm packages..."
-    npm install -g opensrc
-    ok "Global npm packages installed"
+# Node toolchain. pnpm is the single source of truth: the standalone
+# installer provides pnpm, and `pnpm env use --global` provides node.
+# Deliberately not corepack -- upstream advises against installing pnpm
+# that way. Keep NODE_VERSION in step with what projects expect.
+install_node_toolchain() {
+    if ! command_exists pnpm; then
+        info "Installing pnpm..."
+        local tmp_dir throwaway_zdotdir zsh_path
+        tmp_dir="$(mktemp -d)"
+        # The installer runs `pnpm setup`, which appends its own PNPM_HOME
+        # block to the shell rc it detects. Our tracked .zshenv already
+        # carries that block, so point ZDOTDIR at a throwaway directory and
+        # discard whatever setup writes there.
+        throwaway_zdotdir="$tmp_dir/zdotdir"
+        mkdir -p "$throwaway_zdotdir"
+        zsh_path="$(command -v zsh || echo /bin/sh)"
+
+        if ! curl -fsSL https://get.pnpm.io/install.sh -o "$tmp_dir/install.sh"; then
+            err "Could not download the pnpm installer from get.pnpm.io"
+            info "  -> check network, then re-run: dot init"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+        if ! PNPM_HOME="$PNPM_HOME_DIR" ZDOTDIR="$throwaway_zdotdir" SHELL="$zsh_path" \
+            sh "$tmp_dir/install.sh"; then
+            err "pnpm installer failed"
+            info "  -> install manually: https://pnpm.io/installation"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+        rm -rf "$tmp_dir"
+        ok "pnpm installed"
+    else
+        ok "pnpm already installed"
+    fi
+
+    # pnpm was just installed into a directory this process doesn't have on
+    # PATH yet; the stowed .zshenv handles it for future shells.
+    case ":$PATH:" in
+        *":$PNPM_HOME_DIR/bin:"*) ;;
+        *) export PATH="$PNPM_HOME_DIR/bin:$PATH" ;;
+    esac
+
+    info "Setting up Node $NODE_VERSION via pnpm..."
+    if ! pnpm env use --global "$NODE_VERSION"; then
+        err "pnpm could not install Node $NODE_VERSION"
+        info "  -> retry manually: pnpm env use --global $NODE_VERSION"
+        return 1
+    fi
+    ok "Node $(node --version 2>/dev/null || echo "$NODE_VERSION") active"
+
+    local packages=()
+    local entry
+    for entry in "${PNPM_GLOBALS[@]}"; do
+        packages+=("${entry%%:*}")
+    done
+
+    info "Installing global packages (${packages[*]})..."
+    if ! pnpm add -g "${packages[@]}"; then
+        err "Failed to install global packages"
+        info "  -> retry manually: pnpm add -g ${packages[*]}"
+        return 1
+    fi
+    ok "Global packages installed"
 }
 
 setup_shell() {
@@ -503,13 +578,13 @@ install_cli_tools() {
         ok "Claude Code already installed"
     fi
 
-    if ! command_exists opencode; then
-        if confirm "Install OpenCode?" "y"; then
-            info "Installing OpenCode..."
-            curl -fsSL https://opencode.ai/install | bash
+    if ! command_exists bun; then
+        if confirm "Install Bun?" "y"; then
+            info "Installing Bun..."
+            curl -fsSL https://bun.sh/install | bash
         fi
     else
-        ok "OpenCode already installed"
+        ok "Bun already installed"
     fi
 }
 
@@ -523,10 +598,12 @@ cmd_init() {
     install_homebrew
     step 2 $total "Installing packages"
     install_brew_packages
-    step 3 $total "Installing npm globals"
-    install_npm_globals
+    # Steps 3 and 4 are optional extras -- a network hiccup there must not
+    # abort init under `set -e` and leave the dotfiles unstowed.
+    step 3 $total "Installing Node toolchain"
+    install_node_toolchain || warn "Node toolchain incomplete -- continuing; run 'dot doctor' afterwards"
     step 4 $total "Installing CLI tools"
-    install_cli_tools
+    install_cli_tools || warn "CLI tool install incomplete -- continuing; run 'dot doctor' afterwards"
     step 5 $total "Backing up conflicts"
     backup_conflicts
     step 6 $total "Stowing dotfiles"
@@ -597,6 +674,62 @@ cmd_doctor() {
         else
             warn "$tool not found"
             info "  -> $(install_hint "$tool")"
+            ((++issues))
+        fi
+    done
+
+    # Node toolchain -- pnpm owns node, so anything resolving elsewhere
+    # (a leftover nvm, brew or corepack install) means two node versions are
+    # fighting over PATH.
+    if command_exists pnpm; then
+        ok "pnpm installed ($(pnpm --version))"
+    else
+        warn "pnpm not found"
+        info "  -> dot init"
+        ((++issues))
+    fi
+
+    if command_exists node; then
+        local node_path
+        node_path="$(command -v node)"
+        if [[ "$node_path" == "$PNPM_HOME_DIR"/* ]]; then
+            ok "node $(node --version) (pnpm-managed)"
+        else
+            warn "node $(node --version) resolves outside pnpm: $node_path"
+            info "  -> pnpm env use --global $NODE_VERSION, then remove the other install"
+            ((++issues))
+        fi
+    else
+        warn "node not found"
+        info "  -> pnpm env use --global $NODE_VERSION"
+        ((++issues))
+    fi
+
+    local stale_managers=("$HOME/.nvm" "$HOME/.npm-packages")
+    for stale in "${stale_managers[@]}"; do
+        if [[ -d "$stale" ]]; then
+            warn "Stale node manager still on disk: $stale"
+            info "  -> pnpm manages node now; remove it: rm -rf $stale"
+            ((++issues))
+        fi
+    done
+
+    local entry pkg cmd cmd_path
+    for entry in "${PNPM_GLOBALS[@]}"; do
+        pkg="${entry%%:*}"
+        cmd="${entry##*:}"
+        if ! command_exists "$cmd"; then
+            warn "$cmd ($pkg) not found"
+            info "  -> pnpm add -g $pkg"
+            ((++issues))
+            continue
+        fi
+        cmd_path="$(command -v "$cmd")"
+        if [[ "$cmd_path" == "$PNPM_HOME_DIR"/* ]]; then
+            ok "$cmd installed"
+        else
+            warn "$cmd resolves outside pnpm: $cmd_path"
+            info "  -> pnpm add -g $pkg, then remove the copy at $cmd_path"
             ((++issues))
         fi
     done

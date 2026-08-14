@@ -29,7 +29,9 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow packa
 
 ## Bootstrap: `dot`
 
-Single script: Homebrew -> brew bundle -> npm globals -> stow `home` -> set zsh default.
+Single script: Homebrew -> brew bundle -> Node toolchain -> CLI tools -> stow `home` -> set zsh default.
+
+The Node toolchain and CLI tool steps are non-fatal: a network failure there warns and continues, so `dot init` always reaches the stow step.
 
 ## Stow Strategy
 
@@ -51,11 +53,21 @@ XDG-compliant. `.zshenv` sets `ZDOTDIR=$HOME/.config/zsh`, redirecting all zsh c
 
 | File | Scope | Purpose |
 |------|-------|---------|
-| `.zshenv` | All shells | `LANG`, `EDITOR`, XDG dirs, `ZDOTDIR` |
-| `.zprofile` | Login | Homebrew init, base PATH |
+| `.zshenv` | All shells | `LANG`, `EDITOR`, XDG dirs, `ZDOTDIR`, Homebrew, Node/pnpm/bun env |
+| `.zprofile` | Login | libpq |
 | `.zshrc` | Interactive | Completions, PATH extensions, aliases, plugins, starship prompt |
 
-Key tools loaded: nvm, bun, starship, eza, zsh-autosuggestions, zsh-syntax-highlighting.
+Anything that decides which binary a command resolves to belongs in `.zshenv`, not `.zshrc`. `.zshrc` is skipped by non-interactive shells, so config placed there makes scripts, git hooks, ssh commands and agent tooling resolve a different node -- or no node -- than the terminal does.
+
+Key tools loaded: pnpm, bun, starship, eza, zsh-autosuggestions, zsh-syntax-highlighting.
+
+## Node Toolchain
+
+pnpm is the single source of truth, installed by `dot init` from the standalone `get.pnpm.io` installer -- deliberately not via corepack, which pnpm upstream advises against. `pnpm env use --global` then provides node, pinned by `NODE_VERSION` in `dot`.
+
+Global packages are declared in `PNPM_GLOBALS` in `dot` and installed with `pnpm add -g`. `dot doctor` warns if node resolves outside `$PNPM_HOME`, which means a second manager (nvm, brew, corepack) is competing for PATH.
+
+Registry config is split: `~/.npmrc` is tracked and holds settings, while auth tokens go to the untracked `~/.npmrc.local` via `NPM_CONFIG_USERCONFIG`. Non-auth pnpm settings live in `~/.config/pnpm/config.yaml`, since pnpm v11 reads only auth and registry config from `.npmrc`.
 
 ## Packages
 
@@ -68,7 +80,7 @@ Key tools loaded: nvm, bun, starship, eza, zsh-autosuggestions, zsh-syntax-highl
 | Terminal | tmux |
 | CLI | ast-grep, eza, gh, jq, ripgrep |
 
-Everything else (nvm, bun, cargo) managed outside Homebrew.
+Everything else (pnpm, node, bun, cargo) managed outside Homebrew.
 
 ## Claude Code Framework
 

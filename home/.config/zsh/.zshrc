@@ -53,62 +53,13 @@ _compinit_kick() {
 autoload -Uz add-zsh-hook
 zle -N zle-line-init _compinit_kick
 
-# ===== Path Helpers =====
-path_append() {
-  if [ -d "$1" ] && [[ ":$PATH:" != *":$1:"* ]]; then
-    export PATH="$PATH:$1"
-  fi
-}
-
-path_prepend() {
-  if [ -d "$1" ] && [[ ":$PATH:" != *":$1:"* ]]; then
-    export PATH="$1:$PATH"
-  fi
-}
-
-# ===== PATH =====
-path_prepend "$HOME/.local/bin"
-path_prepend "$HOME/go/bin"
-path_prepend "$HOME/.bun/bin"
-path_prepend "$HOME/.qlty/bin"
-path_prepend "$HOME/.opencode/bin"
-
-# ===== Node.js (lazy NVM) =====
-# Sourcing nvm.sh costs ~110 ms. Defer it until a node-related command is
-# actually used. The first invocation pays the load cost, subsequent ones
-# are free.
-export NVM_DIR="$HOME/.nvm"
-_nvm_script=""
-if [ -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]; then
-  _nvm_script="$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
-elif [ -s "$NVM_DIR/nvm.sh" ]; then
-  _nvm_script="$NVM_DIR/nvm.sh"
-fi
-if [ -n "$_nvm_script" ]; then
-  _nvm_completion="$HOMEBREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
-  _lazy_nvm() {
-    unset -f nvm node npm npx pnpm yarn corepack 2>/dev/null
-    \. "$_nvm_script"
-    [ -s "$_nvm_completion" ] && \. "$_nvm_completion"
-  }
-  for _cmd in nvm node npm npx pnpm yarn corepack; do
-    eval "${_cmd}() { _lazy_nvm; ${_cmd} \"\$@\"; }"
-  done
-  unset _cmd
-fi
-
-path_prepend "$HOME/.npm-packages/bin"
-
-# Keep auth tokens (`npm login`) out of the tracked ~/.npmrc by redirecting
-# the userconfig to an untracked file. The tracked dotfile is promoted to
-# globalconfig so its settings still apply.
-export NPM_CONFIG_USERCONFIG="$HOME/.npmrc.local"
-export NPM_CONFIG_GLOBALCONFIG="$HOME/.npmrc"
-
-# ===== Bun =====
+# ===== Node toolchain =====
+# PATH, PNPM_HOME, BUN_INSTALL and the npm config vars are all set in
+# .zshenv so scripts and interactive shells resolve the same node. Only the
+# interactive-only completion wiring belongs here.
+#
 # Put the bun completion (37 KB) on fpath so compinit auto-discovers it
 # instead of sourcing the whole file at every shell startup.
-export BUN_INSTALL="$HOME/.bun"
 [ -s "$BUN_INSTALL/_bun" ] && fpath=("$BUN_INSTALL" $fpath)
 
 # ===== SSH Agent =====
@@ -303,17 +254,7 @@ if command -v lsd &>/dev/null; then
   alias lt='lsd --tree'
 fi
 
-. "$HOME/.local/bin/env"
+# Written by third-party installers (uv, rust); absent on a fresh machine.
+[ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 
 export QLTY_INSTALL="$HOME/.qlty"
-
-# pnpm
-export PNPM_HOME="$HOME/.local/share/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME/bin:"*) ;;
-  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
-esac
-# pnpm end
-
-# bun completions
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"

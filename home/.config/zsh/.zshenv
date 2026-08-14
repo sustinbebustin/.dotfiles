@@ -35,6 +35,52 @@ if [ -n "$_brew_bin" ]; then
 fi
 unset _brew_bin _candidate _brew_cache
 
+# ===== Path helpers =====
+# Defined here rather than in .zshrc so PATH construction is available to
+# every shell type, and so .zshrc can still use them.
+path_append() {
+  if [ -d "$1" ] && [[ ":$PATH:" != *":$1:"* ]]; then
+    export PATH="$PATH:$1"
+  fi
+}
+
+path_prepend() {
+  if [ -d "$1" ] && [[ ":$PATH:" != *":$1:"* ]]; then
+    export PATH="$1:$PATH"
+  fi
+}
+
 # User bin directories
 export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 [ ! -d "$HOME/.local/bin" ] && mkdir -p "$HOME/.local/bin"
+
+path_prepend "$HOME/go/bin"
+path_prepend "$HOME/.qlty/bin"
+
+# ===== Node toolchain =====
+# pnpm is the single source of truth: the standalone installer provides pnpm
+# (never corepack -- upstream advises against installing pnpm that way), and
+# `pnpm env use --global` provides node. `dot init` sets both up.
+#
+# These live in .zshenv, not .zshrc, so non-interactive shells (scripts, git
+# hooks, ssh commands, agent tooling) resolve the same node and the same
+# registry auth as an interactive terminal does.
+export PNPM_HOME="$XDG_DATA_HOME/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME/bin:"*) ;;
+  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+esac
+
+# Keep auth tokens (`pnpm login`) out of the tracked ~/.npmrc by redirecting
+# the userconfig to an untracked file. The tracked dotfile is promoted to
+# globalconfig so its settings still apply. pnpm honours both vars; non-auth
+# pnpm settings live in ~/.config/pnpm/config.yaml instead.
+export NPM_CONFIG_USERCONFIG="$HOME/.npmrc.local"
+export NPM_CONFIG_GLOBALCONFIG="$HOME/.npmrc"
+
+# ===== Bun =====
+export BUN_INSTALL="$HOME/.bun"
+case ":$PATH:" in
+  *":$BUN_INSTALL/bin:"*) ;;
+  *) [ -d "$BUN_INSTALL/bin" ] && export PATH="$BUN_INSTALL/bin:$PATH" ;;
+esac
