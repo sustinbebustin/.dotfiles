@@ -4,6 +4,7 @@ tap "sustinbebustin/tap"
 # Core
 brew "gawk"
 brew "git"
+brew "go" # builds the agent hooks in home/.agents/hooks
 brew "just"
 brew "shellcheck"
 brew "stow"

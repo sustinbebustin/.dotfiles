@@ -74,10 +74,13 @@ Registry config is split: `~/.npmrc` is tracked and holds settings, while auth t
 
 | Category | Packages |
 |----------|----------|
-| Core | git, stow, zsh |
+| Core | gawk, git, go, just, shellcheck, stow, zsh |
 | Shell | starship, zsh-autosuggestions, zsh-syntax-highlighting |
 | Terminal | tmux |
-| CLI | ast-grep, eza, gh, jq, ripgrep |
+| CLI | ast-grep, direnv, eza, gh, jq, ripgrep |
+| Personal | sustinbebustin/tap/mws |
+
+Go is a build dependency, not a runtime one: `dot stow` compiles the agent hooks in `home/.agents/hooks` before linking them, and `build_hooks` warns and skips when go is absent -- so an undeclared go means a machine silently runs without the hook safety gates. `make` is not declared, since it ships with the Xcode command line tools that Homebrew already requires on macOS and with the base install on Linux.
 
 Everything else (pnpm, node, bun, cargo) managed outside Homebrew.
 
