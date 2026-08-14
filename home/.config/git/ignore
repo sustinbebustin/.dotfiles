@@ -44,5 +44,4 @@ venv
 .overseer
 opensrc
 .docs
-.opencode
 .worktreeinclude

@@ -22,8 +22,7 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow packa
 │       ├── ghostty/             # terminal emulator
 │       ├── tmux/                # tmux + TPM
 │       ├── ripgrep/             # rg defaults
-│       ├── karabiner/           # key remapping (macOS)
-│       └── opencode/            # opencode.ai config
+│       └── karabiner/           # key remapping (macOS)
 └── docs/                        # documentation
 ```
 
@@ -136,15 +135,10 @@ binary is stowed into `~/.claude/hooks/`, never the source directory.
 | `review/` | architecture-strategist, code-simplicity, data-integrity, performance-oracle, security-sentinel, typescript-reviewer |
 | `workflow/` | bug-reproduction-validator, pr-comment-resolver, spec-flow-analyzer |
 
-## OpenCode (Parallel AI Config)
-
-`home/.config/opencode/` mirrors the Claude framework: agents, commands, skills, custom tools. Configured with Dracula theme.
-
 ## Key Patterns
 
 1. **Stow over everything** -- no custom symlink logic, no templating
 2. **XDG-compliant** -- all config under `~/.config/`, `.zshenv` bootstraps `ZDOTDIR`
 3. **Single bootstrap** -- `dot` handles Homebrew, packages, stow, shell in one pass
 4. **Hook-enforced quality** -- TS errors block agent completion; skill activation routes on every prompt
-5. **Dual AI support** -- Claude Code + OpenCode with mirrored skill/agent structures
-6. **Secrets excluded** -- `mcp.json`, `.env*`, `.continuity/` all gitignored
+5. **Secrets excluded** -- `mcp.json`, `.env*`, `.continuity/` all gitignored

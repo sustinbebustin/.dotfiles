@@ -39,8 +39,7 @@ Guard hooks are shared too, but more simply: both CLIs take an absolute path in 
 │       ├── ghostty/                 # terminal
 │       ├── tmux/                    # tmux + TPM (submodule)
 │       ├── ripgrep/                 # rg defaults
-│       ├── karabiner/               # key remapping (macOS)
-│       └── opencode/                # opencode.ai config
+│       └── karabiner/               # key remapping (macOS)
 └── docs/
 ```
 
