@@ -78,6 +78,7 @@ backups/
 packages/failed_packages_*.txt
 home/.config/ngrok
 home/.claude/context/*.md
+home/.agents/context
 
 # pi agent runtime/state (keep settings + customization resources tracked)
 home/.pi/
