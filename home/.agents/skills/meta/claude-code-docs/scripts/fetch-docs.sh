@@ -11,6 +11,12 @@ LLMS_TXT_URL="https://code.claude.com/docs/llms.txt"
 # a sibling directory the skill never reads.
 CONTEXT_DIR="${HOME}/.claude/context"
 INDEX_FILE="${CONTEXT_DIR}/INDEX.md"
+VERSION_FILE="${CONTEXT_DIR}/.claude-version"
+
+# Stamped onto the cache so refresh-if-outdated.sh can tell which Claude Code
+# version these docs were fetched for. Passed in by that script; recomputed
+# here when fetch-docs.sh is run directly.
+CLAUDE_VERSION="${CLAUDE_DOCS_VERSION:-$(claude --version 2>/dev/null | awk '{print $1}')}"
 
 mkdir -p "$CONTEXT_DIR"
 
@@ -63,6 +69,7 @@ echo "Rebuilding INDEX.md..."
     echo
     echo "Cached docs under \`~/.claude/context/\`. Read the file matching your question."
     echo "Last refreshed: $(date -Iseconds)"
+    [[ -n "$CLAUDE_VERSION" ]] && echo "Claude Code version: $CLAUDE_VERSION"
     echo
     for f in "$CONTEXT_DIR"/*.md; do
         name="$(basename "$f")"
@@ -78,6 +85,14 @@ echo "Rebuilding INDEX.md..."
         fi
     done
 } > "$INDEX_FILE"
+
+if [[ -n "$CLAUDE_VERSION" ]]; then
+    echo "$CLAUDE_VERSION" > "$VERSION_FILE"
+else
+    # No stamp is better than a wrong one: the next run then treats the cache
+    # as unversioned and refetches rather than trusting docs of unknown vintage.
+    rm -f "$VERSION_FILE"
+fi
 
 echo "Done. Files saved to $CONTEXT_DIR"
 echo "Index written to $INDEX_FILE"

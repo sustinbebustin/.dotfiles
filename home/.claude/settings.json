@@ -180,6 +180,7 @@
   "autoMode": {
     "allow": [
       "$defaults",
+      "Dedicated File Tools: using Read, Edit, Write, Grep, or Glob for any file read, search, edit, or creation is always allowed and is the preferred way to do file work in this environment. Routing that work through Bash instead -- cat, head, tail, sed, awk, find, heredocs, redirection, or throwaway scripts -- is not preferred here, even where the shell command would itself be permitted. Bash is for running real programs: builds, tests, git, package managers, linters, and other CLIs.",
       "Running a pre-existing skill helper script at ~/.claude/skills/*/scripts/gather-state.sh is allowed, regardless of how it was invoked, when all of these hold: the agent did not write or edit the script this session (if the transcript shows the agent writing or editing it, judge the written content instead); the script invocation is the whole command, taking no arguments other than a quoted heredoc carrying the slash-command's own arguments; and the script only reads local git and repo state. This covers running the script only -- creating or editing files under .claude/skills/ remains Self-Modification and is not cleared here."
     ]
   },

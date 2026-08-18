@@ -12,7 +12,7 @@ Answer the user's question about Claude Code using the cached docs at `~/.claude
 
 ## Cache status
 
-!`bash ${CLAUDE_SKILL_DIR}/scripts/refresh-if-stale.sh`
+!`bash ${CLAUDE_SKILL_DIR}/scripts/refresh-if-outdated.sh`
 
 ## Available docs
 
