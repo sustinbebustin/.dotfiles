@@ -96,6 +96,28 @@ git_status() {
 
 # ── Token usage ──────────────────────────────────────────────────────────────
 
+# The compaction window lives in settings.json as `autoCompactWindow`; it is not
+# part of the status_line stdin payload, so read it from the settings files
+# directly, most specific scope first (the same order Claude Code merges them).
+compact_window_setting() {
+  local f val
+  for f in "$PWD/.claude/settings.local.json" \
+           "$PWD/.claude/settings.json" \
+           "$HOME/.claude/settings.local.json" \
+           "$HOME/.claude/settings.json"; do
+    [ -r "$f" ] || continue
+    if command -v jq &>/dev/null; then
+      val=$(jq -r '.autoCompactWindow // empty' "$f" 2>/dev/null)
+    else
+      val=$(sed -n 's/.*"autoCompactWindow"[[:space:]]*:[[:space:]]*\([0-9]\{1,\}\).*/\1/p' "$f" | head -1)
+    fi
+    if [ -n "$val" ]; then
+      echo "$val"
+      return
+    fi
+  done
+}
+
 # Cache what token_info computed so non-statusline callers can report the same
 # numbers. Only the status_line hook receives the context_window payload on
 # stdin, so anything else (see scripts/context-usage.sh) has to read it from here.
@@ -153,10 +175,10 @@ token_info() {
 
   # Auto-compaction fires 33k below the effective window rather than at it --
   # a 1M model compacts around 967k. Prefer the configured compaction window
-  # over context_window_size, which is always the model's full window; Claude
-  # Code injects settings.json env here, so the variable tracks the live value.
+  # over context_window_size, which is always the model's full window.
   local window="$window_size"
-  local compact_window="${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-}"
+  local compact_window
+  compact_window=$(compact_window_setting)
   if [ -n "$compact_window" ] && [ "$compact_window" -gt 0 ] 2>/dev/null &&
      [ "$compact_window" -lt "$window" ]; then
     window=$compact_window
