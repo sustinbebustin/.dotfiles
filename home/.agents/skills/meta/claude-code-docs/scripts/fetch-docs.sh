@@ -6,9 +6,10 @@
 set -euo pipefail
 
 LLMS_TXT_URL="https://code.claude.com/docs/llms.txt"
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-# scripts -> claude-code-docs -> skills -> .claude
-CONTEXT_DIR="${SCRIPT_DIR}/../../../../context"
+# Absolute rather than walked up from $0: this skill is symlinked into a
+# dotfiles tree that nests it one level deeper, so a relative walk resolves to
+# a sibling directory the skill never reads.
+CONTEXT_DIR="${HOME}/.claude/context"
 INDEX_FILE="${CONTEXT_DIR}/INDEX.md"
 
 mkdir -p "$CONTEXT_DIR"
@@ -41,9 +42,12 @@ while IFS= read -r url; do
         # Strip the 4-line "Documentation Index" preamble injected at the
         # top of every page. Done with head/tail for portability across
         # GNU and BSD coreutils (sed -i and {;} block syntax differ).
+        # Copied back through the original path rather than moved onto it:
+        # cached files may be symlinks into a dotfiles store, and mv would
+        # replace each link with a regular file, detaching it from the store.
         out="${CONTEXT_DIR}/${filename}"
         if head -1 "$out" | grep -q '^> ## Documentation Index'; then
-            tail -n +5 "$out" > "$out.tmp" && mv "$out.tmp" "$out"
+            tail -n +5 "$out" > "$out.tmp" && cat "$out.tmp" > "$out" && rm -f "$out.tmp"
         fi
         echo "  -> saved"
     else

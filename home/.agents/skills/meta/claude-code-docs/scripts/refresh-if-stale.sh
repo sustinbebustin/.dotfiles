@@ -5,7 +5,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-CONTEXT_DIR="${SCRIPT_DIR}/../../../../context"
+# Absolute rather than walked up from SCRIPT_DIR: this skill is symlinked into
+# a dotfiles tree that nests it one level deeper, so a relative walk resolves
+# to a sibling directory the skill never reads. Must match fetch-docs.sh, or
+# the staleness check reports on a different cache than the one it refreshes.
+CONTEXT_DIR="${HOME}/.claude/context"
 INDEX_FILE="${CONTEXT_DIR}/INDEX.md"
 FETCH_SCRIPT="${SCRIPT_DIR}/fetch-docs.sh"
 MAX_AGE_DAYS="${CLAUDE_DOCS_MAX_AGE_DAYS:-7}"
