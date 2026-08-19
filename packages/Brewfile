@@ -1,11 +1,14 @@
 # Taps
 tap "sustinbebustin/tap"
+tap "supabase/tap"
 
 # Core
 brew "gawk"
+brew "gcc"
 brew "git"
 brew "go" # builds the agent hooks in home/.agents/hooks
 brew "just"
+brew "protobuf"
 brew "shellcheck"
 brew "stow"
 brew "zsh"
@@ -24,7 +27,18 @@ brew "direnv"
 brew "eza"
 brew "gh"
 brew "jq"
+brew "lazygit"
 brew "ripgrep"
+brew "tree"
+
+# Media
+brew "exiftool"
+brew "imagemagick"
+
+# Cloud + data
+brew "awscli"
+brew "pspg" # pager for psql
+brew "supabase/tap/supabase"
 
 # Personal
 brew "sustinbebustin/tap/mws"
