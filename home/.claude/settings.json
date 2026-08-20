@@ -1,6 +1,6 @@
 {
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "3",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-opus-5[1m]",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-5[1m]",
     "ENABLE_TOOL_SEARCH": "true",
@@ -170,9 +170,10 @@
     "typescript-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {},
+  "outputStyle": "Concise",
   "spinnerTipsEnabled": false,
   "effortLevel": "medium",
-  "autoCompactWindow": 226000,
+  "autoCompactWindow": 200000,
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "skipWorkflowUsageWarning": true,
