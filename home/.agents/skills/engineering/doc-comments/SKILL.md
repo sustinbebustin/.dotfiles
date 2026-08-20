@@ -1,6 +1,6 @@
 ---
 name: doc-comments
-description: Best practices for code comments and doc comments -- explain WHY, not WHAT; never leave session/task-scoped commentary in the code. Use when writing, reviewing, or auditing comments in any source file; covers Go (godoc) and TypeScript (TSDoc) conventions for public APIs.
+description: Best practices for code comments and doc comments -- explain WHY, not WHAT; never leave session/task-scoped commentary in the code. Use when writing, reviewing, or auditing comments in any source file; covers Go (godoc), TypeScript (TSDoc), Python (docstrings), PHP (PHPDoc), Rust (rustdoc), Java (Javadoc), and C# (XML doc comments) conventions for public APIs.
 ---
 
 # Doc Comments
@@ -15,7 +15,7 @@ A comment earns its place by encoding information that is *not derivable from th
 
 Two distinct categories, two different bars:
 
-1. **Doc comments** (godoc, TSDoc) -- attached to exported/public declarations. Part of the API surface. Tooling reads them. **Required** for exported symbols. Conventions are language-specific (see references below).
+1. **Doc comments** (godoc, TSDoc, docstrings, PHPDoc, rustdoc, Javadoc, XML doc comments) -- attached to exported/public declarations. Part of the API surface. Tooling reads them. **Required** for exported symbols. Conventions are language-specific (see references below).
 2. **Inline / implementation comments** -- everything else. **Optional, and the default is none.** A line of code with a clear name beats a line of code with a clumsy comment every time.
 
 The rest of this document is mostly about the second category, because that is where ninety percent of bad comments live.
@@ -253,6 +253,13 @@ Doc comments on exported APIs follow per-language conventions enforced by toolin
 
 - **Go (godoc):** [references/go.md](references/go.md). First sentence starts with the symbol name; `[Name]` doc links; `Deprecated:` markers; `Example*` testable functions; `reports whether` for booleans; concurrency-safety statements on stateful types.
 - **TypeScript (TSDoc):** [references/typescript.md](references/typescript.md). `@param`, `@returns`, `@throws`, `@template`, `@example`, `@deprecated`. IDE tooltips render these.
+- **Python (docstrings):** [references/python.md](references/python.md). PEP 257 skeleton; Google vs NumPy vs reST formats; never restate annotated types; `Raises:`/`Yields:`; ruff `D` rules.
+- **PHP (PHPDoc):** [references/php.md](references/php.md). Static-analysis-first (PHPStan/Psalm), not doc generation; no tag that merely restates a native type; array shapes, `list<T>`, `@template`.
+- **Rust (rustdoc):** [references/rust.md](references/rust.md). `///` vs `//!`; `# Examples` / `# Panics` / `# Errors` / `# Safety` sections; doctests are real tests; intra-doc links; `#![warn(missing_docs)]`.
+- **Java (Javadoc):** [references/java.md](references/java.md). Third-person summary fragment; `@param`/`@return`/`@throws`; inheritance by omission; `@apiNote`/`@implSpec`/`@implNote`; `{@snippet}`; Markdown `///` (JDK 23+).
+- **C# (XML doc comments):** [references/csharp.md](references/csharp.md). `<summary>`, `<param>`, `<returns>`, `<exception>`, `<see cref>`, `<inheritdoc>`; `GenerateDocumentationFile` + CS1591 is the only enforcement point; nullable reference types replace null prose.
+
+**Mood is not portable.** Python (PEP 257) wants imperative -- "Return the label." Go, Rust, Java, and C# want third-person declarative -- "Returns the label." (Go additionally requires the summary to start with the symbol name; Java wants a fragment, C# a complete sentence.) Check the language's reference before carrying a habit across.
 
 ## The Bottom Line
 
