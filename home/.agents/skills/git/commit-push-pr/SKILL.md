@@ -1,6 +1,6 @@
 ---
 name: commit-push-pr
-allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git pull:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(gh pr checks:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh run:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion
+allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git pull:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(gh pr checks:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh run:*), Bash(bash:*), Monitor, Read, Write, Edit, AskUserQuestion
 description: Commit, push, and open a GitHub PR in one flow; optionally watch CI and merge.
 argument_hint: [repo...] [--merge] [-- note]
 disable-model-invocation: true
@@ -67,8 +67,21 @@ __SKILL_ARGUMENTS__
 
 Runs only when the gathered state contains `### Merge mode: ON`. Run it per target, right after that target's PR is created. `gh` has no `-C` flag, so run every `gh` command for a target in a subshell: `(cd <target> && gh ...)`, using the relative path from the `### Target:` block.
 
-1. **Wait for CI.** `gh pr checks --watch --fail-fast --interval 30`. It blocks until every check completes, then exits 0 if all passed and non-zero if any failed.
-   - If it reports `no checks reported`, compare against **CI workflow files** in the gathered state. Workflows listed -> checks haven't registered yet; wait ~20s and retry, up to 3 times. Still nothing, or `(none)` listed -> the repo has no CI; skip to step 2.
+1. **Watch CI with the Monitor tool**, not a blocking foreground command -- `gh pr checks --watch` holds the turn open for the whole run. Arm a monitor that emits each check as it reaches a terminal state and exits when the run is done:
+   ```sh
+   cd <target> && prev=""
+   while true; do
+     s=$(gh pr checks <number> --json name,bucket 2>/dev/null) || { sleep 30; continue; }
+     [ -z "$s" ] && { sleep 30; continue; }
+     cur=$(jq -r '.[] | select(.bucket!="pending") | "\(.name): \(.bucket)"' <<<"$s" | sort)
+     comm -13 <(echo "$prev") <(echo "$cur")
+     prev=$cur
+     jq -e 'all(.bucket!="pending")' <<<"$s" >/dev/null && { echo "CI COMPLETE"; break; }
+     sleep 30
+   done
+   ```
+   `bucket` covers every terminal state (`pass`, `fail`, `skipping`, `cancel`), so a failure or cancellation emits just like a pass -- never filter to `pass` only, since silence is indistinguishable from still-running. Keep `--interval`-scale polling at 30s to stay inside API rate limits. Act on the results the moment they arrive: any non-`pass`/`skipping` bucket is a CI failure -> step 4.
+   - If `gh pr checks` reports `no checks reported`, compare against **CI workflow files** in the gathered state. Workflows listed -> checks haven't registered yet; wait ~20s and retry, up to 3 times. Still nothing, or `(none)` listed -> the repo has no CI; skip to step 2 without arming a monitor.
    - Required reviewers, merge queues, or other non-check blockers are not CI failures -- see step 4.
 2. **Merge.** `gh pr merge <number> --squash --delete-branch --admin`. Squash is the default because the PR title is written as a conventional-commit subject that release tooling reads. If the repo disallows squash, retry with the method its error names (`--merge` or `--rebase`). Never merge a draft PR.
    - Always pass `--admin`: it bypasses required checks and required reviews, which is what merge mode is for. It needs repo admin or bypass-actor rights, and merge queues and some ruleset conditions block even `--admin` -- if the merge still fails, report the error (step 4) rather than trying other bypasses.
