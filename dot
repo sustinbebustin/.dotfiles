@@ -404,6 +404,34 @@ install_homebrew() {
     ok "Homebrew installed"
 }
 
+# Parses $BREWFILE into BREWFILE_FORMULAS and BREWFILE_CASKS.
+read_brewfile_packages() {
+    BREWFILE_FORMULAS=()
+    BREWFILE_CASKS=()
+
+    if [[ ! -f "$BREWFILE" ]]; then
+        err "Brewfile not found at $BREWFILE"
+        return 1
+    fi
+
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+
+        if [[ "$line" =~ ^brew[[:space:]]+\"([^\"]+)\" ]]; then
+            BREWFILE_FORMULAS+=("${BASH_REMATCH[1]}")
+        elif [[ "$line" =~ ^cask[[:space:]]+\"([^\"]+)\" ]]; then
+            BREWFILE_CASKS+=("${BASH_REMATCH[1]}")
+        fi
+    done < "$BREWFILE"
+}
+
+# True when $2 appears in the `brew list` output $1. Brewfile entries may be
+# tap-qualified (owner/tap/name) while `brew list` prints the short name.
+brew_list_has() {
+    printf '%s\n' "$1" | grep -Fxq -e "$2" -e "${2##*/}"
+}
+
 install_brew_packages() {
     if [[ ! -f "$BREWFILE" ]]; then
         err "Brewfile not found at $BREWFILE"
@@ -889,32 +917,16 @@ cmd_package_remove() {
 }
 
 cmd_package_list() {
-    if [[ ! -f "$BREWFILE" ]]; then
-        err "Brewfile not found"
-        return 1
-    fi
+    read_brewfile_packages || return 1
 
     local installed_formulas installed_casks
     installed_formulas=$(brew list --formula 2>/dev/null || true)
     installed_casks=$(brew list --cask 2>/dev/null || true)
 
-    local brew_pkgs=() cask_pkgs=()
-
-    while IFS= read -r line; do
-        [[ "$line" =~ ^[[:space:]]*# ]] && continue
-        [[ -z "${line// }" ]] && continue
-
-        if [[ "$line" =~ ^brew[[:space:]]+\"([^\"]+)\" ]]; then
-            brew_pkgs+=("${BASH_REMATCH[1]}")
-        elif [[ "$line" =~ ^cask[[:space:]]+\"([^\"]+)\" ]]; then
-            cask_pkgs+=("${BASH_REMATCH[1]}")
-        fi
-    done < "$BREWFILE"
-
-    if [[ ${#brew_pkgs[@]} -gt 0 ]]; then
-        echo "Formulas (${#brew_pkgs[@]}):"
-        for pkg in "${brew_pkgs[@]}"; do
-            if echo "$installed_formulas" | grep -q "^${pkg}$"; then
+    if [[ ${#BREWFILE_FORMULAS[@]} -gt 0 ]]; then
+        echo "Formulas (${#BREWFILE_FORMULAS[@]}):"
+        for pkg in "${BREWFILE_FORMULAS[@]}"; do
+            if brew_list_has "$installed_formulas" "$pkg"; then
                 ok "  $pkg"
             else
                 err "  $pkg (not installed)"
@@ -922,10 +934,10 @@ cmd_package_list() {
         done
     fi
 
-    if [[ ${#cask_pkgs[@]} -gt 0 ]]; then
-        echo "Casks (${#cask_pkgs[@]}):"
-        for pkg in "${cask_pkgs[@]}"; do
-            if echo "$installed_casks" | grep -q "^${pkg}$"; then
+    if [[ ${#BREWFILE_CASKS[@]} -gt 0 ]]; then
+        echo "Casks (${#BREWFILE_CASKS[@]}):"
+        for pkg in "${BREWFILE_CASKS[@]}"; do
+            if brew_list_has "$installed_casks" "$pkg"; then
                 ok "  $pkg"
             else
                 err "  $pkg (not installed)"
