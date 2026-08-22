@@ -255,3 +255,6 @@ command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
 [ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 
 export QLTY_INSTALL="$HOME/.qlty"
+
+# bun completions
+[ -s "/home/austin/.bun/_bun" ] && source "/home/austin/.bun/_bun"
