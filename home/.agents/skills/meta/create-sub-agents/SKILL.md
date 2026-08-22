@@ -32,7 +32,7 @@ Subagents are Markdown files with YAML frontmatter. The frontmatter is the confi
 name: code-reviewer
 description: Expert reviewer. Use proactively after code changes.
 tools: Read, Glob, Grep, Bash
-model: inherit
+model: opus
 ---
 
 You are a senior code reviewer. When invoked:

@@ -4,8 +4,7 @@ description: Reviews code comments and doc comments for quality. Catches session
 model: opus
 effort: low
 skills: doc-comments
-tools: Bash, Read, Glob, Grep, Write
-memory: project
+tools: Bash, Read, Glob, Grep
 ---
 
 # Doc Comment Reviewer
@@ -65,7 +64,7 @@ Apply the litmus tests from the skill (cold-reader, survival, subtraction, why, 
 
 1. **A comment that says *why*** even if it sounds vague to you, when the file is in a domain you don't fully understand. Default to leaving why-comments alone unless you can prove they are wrong, ephemeral, or tautological.
 2. **A short hint above a non-obvious regex, bit-twiddle, or formula.** These are exactly the comments that earn their keep.
-3. **Existing project conventions** that disagree with the skill (e.g. a service that uses a non-standard doc tag because tooling expects it). Defer to the convention; note in `MEMORY.md` for next run.
+3. **Existing project conventions** that disagree with the skill (e.g. a service that uses a non-standard doc tag because tooling expects it). Defer to the convention.
 4. **`TODO(owner)` and `BUG(owner)` forms** that match the project's existing style. The skill's rule is "actionable + durable", not "no TODOs".
 
 ## What you do *not* review

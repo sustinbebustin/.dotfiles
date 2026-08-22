@@ -1,10 +1,9 @@
 ---
 name: nextjs-reviewer
 description: Reviews Next.js App Router code for server/client boundaries, data fetching patterns, route conventions, middleware, caching/revalidation, and metadata. Invoked after implementing features, modifying existing code, or creating new routes/pages.
-model: inherit
+model: opus
 effort: medium
-tools: Bash, Read, Glob, Grep, Write, WebFetch, mcp__context7__query-docs, mcp__context7__resolve-library-id
-memory: project
+tools: Bash, Read, Glob, Grep, WebFetch, mcp__context7__query-docs, mcp__context7__resolve-library-id
 ---
 
 # Next.js Code Reviewer
@@ -20,10 +19,6 @@ Your training data may lag the App Router's current shape. Prefer current docs o
 - Use `mcp__context7__query-docs` (resolve `vercel/next.js` first) for version-current Next.js documentation.
 - Use `WebFetch` against `nextjs.org/docs` only if context7 is unavailable.
 - Never answer App Router questions purely from training-data memory -- the API surface (caching directives, `dynamic`/`revalidate` semantics, server actions) changes frequently.
-
-## Protocol
-
-Your memory directory is `.claude/agent-memory/nextjs-reviewer/`. Read `MEMORY.md` before analyzing. Update it with codebase conventions you discover (route group structure, middleware patterns, caching strategy decisions).
 
 ## Scope
 

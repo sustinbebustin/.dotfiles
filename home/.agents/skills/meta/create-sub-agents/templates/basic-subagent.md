@@ -7,7 +7,7 @@ Minimal starting point. Copy, rename, and fill in. Save to `<project>/.claude/ag
 name: my-subagent
 description: One-line capability + when to use it. Include trigger keywords.
 tools: Read, Glob, Grep, Bash
-model: inherit
+model: opus
 ---
 
 You are a {role description}.
