@@ -432,6 +432,64 @@ brew_list_has() {
     printf '%s\n' "$1" | grep -Fxq -e "$2" -e "${2##*/}"
 }
 
+# Upgrades only the packages declared in $BREWFILE, leaving everything else
+# installed on the machine at its current version. Entries that aren't
+# installed are reported rather than upgraded -- `brew upgrade` fails on them
+# and would abort the whole run.
+update_brewfile_packages() {
+    read_brewfile_packages || return 1
+
+    if ! brew update; then
+        err "brew update failed; packages left unchanged"
+        return 1
+    fi
+
+    local installed_formulas installed_casks
+    installed_formulas=$(brew list --formula 2>/dev/null || true)
+    installed_casks=$(brew list --cask 2>/dev/null || true)
+
+    local formulas=() casks=() missing=() pkg
+    for pkg in ${BREWFILE_FORMULAS[@]+"${BREWFILE_FORMULAS[@]}"}; do
+        if brew_list_has "$installed_formulas" "$pkg"; then
+            formulas+=("$pkg")
+        else
+            missing+=("$pkg")
+        fi
+    done
+    for pkg in ${BREWFILE_CASKS[@]+"${BREWFILE_CASKS[@]}"}; do
+        if brew_list_has "$installed_casks" "$pkg"; then
+            casks+=("$pkg")
+        else
+            missing+=("$pkg")
+        fi
+    done
+
+    local status=0
+
+    if [[ ${#formulas[@]} -gt 0 ]] && ! brew upgrade --formula "${formulas[@]}"; then
+        err "Failed to upgrade one or more Brewfile formulas"
+        status=1
+    fi
+
+    if [[ ${#casks[@]} -gt 0 ]] && ! brew upgrade --cask "${casks[@]}"; then
+        err "Failed to upgrade one or more Brewfile casks"
+        status=1
+    fi
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        warn "Not installed, so not upgraded: ${missing[*]}"
+        info "Run 'dot init' to install missing Brewfile packages"
+    fi
+
+    if [[ $status -eq 0 ]]; then
+        ok "Brewfile packages updated"
+    else
+        info "Re-run 'dot update' or upgrade the listed packages manually"
+    fi
+
+    return $status
+}
+
 install_brew_packages() {
     if [[ ! -f "$BREWFILE" ]]; then
         err "Brewfile not found at $BREWFILE"
@@ -674,8 +732,7 @@ cmd_update() {
 cmd_update_post_pull() {
     if confirm "Update Homebrew packages?" "y"; then
         info "Updating Homebrew..."
-        brew update && brew upgrade
-        ok "Packages updated"
+        update_brewfile_packages
     fi
 
     cmd_stow
