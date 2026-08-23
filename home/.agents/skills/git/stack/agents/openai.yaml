@@ -1,5 +1,0 @@
-interface:
-  display_name: "Stack"
-  short_description: "Inspect and repair stacked PRs in squash-merge repos"
-policy:
-  allow_implicit_invocation: false

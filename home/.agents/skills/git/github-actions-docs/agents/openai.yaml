@@ -1,5 +1,0 @@
-interface:
-  display_name: "GitHub Actions Docs"
-  short_description: "Answer Actions questions from official docs"
-policy:
-  allow_implicit_invocation: false

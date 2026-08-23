@@ -31,7 +31,7 @@
       "Bash(python:*)",
       "Bash(python3:*)",
       "Bash(*/.claude/hooks/*)",
-      "Bash(*/.agents/hooks/*)",
+      "Bash(*/.claude/hooks/*)",
       "Bash(bash */.claude/skills/*)",
       "Bash(chmod:*)",
       "Bash(mkdir:*)",
@@ -119,7 +119,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.agents/hooks/block-env-files-bin"
+            "command": "$HOME/.claude/hooks/block-env-files-bin"
           }
         ]
       },
@@ -128,7 +128,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.agents/hooks/block-aws-cli-bin"
+            "command": "$HOME/.claude/hooks/block-aws-cli-bin"
           }
         ]
       },
@@ -137,7 +137,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.agents/hooks/block-dangerous-git-bin"
+            "command": "$HOME/.claude/hooks/block-dangerous-git-bin"
           }
         ]
       },
@@ -146,7 +146,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.agents/hooks/block-dangerous-rm-bin"
+            "command": "$HOME/.claude/hooks/block-dangerous-rm-bin"
           }
         ]
       },
@@ -155,7 +155,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.agents/hooks/enforce-root-bin"
+            "command": "$HOME/.claude/hooks/enforce-root-bin"
           }
         ]
       }

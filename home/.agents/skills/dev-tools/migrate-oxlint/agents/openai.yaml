@@ -1,5 +1,0 @@
-interface:
-  display_name: "Migrate to Oxlint"
-  short_description: "Switch a project from ESLint to Oxlint"
-policy:
-  allow_implicit_invocation: false

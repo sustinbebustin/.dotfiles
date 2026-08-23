@@ -13,9 +13,7 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow packa
 │   └── Brewfile                 # Homebrew deps
 ├── home/                        # stow package -> $HOME
 │   ├── .zshenv                  # sets ZDOTDIR, XDG dirs
-│   ├── .agents/skills/          # shared agent skills (published by dot, not stow)
 │   ├── .claude/                 # Claude Code framework
-│   ├── .codex/                  # Codex config
 │   └── .config/
 │       ├── zsh/                 # shell config (ZDOTDIR)
 │       ├── git/                 # git config + aliases
@@ -44,7 +42,7 @@ The package tree maps 1:1 to `$HOME`:
 
 Stow is run with `--no-folding` to create per-file symlinks rather than directory symlinks, so a directory holding both stowed and unstowed files stays intact.
 
-Agent skills are the exception. Claude Code reads `~/.claude/skills` and Codex reads `~/.agents/skills`, and neither reads the other's. The shared tree lives at Codex's root (`home/.agents/skills/`) but is stow-ignored, since stow can express none of what publishing it requires: the one-to-many fan-out, the category flattening, or the folder-level symlink Codex needs to follow a skill. `dot stow` publishes it to both roots instead. An optional one-level category dir is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
+Skills are the exception. `home/.claude/skills/` is stow-ignored, since stow can express neither the category flattening nor the folder-level symlink each skill is published as. `dot stow` publishes it to `~/.claude/skills` instead. An optional one-level category dir is flattened away when linking, since Claude Code only reads `~/.claude/skills/<name>/SKILL.md`.
 
 ## Shell Config
 
@@ -80,7 +78,7 @@ Registry config is split: `~/.npmrc` is tracked and holds settings, while auth t
 | CLI | ast-grep, direnv, eza, gh, jq, ripgrep |
 | Personal | sustinbebustin/tap/mws |
 
-Go is a build dependency, not a runtime one: `dot stow` compiles the agent hooks in `home/.agents/hooks` before linking them, and `build_hooks` warns and skips when go is absent -- so an undeclared go means a machine silently runs without the hook safety gates. `make` is not declared, since it ships with the Xcode command line tools that Homebrew already requires on macOS and with the base install on Linux.
+Go is a build dependency, not a runtime one: `dot stow` compiles the hooks in `home/.claude/hooks` before linking them, and `build_hooks` warns and skips when go is absent -- so an undeclared go means a machine silently runs without the hook safety gates. `make` is not declared, since it ships with the Xcode command line tools that Homebrew already requires on macOS and with the base install on Linux.
 
 Everything else (pnpm, node, bun, cargo) managed outside Homebrew.
 
@@ -102,11 +100,12 @@ Everything else (pnpm, node, bun, cargo) managed outside Homebrew.
 └── rules/                       # always-loaded rules
 ```
 
-### Hooks (Go, one module per hook)
+### Hooks (Go)
 
-Each hook is a standalone Go module built by `hooks/Makefile` into a `*-bin`
-binary. The binaries are gitignored and built per-machine; only the built
-binary is stowed into `~/.claude/hooks/`, never the source directory.
+The hooks share one Go module and a common `internal/hookio` package, and are
+built by `hooks/Makefile` into `*-bin` binaries. The binaries are gitignored and
+built per-machine; only the built binary is stowed into `~/.claude/hooks/`,
+never the source directory.
 
 | Hook | Trigger | Purpose |
 |------|---------|---------|

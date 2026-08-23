@@ -1,5 +1,0 @@
-interface:
-  display_name: "Fix Merge Conflicts"
-  short_description: "Resolve conflicts to a buildable, tested state"
-policy:
-  allow_implicit_invocation: false

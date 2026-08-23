@@ -1,5 +1,0 @@
-interface:
-  display_name: "Fix CI"
-  short_description: "Debug and fix failing GitHub PR checks"
-policy:
-  allow_implicit_invocation: false

@@ -12,8 +12,8 @@ Keep the meta authoring skills current with the official Claude Code docs.
 ## Steps
 
 1. **Read the last-reviewed dates.** Open the frontmatter of both skills and note `metadata.last_reviewed`:
-   - `skills/meta/create-agent-skills/SKILL.md`
-   - `skills/meta/create-sub-agents/SKILL.md`
+   - `home/.claude/skills/meta/create-agent-skills/SKILL.md`
+   - `home/.claude/skills/meta/create-sub-agents/SKILL.md`
 
    Use the earlier of the two dates as the cutoff — only changes since then matter.
 

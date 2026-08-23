@@ -12,20 +12,18 @@
 ^LICENSE.*
 
 # Go source dirs for the hook binaries — only the built *-bin should be linked.
-# The tree lives under .agents/ because Claude Code and Codex both point their
-# hook configs at ~/.agents/hooks; unlike skills, one location serves both.
-^/\.agents/hooks/block-aws-cli$
-^/\.agents/hooks/block-dangerous-git$
-^/\.agents/hooks/block-dangerous-rm$
-^/\.agents/hooks/block-env-files$
-^/\.agents/hooks/enforce-root$
-^/\.agents/hooks/internal$
+^/\.claude/hooks/block-aws-cli$
+^/\.claude/hooks/block-dangerous-git$
+^/\.claude/hooks/block-dangerous-rm$
+^/\.claude/hooks/block-env-files$
+^/\.claude/hooks/enforce-root$
+^/\.claude/hooks/internal$
 
-# Build tooling for those binaries; not needed in ~/.agents/hooks.
-^/\.agents/hooks/Makefile$
-^/\.agents/hooks/go\.mod$
-^/\.agents/hooks/go\.sum$
+# Build tooling for those binaries; not needed in ~/.claude/hooks.
+^/\.claude/hooks/Makefile$
+^/\.claude/hooks/go\.mod$
+^/\.claude/hooks/go\.sum$
 
-# The canonical skills tree. Published by dot's stow_skills fan-out instead --
-# categories flattened, each skill linked as a folder (what Codex requires).
-^/\.agents/skills$
+# The skills tree. Published by dot's stow_skills() instead -- categories
+# flattened, each skill linked as a folder.
+^/\.claude/skills$

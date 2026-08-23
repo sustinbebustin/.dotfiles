@@ -1,5 +1,0 @@
-interface:
-  display_name: "Librarian"
-  short_description: "Cache and refresh remote git repos locally"
-policy:
-  allow_implicit_invocation: false

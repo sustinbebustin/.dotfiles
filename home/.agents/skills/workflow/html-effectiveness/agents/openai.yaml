@@ -1,5 +1,0 @@
-interface:
-  display_name: "HTML Effectiveness"
-  short_description: "Build polished single-file HTML artifacts"
-policy:
-  allow_implicit_invocation: false

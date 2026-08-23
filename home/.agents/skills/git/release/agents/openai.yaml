@@ -1,3 +1,0 @@
-interface:
-  display_name: "Release"
-  short_description: "Finalize the changelog, tag, and publish a release"

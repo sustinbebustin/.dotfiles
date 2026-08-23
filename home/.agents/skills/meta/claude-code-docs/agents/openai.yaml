@@ -1,5 +1,0 @@
-interface:
-  display_name: "Claude Code Docs"
-  short_description: "Answer Claude Code questions from cached docs"
-policy:
-  allow_implicit_invocation: false

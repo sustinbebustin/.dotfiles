@@ -15,9 +15,9 @@ git clone --recursive https://github.com/sustinbebustin/dotfiles.git ~/.dotfiles
 
 Everything under `home/` maps 1:1 to `$HOME` -- `home/.config/zsh/` becomes `~/.config/zsh/`. Stow is run with `--no-folding` so each file gets its own symlink rather than the directory being linked wholesale.
 
-Agent skills are the exception. Claude Code reads `~/.claude/skills` and Codex reads `~/.agents/skills`, and neither reads the other's, so the shared tree at `home/.agents/skills/` is skipped by stow and published to both roots by `dot stow` itself. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since both CLIs only read `<root>/<name>/SKILL.md`.
+Claude Code skills are the exception. The tree at `home/.claude/skills/` is skipped by stow and published to `~/.claude/skills` by `dot stow` itself, one folder symlink per skill. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since Claude Code only reads `~/.claude/skills/<name>/SKILL.md`.
 
-Guard hooks are shared too, but more simply: both CLIs take an absolute path in their hook config, so the binaries are stowed once to `~/.agents/hooks/` and both point at them. `dot stow` builds them first, since the binaries are per-platform and gitignored. Claude Code registers them in `home/.claude/settings.json` and Codex in `home/.codex/hooks.json`; the two harnesses share a hook contract but not every permission decision, so each binary takes a `-harness` flag that defaults to `claude`. See `home/.agents/hooks/internal/hookio` for what differs. Codex hash-pins hook trust, so a rebuilt or edited hook needs re-approving there via `/hooks`.
+The Go guard hooks in `home/.claude/hooks/` are stowed as built `*-bin` binaries only -- `dot stow` builds them first, since they are per-platform and gitignored -- and registered in `home/.claude/settings.json`.
 
 ## Structure
 
@@ -28,10 +28,9 @@ Guard hooks are shared too, but more simply: both CLIs take an absolute path in 
 │   └── Brewfile                     # Homebrew packages
 ├── home/                            # the stow package -> $HOME
 │   ├── .zshenv
-│   ├── .agents/skills/              # shared agent skills (published by dot, not stow)
-│   ├── .agents/hooks/               # shared Go guard hooks (sources ignored, *-bin stowed)
 │   ├── .claude/                     # Claude Code config
-│   ├── .codex/                      # Codex config
+│   │   ├── skills/                  # agent skills (published by dot, not stow)
+│   │   └── hooks/                   # Go guard hooks (sources ignored, *-bin stowed)
 │   └── .config/
 │       ├── zsh/                     # shell (ZDOTDIR)
 │       ├── starship.toml            # prompt

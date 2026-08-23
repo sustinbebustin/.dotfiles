@@ -1,5 +1,0 @@
-interface:
-  display_name: "Turborepo"
-  short_description: "Turborepo monorepo build and caching guidance"
-policy:
-  allow_implicit_invocation: false

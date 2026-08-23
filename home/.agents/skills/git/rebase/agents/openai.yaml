@@ -1,5 +1,0 @@
-interface:
-  display_name: "Rebase"
-  short_description: "Rebase onto trunk, including semantic conflicts"
-policy:
-  allow_implicit_invocation: false

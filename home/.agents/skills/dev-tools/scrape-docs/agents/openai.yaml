@@ -1,5 +1,0 @@
-interface:
-  display_name: "Scrape Docs"
-  short_description: "Mirror a documentation site into local markdown"
-policy:
-  allow_implicit_invocation: false
