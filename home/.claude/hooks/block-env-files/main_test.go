@@ -1,0 +1,134 @@
+package main
+
+import "testing"
+
+func TestClassify(t *testing.T) {
+	cases := []struct {
+		path string
+		want tier
+	}{
+		// env files, the original scope
+		{".env", tierSecret},
+		{"/srv/app/.env.production", tierSecret},
+		{".envrc", tierSecret},
+		{"prod.env", tierSecret},
+		{"app.env-staging", tierSecret},
+		{".env.example", tierNone},
+		{".env.sample", tierNone},
+		{".env.template", tierNone},
+		{".env.dist", tierNone},
+		{".env.example.local", tierNone},
+
+		// cloud and CLI credential stores
+		{"/home/me/.aws/credentials", tierSecret},
+		{"~/.aws/config", tierSecret},
+		{"/home/me/.config/gcloud/application_default_credentials.json", tierSecret},
+		{"/home/me/.azure/msal_token_cache.json", tierSecret},
+		{".s3cfg", tierSecret},
+
+		// ssh and gpg
+		{"/home/me/.ssh/id_ed25519", tierSecret},
+		{"id_rsa", tierSecret},
+		{"~/.ssh/anything_at_all", tierSecret},
+		{"~/.gnupg/secring.gpg", tierSecret},
+		{"~/.ssh/id_ed25519.pub", tierNone},
+		{"~/.ssh/known_hosts", tierNone},
+		{"~/.ssh/authorized_keys", tierNone},
+
+		// key material by extension
+		{"certs/server.key", tierSecret},
+		{"certs/server.pem", tierSecret},
+		{"vault.kdbx", tierSecret},
+		{"client.p12", tierSecret},
+		{"vpn/office.ovpn", tierSecret},
+		{"certs/server.crt", tierNone},
+		{"certs/server.csr", tierNone},
+
+		// named-after-contents, but only on data formats
+		{"secrets.yaml", tierSecret},
+		{"config/tokens.json", tierSecret},
+		{"db_password.txt", tierSecret},
+		{"secrets.example.yaml", tierNone},
+		{"token", tierNone},       // a bare grep argument
+		{"useToken.ts", tierNone}, // source code
+		{"secrets.ts", tierNone},
+
+		// misc unix credential files
+		{"/home/me/.netrc", tierSecret},
+		{".git-credentials", tierSecret},
+		{"/etc/shadow", tierSecret},
+		{"config/master.key", tierSecret},
+
+		// ask tier
+		{"/home/me/.npmrc", tierSensitive},
+		{"home/.npmrc", tierSensitive},
+		{".pypirc", tierSensitive},
+		{"~/.kube/config", tierSensitive},
+		{"~/.docker/config.json", tierSensitive},
+		{"infra/terraform.tfstate", tierSensitive},
+		{"infra/prod.tfvars", tierSensitive},
+
+		// ordinary paths
+		{"", tierNone},
+		{"main.go", tierNone},
+		{"/etc/hosts", tierNone},
+		{"README.md", tierNone},
+		{"package.json", tierNone},
+	}
+
+	for _, tc := range cases {
+		if got := classify(tc.path); got != tc.want {
+			t.Errorf("classify(%q) = %v, want %v", tc.path, got, tc.want)
+		}
+	}
+}
+
+func TestCheckBash(t *testing.T) {
+	cases := []struct {
+		name     string
+		cmd      string
+		decision string
+	}{
+		{name: "plain command is allowed", cmd: `ls -la`, decision: "allow"},
+		{name: "reading env is denied", cmd: `cat .env`, decision: "deny"},
+		{name: "reading aws credentials is denied", cmd: `cat ~/.aws/credentials`, decision: "deny"},
+		{name: "copying a private key is denied", cmd: `cp ~/.ssh/id_ed25519 /tmp/k`, decision: "deny"},
+		{name: "redirect from a key is denied", cmd: `base64 < server.pem`, decision: "deny"},
+		{name: "quoted path is denied", cmd: `cat "$HOME/.netrc"`, decision: "deny"},
+		{name: "example variant is allowed", cmd: `cat .env.example`, decision: "allow"},
+		{name: "public key is allowed", cmd: `cat ~/.ssh/id_ed25519.pub`, decision: "allow"},
+		{name: "grep for the word token is allowed", cmd: `grep -r token src`, decision: "allow"},
+		{name: "npmrc asks", cmd: `cat ~/.npmrc`, decision: "ask"},
+		{name: "deny wins over ask in one command", cmd: `cat ~/.npmrc ~/.aws/credentials`, decision: "deny"},
+		{name: "unparseable command naming a secret is denied", cmd: `cat .env "unterminated`, decision: "deny"},
+		{name: "unparseable command naming nothing is allowed", cmd: `echo "unterminated`, decision: "allow"},
+	}
+
+	for _, tc := range cases {
+		if got := checkBash(tc.cmd).Decision.String(); got != tc.decision {
+			t.Errorf("%s: checkBash(%q) = %s, want %s", tc.name, tc.cmd, got, tc.decision)
+		}
+	}
+}
+
+func TestCheckPath(t *testing.T) {
+	cases := []struct {
+		tool     string
+		path     string
+		decision string
+	}{
+		{"Read", ".env", "deny"},
+		{"Edit", "~/.aws/credentials", "deny"},
+		{"Write", "server.key", "deny"},
+		{"Grep", "secrets.yaml", "deny"},
+		{"Read", "~/.npmrc", "ask"},
+		{"Read", ".env.example", "allow"},
+		{"Write", "main.go", "allow"},
+	}
+
+	for _, tc := range cases {
+		if got := checkPath(tc.tool, tc.path).Decision.String(); got != tc.decision {
+			t.Errorf("checkPath(%s, %q) = %s, want %s", tc.tool, tc.path, got, tc.decision)
+		}
+	}
+}
