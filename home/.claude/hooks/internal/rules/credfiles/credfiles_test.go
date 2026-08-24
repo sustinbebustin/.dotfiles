@@ -22,6 +22,18 @@ func TestClassify(t *testing.T) {
 		{".env.template", tierNone},
 		{".env.dist", tierNone},
 		{".env.example.local", tierNone},
+		{"PROD.ENV", tierSecret},
+		{".Env.local", tierSecret},
+		{".ENVRC", tierSecret},
+
+		// patterns whose literal part can only mean a credential file
+		{"credential*", tierSecret},
+		{".netr?", tierSecret},
+		{"cred*", tierSecret},
+		{"src/*", tierNone},
+		{"*", tierNone},
+		{"*.go", tierNone},
+		{"c*", tierNone}, // too short to mean anything
 
 		// cloud and CLI credential stores
 		{"/home/me/.aws/credentials", tierSecret},
@@ -45,6 +57,13 @@ func TestClassify(t *testing.T) {
 		{"~/.gnupg/", tierSecret},
 		{"~/.kube", tierSensitive},
 		{"~/.config/gcloud", tierSecret},
+
+		// inside a credential directory an example marker means nothing, but
+		// public key material and the ask-tier directories are unaffected
+		{"~/.ssh/id_rsa.template", tierSecret},
+		{"~/.aws/credentials.example", tierSecret},
+		{"~/.ssh/id_ed25519.pub", tierNone},
+		{"~/.kube/config.example", tierNone},
 
 		// key material by extension
 		{"certs/server.key", tierSecret},

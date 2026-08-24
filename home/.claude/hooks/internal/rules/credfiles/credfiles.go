@@ -15,7 +15,8 @@
 //
 // Example variants (.env.example, .sample, .template) and public key material
 // (*.pub, known_hosts, authorized_keys, certificates) stay allowed so the
-// documented shape of a config remains readable.
+// documented shape of a config remains readable. The example markers do not
+// carry inside a credential directory; see classify.
 package credfiles
 
 import (
@@ -91,10 +92,21 @@ func classify(p string) tier {
 	case "", ".", "..", "/":
 		return tierNone
 	}
-	if isSafeVariant(base) || isPublicMaterial(base) {
+	// Public key material is exempt wherever it sits; that is what keeps
+	// ~/.ssh/id_rsa.pub readable despite the directory around it.
+	if isPublicMaterial(base) {
 		return tierNone
 	}
-	if looksLikeEnv(base) || isSecretName(base) || hasSecretExt(base) || touchesAnyDir(cleaned, secretDirs) {
+	// A credential directory outranks the example markers. Nothing inside
+	// ~/.ssh or ~/.aws is a template, so honouring the marker there would make
+	// `cp id_rsa id_rsa.template` a one-command way out of the rule.
+	if touchesAnyDir(cleaned, secretDirs) {
+		return tierSecret
+	}
+	if isSafeVariant(base) {
+		return tierNone
+	}
+	if looksLikeEnv(base) || isSecretName(base) || hasSecretExt(base) || globNamesSecret(base) {
 		return tierSecret
 	}
 	if isSensitiveName(base) || touchesAnyDir(cleaned, sensitiveDirs) {
@@ -104,20 +116,53 @@ func classify(p string) tier {
 }
 
 // looksLikeEnv reports whether base names an env file: `.env`, `.envrc`,
-// `.env.local`, `.env-staging`, `prod.env`, `app.env.local`.
+// `.env.local`, `.env-staging`, `prod.env`, `app.env.local`. The comparison is
+// case-insensitive; `PROD.ENV` holds the same secrets on the case-preserving
+// filesystems this runs on.
 //
 // The leading-dot `.env*` prefix deliberately covers direnv's `.envrc` and any
 // other `.env`-prefixed dotfile: those carry secrets just like `.env` does, so
 // matching the exact name `.env` alone would leave a hole.
 func looksLikeEnv(base string) bool {
-	if strings.HasPrefix(base, ".env") {
+	lower := strings.ToLower(base)
+	if strings.HasPrefix(lower, ".env") {
 		return true
 	}
-	if strings.HasSuffix(base, ".env") {
+	if strings.HasSuffix(lower, ".env") {
 		return true
 	}
-	if strings.Contains(base, ".env.") || strings.Contains(base, ".env-") {
+	if strings.Contains(lower, ".env.") || strings.Contains(lower, ".env-") {
 		return true
+	}
+	return false
+}
+
+// minGlobPrefix is the shortest literal prefix a pattern must have before it is
+// read as aiming at a credential name. Below it a pattern is too broad to say
+// anything: `c*` matches most of a source tree, not just `credentials`.
+const minGlobPrefix = 3
+
+// globNamesSecret reports whether base is a filename pattern whose literal part
+// can only be reaching for a credential file. `cat credential*` reads
+// ~/.aws/credentials as surely as naming it, but the truncated token matches
+// none of the name checks, which compare whole basenames.
+//
+// Only secretNames are measured against. The other secret checks already handle
+// their own patterns: a `.env*` or `id_*` pattern still carries the prefix they
+// match on, and an extension pattern like `*.pem` still ends in the extension.
+func globNamesSecret(base string) bool {
+	i := strings.IndexAny(base, "*?[")
+	if i < 0 {
+		return false
+	}
+	prefix := strings.ToLower(base[:i])
+	if len(prefix) < minGlobPrefix {
+		return false
+	}
+	for name := range secretNames {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
 	}
 	return false
 }
