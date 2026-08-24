@@ -52,6 +52,20 @@ func TestDecide(t *testing.T) {
 		{"api --paginate is not a field", `gh api /x --paginate`, "allow"},
 		{"api -H header is not a field", `gh api /x -H 'Accept: application/json'`, "allow"},
 
+		// Shorthands bundle, and only the last letter takes a value.
+		{"api -if bundle", `gh api /x -if title=bug`, "deny"},
+		{"api -iX bundle", `gh api /x -iX DELETE`, "deny"},
+		{"api -iXDELETE bundle attached", `gh api /x -iXDELETE`, "deny"},
+		{"api -X=POST drops the equals", `gh api /x -X=POST`, "deny"},
+		{"api -f=k=v drops the equals", `gh api /x -f=title=bug`, "deny"},
+		{"api -iX GET bundle is a read", `gh api /x -iX GET -f q=x`, "allow"},
+
+		// A value is not the flag it looks like.
+		{"api -q consumes the next token", `gh api /x -q -f`, "allow"},
+		{"api --jq consumes the next token", `gh api /x --jq -f`, "allow"},
+		{"api -H consumes the next token", `gh api /x -H -f`, "allow"},
+		{"api -- ends the flags", `gh api /x -- -f a=b`, "allow"},
+
 		// The real call the gh-fix-ci skill makes.
 		{"skill job-log fetch stays allowed", `gh api "/repos/o/r/actions/jobs/123/logs"`, "allow"},
 

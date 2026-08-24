@@ -704,6 +704,29 @@
     "reason": "git push detected - allow?"
   },
   {
+    "name": "gh-api-bundled-include-field",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api /repos/o/r/issues -if title=bug\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api sends POST when a request parameter is supplied - not allowed. Add `--method GET` if this is meant to be a read."
+  },
+  {
+    "name": "gh-api-bundled-method-delete",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api /repos/o/r -iX DELETE\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api DELETE not allowed"
+  },
+  {
+    "name": "gh-api-method-equals-attached",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api /repos/o/r -X=POST\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api POST not allowed"
+  },
+  {
+    "name": "gh-api-jq-consumes-the-next-flag",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api /repos/o/r -q -f\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
     "name": "gh-close-in-cmdsubst",
     "stdin": "{\"tool_input\":{\"command\":\"echo $(gh pr close 4)\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",

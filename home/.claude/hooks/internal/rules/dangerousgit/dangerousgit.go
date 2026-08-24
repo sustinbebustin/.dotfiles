@@ -156,57 +156,114 @@ func checkGh(args []string) (hook.Verdict, bool) {
 //
 // args are the tokens following `api`.
 func checkGhAPI(args []string) (hook.Verdict, bool) {
-	method := ""
-	payload := ""
-
-	for i, a := range args {
-		switch {
-		case a == "-X" || a == "--method":
-			if i+1 < len(args) {
-				method = strings.ToUpper(args[i+1])
-			}
-		case strings.HasPrefix(a, "-X") && len(a) > 2:
-			method = strings.ToUpper(a[2:])
-		default:
-			if val, ok := strings.CutPrefix(a, "--method="); ok {
-				method = strings.ToUpper(val)
-			} else if kind := payloadFlag(a); kind != "" {
-				payload = kind
-			}
-		}
-	}
+	var call ghAPICall
+	call.scan(args)
 
 	switch {
-	case isMutatingMethod(method):
-		return hook.Denied(fmt.Sprintf("[BLOCKED] gh api %s not allowed", method)), true
-	case method == "" && payload != "":
+	case isMutatingMethod(call.method):
+		return hook.Denied(fmt.Sprintf("[BLOCKED] gh api %s not allowed", call.method)), true
+	case call.method == "" && call.payload != "":
 		return hook.Denied(fmt.Sprintf(
 			"[BLOCKED] gh api sends POST when %s is supplied - not allowed. "+
-				"Add `--method GET` if this is meant to be a read.", payload,
+				"Add `--method GET` if this is meant to be a read.", call.payload,
 		)), true
 	}
 	return hook.Verdict{}, false
 }
 
-// payloadFlag names the kind of payload a carries, or "" when a is not a
-// payload flag. Both the separated (`-f k=v`, `--input file`) and attached
-// (`-fk=v`, `--field=k=v`, `--input=file`) spellings are recognised.
-func payloadFlag(a string) string {
-	switch a {
-	case "-f", "-F", "--raw-field", "--field":
-		return "a request parameter"
-	case "--input":
-		return "a request body"
+// ghAPICall is what the flag scan needs to remember about one `gh api` call:
+// the method it asks for, and the kind of payload it carries.
+type ghAPICall struct {
+	method  string
+	payload string
+}
+
+const (
+	payloadParam = "a request parameter"
+	payloadBody  = "a request body"
+)
+
+// ghAPIValueLongFlags are the `gh api` long flags that take a value. They are
+// listed so a value is never mistaken for the flag that follows it: in
+// `gh api /x --jq -f` the `-f` is jq's expression, not a request parameter.
+var ghAPIValueLongFlags = map[string]bool{
+	"method": true, "field": true, "raw-field": true, "input": true,
+	"header": true, "jq": true, "template": true, "hostname": true,
+	"cache": true, "preview": true,
+}
+
+// ghAPIValueShorthands are the shorthand spellings of those flags. gh parses
+// its flags with pflag, so shorthands bundle: `-if title=bug` is `--include`
+// followed by `--raw-field title=bug`, and only the last letter of a bundle can
+// take a value.
+const ghAPIValueShorthands = "XFfHqt"
+
+// scan reads the method and payload flags out of the tokens following
+// `gh api`, following pflag's rules: a shorthand's value is the rest of its
+// token or the next one, an `=` directly after a shorthand is dropped
+// (`-X=POST` is `-X POST`), and `--` ends the flags.
+func (g *ghAPICall) scan(args []string) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--":
+			return
+		case strings.HasPrefix(a, "--"):
+			name, val, attached := strings.Cut(a[2:], "=")
+			if !attached && ghAPIValueLongFlags[name] && i+1 < len(args) {
+				i++
+				val = args[i]
+			}
+			switch name {
+			case "method":
+				g.setMethod(val)
+			case "field", "raw-field":
+				g.payload = payloadParam
+			case "input":
+				g.payload = payloadBody
+			}
+		case len(a) > 1 && strings.HasPrefix(a, "-"):
+			i += g.scanShorthands(a[1:], args[i+1:])
+		}
 	}
-	switch {
-	case strings.HasPrefix(a, "--raw-field=") || strings.HasPrefix(a, "--field="):
-		return "a request parameter"
-	case strings.HasPrefix(a, "--input="):
-		return "a request body"
-	case len(a) > 2 && (strings.HasPrefix(a, "-f") || strings.HasPrefix(a, "-F")):
-		return "a request parameter"
+}
+
+// scanShorthands reads one bundle of shorthand flags, returning how many of the
+// following tokens it consumed as a flag value.
+func (g *ghAPICall) scanShorthands(bundle string, next []string) (consumed int) {
+	for bundle != "" {
+		flag := bundle[0]
+		bundle = bundle[1:]
+		if !strings.ContainsRune(ghAPIValueShorthands, rune(flag)) {
+			// A boolean shorthand; the rest of the bundle is more flags.
+			continue
+		}
+
+		val := strings.TrimPrefix(bundle, "=")
+		bundle = ""
+		if val == "" && len(next) > 0 {
+			val, consumed = next[0], 1
+		}
+
+		switch flag {
+		case 'X':
+			g.setMethod(val)
+		case 'f', 'F':
+			g.payload = payloadParam
+		}
+		// The remaining value-taking shorthands (-H, -q, -t) say nothing about
+		// whether the call writes; their value is consumed above so it is not
+		// read as a flag of its own.
 	}
-	return ""
+	return consumed
+}
+
+// setMethod records an explicit method. An empty value is a method flag gh
+// rejects outright, and must not erase a method given earlier in the command.
+func (g *ghAPICall) setMethod(val string) {
+	if val != "" {
+		g.method = strings.ToUpper(val)
+	}
 }
 
 func isMutatingMethod(m string) bool {
