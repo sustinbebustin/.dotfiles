@@ -1,0 +1,76 @@
+# golangci-lint configuration for the Claude Code guard hooks.
+#
+# These rules decide whether a tool call runs at all, so the linter set leans on
+# correctness -- unchecked errors, mishandled wrapping, dead branches -- over
+# style. `make lint` runs it; `make fmt` applies the formatters below.
+version: "2"
+
+run:
+  # Test files are part of the guard: the decision corpus and the per-rule
+  # tables are what keep the rules honest, so they are linted too.
+  tests: true
+
+linters:
+  # errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - errorlint # error comparisons that break on wrapped errors
+    - gocritic
+    - gosec
+    - misspell
+    - nilerr # returning nil after a non-nil error
+    - revive
+    - thelper # t.Helper() on test helpers, so failures point at the caller
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+    govet:
+      enable-all: true
+      disable:
+        # Field order here is chosen for readability; these structs are a
+        # handful of values decoded once per process, so padding is irrelevant.
+        - fieldalignment
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+
+  exclusions:
+    generated: lax
+    rules:
+      # The golden corpus is source-controlled test data, not a secret, so it is
+      # written 0o644 like every other file in the repo.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G306
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+  settings:
+    gofumpt:
+      extra-rules: true
+      # Without this, gofumpt reads `claude-hooks/...` as standard library --
+      # its heuristic is a dot in the first path element, and this module is
+      # local-only so it has no domain -- and folds those imports into the
+      # stdlib group, against what gci wants.
+      module-path: claude-hooks
+    # gci rather than goimports: goimports and gofumpt disagree about import
+    # grouping and rewrite each other's output, which makes the formatting check
+    # report a different set of files on every invocation. gci states the
+    # grouping explicitly and composes with gofumpt.
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(claude-hooks)
+      custom-order: true

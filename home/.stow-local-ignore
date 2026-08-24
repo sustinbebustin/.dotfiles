@@ -19,6 +19,7 @@
 ^/\.claude/hooks/Makefile$
 ^/\.claude/hooks/go\.mod$
 ^/\.claude/hooks/go\.sum$
+^/\.claude/hooks/\.golangci\.yml$
 
 # The skills tree. Published by dot's stow_skills() instead -- categories
 # flattened, each skill linked as a folder.

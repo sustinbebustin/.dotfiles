@@ -7,6 +7,7 @@ brew "gawk"
 brew "gcc"
 brew "git"
 brew "go" # builds the guard hooks in home/.claude/hooks
+brew "golangci-lint" # lints and formats them (`make check`)
 brew "just"
 brew "protobuf"
 brew "shellcheck"

@@ -1,2 +1,5 @@
 # Built hook binaries (per-machine, per-platform)
 *-bin
+
+# `make cover` output
+coverage.out

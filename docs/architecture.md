@@ -117,6 +117,9 @@ change to what the guards allow.
 `hooks/Makefile` builds it. The binary is gitignored and built per-machine; only
 the built binary is stowed into `~/.claude/hooks/`, never the source tree.
 `make list` prints the registered rules and the `matcher` settings.json needs.
+`make check` is the gate before committing -- formatting, linters, tests -- and
+needs `golangci-lint` (in the Brewfile); `.golangci.yml` configures both it and
+the `gofumpt`/`gci` formatters `make fmt` applies.
 
 | Rule | Applies to | Purpose |
 |------|-----------|---------|
