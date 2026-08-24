@@ -88,6 +88,13 @@ func TestDecide(t *testing.T) {
 		{"nested in subshell", `(cd /r && gh api /x -f a=b)`, "deny"},
 		{"behind &&", `true && gh api /x -f a=b`, "deny"},
 		{"after semicolon", `echo hi; gh api /x -f a=b`, "deny"},
+		{"in a pipeline", `gh api /x -f a=b | jq .`, "deny"},
+		{"in a command substitution", `echo $(gh pr close 4)`, "deny"},
+		{"in an if body", `if true; then git push; fi`, "ask"},
+		{"in a for body", `for r in a b; do git push $r; done`, "ask"},
+		{"in a while body", `while read -r l; do git push; done`, "ask"},
+		{"in a function body", `deploy() { git push; }; deploy`, "ask"},
+		{"in a case branch", `case $x in a) git push;; esac`, "ask"},
 	}
 
 	for _, tc := range cases {

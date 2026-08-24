@@ -684,5 +684,29 @@
     "name": "benign-env-node",
     "stdin": "{\"tool_input\":{\"command\":\"env NODE_ENV=test node app.js\"},\"tool_name\":\"Bash\"}",
     "decision": "allow"
+  },
+  {
+    "name": "git-push-in-if",
+    "stdin": "{\"tool_input\":{\"command\":\"if true; then git push; fi\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-push-in-for",
+    "stdin": "{\"tool_input\":{\"command\":\"for r in origin upstream; do git push $r; done\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-push-in-function",
+    "stdin": "{\"tool_input\":{\"command\":\"deploy() { git push; }; deploy\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "gh-close-in-cmdsubst",
+    "stdin": "{\"tool_input\":{\"command\":\"echo $(gh pr close 4)\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh pr close - PR closing not allowed"
   }
 ]

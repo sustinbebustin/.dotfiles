@@ -7,8 +7,8 @@
 // explicit method flag and the payload flags that make gh choose POST on its
 // own. See checkGhAPI.
 //
-// Compound commands are walked recursively, but only through subshells, brace
-// blocks, and && / || chains. See Check for what that leaves out.
+// The whole shell tree is walked, so a guarded call nested anywhere in a
+// compound command is still caught.
 package dangerousgit
 
 import (
@@ -25,54 +25,19 @@ import (
 // Name identifies this rule to the dispatcher.
 const Name = "block-dangerous-git"
 
-// Check returns the first guarded call's verdict.
-//
-// This walks the statement list rather than the whole AST, which is narrower
-// than what the other shell rules do: evaluate reaches only top-level calls,
-// && / || chains, subshells, and brace blocks. A guarded call inside a command
-// substitution, an if/for/while/case body, or a function body is not caught.
-//
-// That is deliberate. Widening it -- adding the missing node types, or
-// switching to shellast.FirstCall, which also pulls in command substitution --
-// would make the guard fire on commands it currently lets through. Treat it as
-// an intentional behaviour change and regenerate the decision corpus rather
-// than as a tidy-up.
+// Check returns the first guarded call's verdict. The whole tree is walked, so
+// a guarded call nested in a pipeline, subshell, brace block, command
+// substitution, && / || chain, or the body of an if/for/while/case or function
+// is still found.
 func Check(req hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		return hook.Allowed()
 	}
-	for _, stmt := range file.Stmts {
-		if v, hit := evaluate(stmt.Cmd); hit {
-			return v
-		}
+	if v, hit := shellast.FirstCall(file, checkCall); hit {
+		return v
 	}
 	return hook.Allowed()
-}
-
-func evaluate(cmd syntax.Command) (hook.Verdict, bool) {
-	switch c := cmd.(type) {
-	case *syntax.CallExpr:
-		return checkCall(c)
-	case *syntax.BinaryCmd:
-		if v, hit := evaluate(c.X.Cmd); hit {
-			return v, true
-		}
-		return evaluate(c.Y.Cmd)
-	case *syntax.Subshell:
-		for _, s := range c.Stmts {
-			if v, hit := evaluate(s.Cmd); hit {
-				return v, true
-			}
-		}
-	case *syntax.Block:
-		for _, s := range c.Stmts {
-			if v, hit := evaluate(s.Cmd); hit {
-				return v, true
-			}
-		}
-	}
-	return hook.Verdict{}, false
 }
 
 func checkCall(c *syntax.CallExpr) (hook.Verdict, bool) {
