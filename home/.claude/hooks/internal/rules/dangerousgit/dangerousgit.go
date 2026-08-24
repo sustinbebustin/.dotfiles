@@ -219,7 +219,8 @@ func checkGhAPI(args []string) (hook.Verdict, bool) {
 	case method == "" && payload != "":
 		return hook.Denied(fmt.Sprintf(
 			"[BLOCKED] gh api sends POST when %s is supplied - not allowed. "+
-				"Add `--method GET` if this is meant to be a read.", payload)), true
+				"Add `--method GET` if this is meant to be a read.", payload,
+		)), true
 	}
 	return hook.Verdict{}, false
 }

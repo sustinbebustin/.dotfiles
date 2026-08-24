@@ -98,7 +98,8 @@ func checkSafely(r Rule, req hook.Request) (v hook.Verdict) {
 			v = hook.Denied(fmt.Sprintf(
 				"The %s guard failed while checking this command (%v), so the command is blocked rather "+
 					"than allowed unchecked. The other guards ran normally. Re-run to retry; if it repeats, "+
-					"the guard has a bug on this input.", r.Name, p))
+					"the guard has a bug on this input.", r.Name, p,
+			))
 		}
 	}()
 	return r.Check(req)

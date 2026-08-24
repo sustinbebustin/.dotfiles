@@ -58,7 +58,8 @@ formatters:
     - gci
   settings:
     gofumpt:
-      extra-rules: true
+      extra:
+        group-params: true
       # Without this, gofumpt reads `claude-hooks/...` as standard library --
       # its heuristic is a dot in the first path element, and this module is
       # local-only so it has no domain -- and folds those imports into the
