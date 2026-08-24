@@ -76,19 +76,17 @@ func evaluate(cmd syntax.Command) (hook.Verdict, bool) {
 }
 
 func checkCall(c *syntax.CallExpr) (hook.Verdict, bool) {
-	if len(c.Args) == 0 {
-		return hook.Verdict{}, false
-	}
-	args := make([]string, len(c.Args))
-	for i, a := range c.Args {
+	name, operands := shellast.Invocation(c.Args, shellast.WordLit)
+	args := make([]string, len(operands))
+	for i, a := range operands {
 		args[i] = shellast.WordLit(a)
 	}
 
-	switch args[0] {
+	switch shellast.CommandName(name) {
 	case "git":
-		return checkGit(args[1:])
+		return checkGit(args)
 	case "gh":
-		return checkGh(args[1:])
+		return checkGh(args)
 	}
 	return hook.Verdict{}, false
 }

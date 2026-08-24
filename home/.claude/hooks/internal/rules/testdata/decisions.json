@@ -598,5 +598,91 @@
     "name": "malformed-wrong-typed-tool-name",
     "stdin": "{\"tool_name\":[\"Bash\"],\"tool_input\":{\"command\":\"git push\"}}",
     "decision": "allow"
+  },
+  {
+    "name": "git-push-abs-path",
+    "stdin": "{\"tool_input\":{\"command\":\"/usr/bin/git push\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-push-sudo",
+    "stdin": "{\"tool_input\":{\"command\":\"sudo git push\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-push-escaped",
+    "stdin": "{\"tool_input\":{\"command\":\"\\\\git push\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-log-abs-path",
+    "stdin": "{\"tool_input\":{\"command\":\"/usr/bin/git log --oneline\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-abs-path",
+    "stdin": "{\"tool_input\":{\"command\":\"/bin/rm -rf /etc/nginx\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-escaped",
+    "stdin": "{\"tool_input\":{\"command\":\"\\\\rm -rf /etc/nginx\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-sudo",
+    "stdin": "{\"tool_input\":{\"command\":\"sudo rm -rf /etc/nginx\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-sudo-scratch-stays-quiet",
+    "stdin": "{\"tool_input\":{\"command\":\"sudo rm -rf /tmp/probe\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "aws-sudo",
+    "stdin": "{\"tool_input\":{\"command\":\"sudo -u deploy aws s3 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI command detected. Allow?"
+  },
+  {
+    "name": "cd-quoted",
+    "stdin": "{\"tool_input\":{\"command\":\"\\\"cd\\\" /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `\"cd\" /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "cd-escaped",
+    "stdin": "{\"tool_input\":{\"command\":\"\\\\cd /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `\\cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "cd-partly-quoted",
+    "stdin": "{\"tool_input\":{\"command\":\"c'd' /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `c'd' /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "cd-via-builtin",
+    "stdin": "{\"tool_input\":{\"command\":\"builtin cd /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `builtin cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "benign-sudo-ls",
+    "stdin": "{\"tool_input\":{\"command\":\"sudo ls -la /etc\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "benign-env-node",
+    "stdin": "{\"tool_input\":{\"command\":\"env NODE_ENV=test node app.js\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
   }
 ]

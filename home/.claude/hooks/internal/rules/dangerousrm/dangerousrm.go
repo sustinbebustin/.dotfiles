@@ -117,16 +117,12 @@ func (s *scope) recordAssign(a *syntax.Assign) {
 }
 
 func (s *scope) recordCreatingCall(c *syntax.CallExpr) {
-	if len(c.Args) == 0 {
-		return
-	}
-	name, ok := s.resolveWord(c.Args[0], c.Pos().Offset())
-	if !ok {
-		return
-	}
+	name, operands := shellast.Invocation(c.Args, func(w *syntax.Word) string {
+		tok, _ := s.resolveWord(w, c.Pos().Offset())
+		return tok
+	})
 
-	operands := c.Args[1:]
-	switch name {
+	switch shellast.CommandName(name) {
 	case "mkdir", "touch", "tee":
 		for _, a := range operands {
 			s.recordOperand(a, true)
@@ -172,17 +168,23 @@ func (s *scope) recordRedirect(r *syntax.Redirect) {
 // checkRm returns an "ask" verdict when c is a recursive `rm` with at least one
 // target that is neither scratch nor a regenerable artifact directory.
 func (s *scope) checkRm(c *syntax.CallExpr) (hook.Verdict, bool) {
-	if len(c.Args) == 0 {
-		return hook.Verdict{}, false
+	// Words render through the resolver rather than shellast.WordLit, so a `rm`
+	// reached through a variable is still recognised. A word the resolver
+	// cannot pin down renders empty, which stops the search -- the same as
+	// before wrappers were looked through.
+	render := func(w *syntax.Word) string {
+		tok, _ := s.resolveWord(w, c.Pos().Offset())
+		return tok
 	}
-	if name, ok := s.resolveWord(c.Args[0], c.Pos().Offset()); !ok || name != "rm" {
+	name, operands := shellast.Invocation(c.Args, render)
+	if shellast.CommandName(name) != "rm" {
 		return hook.Verdict{}, false
 	}
 
 	recursive := false
 	var paths []string
 	optsEnded := false
-	for _, a := range c.Args[1:] {
+	for _, a := range operands {
 		// Flags are always literal; an unresolved word is a target, and
 		// resolveWord's failure is carried through as an empty-but-present
 		// path so it cannot pass the /tmp check.
@@ -383,7 +385,7 @@ func (s *scope) resolveParts(parts []syntax.WordPart, pos uint, sb *strings.Buil
 	for _, p := range parts {
 		switch x := p.(type) {
 		case *syntax.Lit:
-			sb.WriteString(x.Value)
+			sb.WriteString(shellast.LitText(x))
 		case *syntax.SglQuoted:
 			sb.WriteString(x.Value)
 		case *syntax.DblQuoted:

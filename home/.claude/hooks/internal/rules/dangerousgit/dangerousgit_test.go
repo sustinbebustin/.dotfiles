@@ -75,6 +75,15 @@ func TestDecide(t *testing.T) {
 		{"git branch -D", `git branch -D feat`, "ask"},
 		{"git status", `git status`, "allow"},
 
+		// Spellings of the command name that are still git.
+		{"absolute path", `/usr/bin/git push`, "ask"},
+		{"behind sudo", `sudo git push`, "ask"},
+		{"behind sudo with flags", `sudo -u deploy git push`, "ask"},
+		{"behind env", `env GIT_DIR=.git git push`, "ask"},
+		{"backslash quoted", `\git push`, "ask"},
+		{"gh behind sudo", `sudo gh pr close 4`, "deny"},
+		{"sudo of something else", `sudo ls -la`, "allow"},
+
 		// Nesting still walked.
 		{"nested in subshell", `(cd /r && gh api /x -f a=b)`, "deny"},
 		{"behind &&", `true && gh api /x -f a=b`, "deny"},

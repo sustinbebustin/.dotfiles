@@ -71,6 +71,11 @@ func TestWordLit(t *testing.T) {
 		{`$CMD`, ""},
 		{`"$HOME/.netrc"`, "/.netrc"},
 		{`$(echo ls)`, ""},
+		// Backslashes quote the character after them, so the shell runs `ls`
+		// here. The parser keeps the source text, so WordLit has to undo it.
+		{`\ls`, "ls"},
+		{`l\s`, "ls"},
+		{`\\ls`, `\ls`},
 	}
 
 	for _, tc := range cases {
@@ -97,6 +102,82 @@ func TestCommandName(t *testing.T) {
 	for in, want := range cases {
 		if got := CommandName(in); got != want {
 			t.Errorf("CommandName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// invocation runs Invocation over the first call in cmd, rendering the result
+// so a table can state it as plain text.
+func invocation(t *testing.T, cmd string) (name string, rest []string) {
+	t.Helper()
+	file, ok := Parse(cmd).File()
+	if !ok {
+		t.Fatalf("Parse(%q) did not produce an AST", cmd)
+	}
+	call, hit := FirstCall(file, func(c *syntax.CallExpr) (*syntax.CallExpr, bool) { return c, true })
+	if !hit {
+		t.Fatalf("no call found in %q", cmd)
+	}
+	name, words := Invocation(call.Args, WordLit)
+	rest = make([]string, len(words))
+	for i, w := range words {
+		rest[i] = WordLit(w)
+	}
+	return name, rest
+}
+
+func TestInvocation(t *testing.T) {
+	cases := []struct {
+		cmd  string
+		name string
+		rest []string
+	}{
+		{`git push`, "git", []string{"push"}},
+		{`/usr/bin/git push`, "/usr/bin/git", []string{"push"}},
+		{`\git push`, "git", []string{"push"}},
+		{`"git" push`, "git", []string{"push"}},
+		{`sudo git push`, "git", []string{"push"}},
+		{`sudo -u deploy git push`, "git", []string{"push"}},
+		{`sudo -n -u deploy -- git push`, "git", []string{"push"}},
+		{`env FOO=1 BAR=2 git push`, "git", []string{"push"}},
+		{`env -u FOO git push`, "git", []string{"push"}},
+		{`sudo env FOO=1 command git push`, "git", []string{"push"}},
+		{`nohup git push`, "git", []string{"push"}},
+		// No command word to find.
+		{`sudo`, "", nil},
+		{`sudo -u deploy`, "", nil},
+		{`$CMD push`, "", nil},
+		{`sudo $CMD push`, "", nil},
+		// Not a wrapper: the operand is a duration, not a command.
+		{`timeout 5 git push`, "timeout", []string{"5", "git", "push"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.cmd, func(t *testing.T) {
+			name, rest := invocation(t, tc.cmd)
+			if name != tc.name {
+				t.Errorf("name = %q, want %q", name, tc.name)
+			}
+			if len(rest) != len(tc.rest) {
+				t.Fatalf("rest = %q, want %q", rest, tc.rest)
+			}
+			for i := range rest {
+				if rest[i] != tc.rest[i] {
+					t.Errorf("rest = %q, want %q", rest, tc.rest)
+					break
+				}
+			}
+		})
+	}
+}
+
+// TestInvocationRefusesWordsItCannotRead pins the fail-open edge: a wrapper
+// argument that renders empty stops the search rather than being read as the
+// command word, so `sudo $CMD` does not report "".
+func TestInvocationRefusesWordsItCannotRead(t *testing.T) {
+	for _, cmd := range []string{`$(which git) push`, `"" push`} {
+		if name, _ := invocation(t, cmd); name != "" {
+			t.Errorf("Invocation(%q) name = %q, want empty", cmd, name)
 		}
 	}
 }

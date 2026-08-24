@@ -29,8 +29,36 @@ func TestEvaluate(t *testing.T) {
 			reason:   reasonGeneric,
 		},
 		{
+			name:     "absolute path still resolves to rm",
+			cmd:      `/bin/rm -rf /Users/me/project/src`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "sudo does not hide the rm",
+			cmd:      `sudo rm -rf /Users/me/project/src`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "backslash quoting does not hide the rm",
+			cmd:      `\rm -rf /Users/me/project/src`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
 			name:     "literal tmp path is exempt",
 			cmd:      `rm -rf /tmp/probe`,
+			decision: "allow",
+		},
+		{
+			name:     "sudo keeps the tmp exemption",
+			cmd:      `sudo rm -rf /tmp/probe`,
+			decision: "allow",
+		},
+		{
+			name:     "an escaped target still reads as its path",
+			cmd:      `rm -rf /tmp/my\ probe`,
 			decision: "allow",
 		},
 		{

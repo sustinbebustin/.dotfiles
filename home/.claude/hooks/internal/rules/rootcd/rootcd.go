@@ -15,6 +15,7 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 
 	"claude-hooks/internal/hook"
+	"claude-hooks/internal/shellast"
 )
 
 // Name identifies this rule to the dispatcher.
@@ -71,12 +72,17 @@ func findCdViolations(file *syntax.File, src string) []string {
 	return violations
 }
 
+// isCdCall reports whether c runs the `cd` builtin, however it is spelled:
+// quoted or escaped (`"cd"`, `\cd`, `c'd'`) and behind a wrapper that still
+// changes the caller's directory (`command cd`, `builtin cd`).
+//
+// The name is matched whole rather than through shellast.CommandName. `cd` is a
+// shell builtin, so a path-prefixed `/usr/bin/cd` is a different program that
+// cannot move the shell -- stripping the path would deny a command that has
+// none of the effect this rule exists to catch.
 func isCdCall(c *syntax.CallExpr) bool {
-	if len(c.Args) == 0 || len(c.Args[0].Parts) != 1 {
-		return false
-	}
-	lit, ok := c.Args[0].Parts[0].(*syntax.Lit)
-	return ok && lit.Value == "cd"
+	name, _ := shellast.Invocation(c.Args, shellast.WordLit)
+	return name == "cd"
 }
 
 func formatReason(violations []string) string {

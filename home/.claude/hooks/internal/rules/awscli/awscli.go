@@ -28,12 +28,11 @@ func Check(req hook.Request) hook.Verdict {
 
 // checkAWS returns an "ask" verdict when c invokes the `aws` CLI. Environment
 // assignments preceding the command (e.g. `AWS_PROFILE=x aws ...`) are skipped
-// so the aws binary is still recognized as the command word.
+// so the aws binary is still recognized as the command word, as are wrappers
+// such as sudo and env (see shellast.Invocation).
 func checkAWS(c *syntax.CallExpr) (hook.Verdict, bool) {
-	if len(c.Args) == 0 {
-		return hook.Verdict{}, false
-	}
-	if cmd := shellast.CommandName(shellast.WordLit(c.Args[0])); cmd == "aws" {
+	name, _ := shellast.Invocation(c.Args, shellast.WordLit)
+	if shellast.CommandName(name) == "aws" {
 		return hook.Asked("AWS CLI command detected. Allow?"), true
 	}
 	return hook.Verdict{}, false

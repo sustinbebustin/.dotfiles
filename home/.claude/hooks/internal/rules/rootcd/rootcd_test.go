@@ -25,6 +25,14 @@ func TestCheck(t *testing.T) {
 			decision: "deny",
 			quoted:   []string{"`cd /a`", "`cd /b`"},
 		},
+		{name: "quoted cd is denied", cmd: `"cd" /tmp && ls`, decision: "deny", quoted: []string{"`\"cd\" /tmp`"}},
+		{name: "escaped cd is denied", cmd: `\cd /tmp && ls`, decision: "deny", quoted: []string{"`\\cd /tmp`"}},
+		{name: "partly quoted cd is denied", cmd: `c'd' /tmp`, decision: "deny", quoted: []string{"`c'd' /tmp`"}},
+		{name: "cd behind builtin is denied", cmd: `builtin cd /tmp`, decision: "deny", quoted: []string{"`builtin cd /tmp`"}},
+		{name: "cd behind command is denied", cmd: `command cd /tmp`, decision: "deny", quoted: []string{"`command cd /tmp`"}},
+		// `cd` is a shell builtin: a program of that name on disk is a different
+		// thing and cannot move the calling shell.
+		{name: "a path-prefixed cd is a different program", cmd: `/usr/bin/cd /tmp`, decision: "allow"},
 		{name: "cd inside a subshell is allowed", cmd: `(cd /tmp && ls)`, decision: "allow"},
 		{name: "nested subshell cd is allowed", cmd: `((cd /tmp && ls))`, decision: "allow"},
 		{name: "no cd at all is allowed", cmd: `ls -la`, decision: "allow"},
