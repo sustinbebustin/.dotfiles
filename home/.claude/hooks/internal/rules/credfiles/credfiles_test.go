@@ -39,6 +39,13 @@ func TestClassify(t *testing.T) {
 		{"~/.ssh/known_hosts", tierNone},
 		{"~/.ssh/authorized_keys", tierNone},
 
+		// the credential directory named as the target, which reads all of it
+		{"~/.ssh", tierSecret},
+		{"/home/me/.aws", tierSecret},
+		{"~/.gnupg/", tierSecret},
+		{"~/.kube", tierSensitive},
+		{"~/.config/gcloud", tierSecret},
+
 		// key material by extension
 		{"certs/server.key", tierSecret},
 		{"certs/server.pem", tierSecret},
@@ -102,6 +109,9 @@ func TestCheckBash(t *testing.T) {
 		{name: "example variant is allowed", cmd: `cat .env.example`, decision: "allow"},
 		{name: "public key is allowed", cmd: `cat ~/.ssh/id_ed25519.pub`, decision: "allow"},
 		{name: "grep for the word token is allowed", cmd: `grep -r token src`, decision: "allow"},
+		{name: "recursive grep of the ssh dir is denied", cmd: `grep -r BEGIN ~/.ssh`, decision: "deny"},
+		{name: "archiving the aws dir is denied", cmd: `tar -czf /tmp/x.tgz ~/.aws`, decision: "deny"},
+		{name: "listing the kube dir asks", cmd: `ls ~/.kube`, decision: "ask"},
 		{name: "npmrc asks", cmd: `cat ~/.npmrc`, decision: "ask"},
 		{name: "deny wins over ask in one command", cmd: `cat ~/.npmrc ~/.aws/credentials`, decision: "deny"},
 		{name: "unparseable command naming a secret is denied", cmd: `cat .env "unterminated`, decision: "deny"},

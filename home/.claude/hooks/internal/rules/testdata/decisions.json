@@ -460,6 +460,30 @@
     "decision": "allow"
   },
   {
+    "name": "cred-ssh-dir-itself",
+    "stdin": "{\"tool_input\":{\"command\":\"grep -r BEGIN ~/.ssh\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \"~/.ssh\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-aws-dir-itself",
+    "stdin": "{\"tool_input\":{\"command\":\"tar -czf /tmp/x.tgz ~/.aws\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \"~/.aws\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-kube-dir-itself",
+    "stdin": "{\"tool_input\":{\"command\":\"ls ~/.kube\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "This command references \"~/.kube\", which commonly holds an auth token. Approve only if you know this copy carries no secret."
+  },
+  {
+    "name": "read-ssh-dir-itself",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/home/u/.ssh\"},\"tool_name\":\"Grep\"}",
+    "decision": "deny",
+    "reason": "Searching credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: /home/u/.ssh)"
+  },
+  {
     "name": "cred-npmrc",
     "stdin": "{\"tool_input\":{\"command\":\"cat .npmrc\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",

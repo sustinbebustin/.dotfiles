@@ -94,10 +94,10 @@ func classify(p string) tier {
 	if isSafeVariant(base) || isPublicMaterial(base) {
 		return tierNone
 	}
-	if looksLikeEnv(base) || isSecretName(base) || hasSecretExt(base) || underAnyDir(cleaned, secretDirs) {
+	if looksLikeEnv(base) || isSecretName(base) || hasSecretExt(base) || touchesAnyDir(cleaned, secretDirs) {
 		return tierSecret
 	}
-	if isSensitiveName(base) || underAnyDir(cleaned, sensitiveDirs) {
+	if isSensitiveName(base) || touchesAnyDir(cleaned, sensitiveDirs) {
 		return tierSensitive
 	}
 	return tierNone
@@ -237,10 +237,13 @@ var sensitiveDirs = map[string]bool{
 	".kube":   true,
 }
 
-// underAnyDir reports whether any directory component of cleaned is in dirs.
-func underAnyDir(cleaned string, dirs map[string]bool) bool {
-	dir := path.Dir(cleaned)
-	for part := range strings.SplitSeq(dir, "/") {
+// touchesAnyDir reports whether any component of cleaned names a directory in
+// dirs. The last component counts too: `grep -r BEGIN ~/.ssh` and
+// `tar -czf /tmp/x.tgz ~/.aws` name the directory itself and read every key in
+// it, so checking only the parent components would miss the broadest read of
+// all.
+func touchesAnyDir(cleaned string, dirs map[string]bool) bool {
+	for part := range strings.SplitSeq(cleaned, "/") {
 		if dirs[strings.ToLower(part)] {
 			return true
 		}
