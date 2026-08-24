@@ -1,6 +1,14 @@
-package main
+package dangerousrm
 
-import "testing"
+import (
+	"testing"
+
+	"claude-hooks/internal/hook"
+)
+
+func evaluate(cmd string) hook.Verdict {
+	return Check(hook.NewRequest("Bash", "", "", cmd))
+}
 
 func TestEvaluate(t *testing.T) {
 	cases := []struct {
@@ -37,7 +45,7 @@ func TestEvaluate(t *testing.T) {
 			reason:   reasonGeneric,
 		},
 
-		// Variable resolution: the behaviour this change adds.
+		// Variable resolution.
 		{
 			name:     "variable pointing into tmp is exempt",
 			cmd:      "R=/tmp/probe\nrm -rf \"$R\"",
@@ -252,5 +260,14 @@ func TestEvaluate(t *testing.T) {
 				t.Fatalf("reason = %q, want %q", got.Reason, tc.reason)
 			}
 		})
+	}
+}
+
+// TestNonBashIsIgnored pins that a payload from another tool is not a shell
+// command, even when it has a command field.
+func TestNonBashIsIgnored(t *testing.T) {
+	got := Check(hook.NewRequest("Read", "", "", "rm -rf /repo/src"))
+	if got.Decision != hook.Allow {
+		t.Fatalf("Read payload = %q, want allow", got.Decision)
 	}
 }

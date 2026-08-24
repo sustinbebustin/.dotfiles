@@ -11,15 +11,11 @@
 ^README.*
 ^LICENSE.*
 
-# Go source dirs for the hook binaries — only the built *-bin should be linked.
-^/\.claude/hooks/block-aws-cli$
-^/\.claude/hooks/block-dangerous-git$
-^/\.claude/hooks/block-dangerous-rm$
-^/\.claude/hooks/block-env-files$
-^/\.claude/hooks/enforce-root$
+# Go source dirs for the hook binary — only the built *-bin should be linked.
+^/\.claude/hooks/cmd$
 ^/\.claude/hooks/internal$
 
-# Build tooling for those binaries; not needed in ~/.claude/hooks.
+# Build tooling for that binary; not needed in ~/.claude/hooks.
 ^/\.claude/hooks/Makefile$
 ^/\.claude/hooks/go\.mod$
 ^/\.claude/hooks/go\.sum$

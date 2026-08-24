@@ -1,33 +1,38 @@
-// Command block-dangerous-rm is a PreToolUse hook that prompts
-// before a recursive `rm` runs. It mirrors block-dangerous-git: instead of a
-// hard `deny`, it returns `ask` so the user can approve destructive removals
-// case by case. Two kinds of target are exempt so routine cleanup stays
-// friction-free: absolute paths under /tmp (the scratchpad area), and relative
-// paths inside a toolchain artifact directory such as var/cache or node_modules
-// (see artifactDirs).
+// Package dangerousrm prompts before a recursive `rm` runs. It mirrors
+// dangerousgit: instead of a hard `deny`, it returns `ask` so the user can
+// approve destructive removals case by case. Two kinds of target are exempt so
+// routine cleanup stays friction-free: absolute paths under /tmp (the
+// scratchpad area), and relative paths inside a toolchain artifact directory
+// such as var/cache or node_modules (see artifactDirs).
 //
 // Targets are resolved through simple literal variable assignments made earlier
 // in the same command, so the common `R=/tmp/probe; rm -rf "$R"` shape is
 // recognised as scratch rather than prompting. Anything the resolver cannot
 // pin down to a literal fails closed and reads as a non-scratch path.
 //
+// The resolver is deliberately local to this package rather than shared with
+// the other shell rules: it is more capable than shellast.WordLit, and lending
+// it out would widen what those rules catch.
+//
 // When a removal is not scratch but the same command also created paths beneath
 // the targets, the prompt carries a scratchpad hint. That stays a hint and not
 // a denial on purpose: whether files may live in the scratchpad depends on the
 // tool being run (deptrac, phpstan, pytest and friends only scan paths named in
 // their own config), which is not knowable from the command text.
-package main
+package dangerousrm
 
 import (
 	"slices"
 	"strings"
 
-	"claude-hooks/internal/hookio"
-
 	"mvdan.cc/sh/v3/syntax"
+
+	"claude-hooks/internal/hook"
+	"claude-hooks/internal/shellast"
 )
 
-const hookName = "block-dangerous-rm"
+// Name identifies this rule to the dispatcher.
+const Name = "block-dangerous-rm"
 
 const (
 	reasonGeneric = "recursive rm detected - permanently deletes files/directories. Allow?"
@@ -37,44 +42,19 @@ const (
 		"instead - recursive rm there runs without a prompt. Allow?"
 )
 
-func main() {
-	in, err := hookio.Read()
-	if err != nil || in.ToolName != "Bash" || in.ToolInput.Command == "" {
-		hookio.Render(hookName, hookio.Allowed())
+// Check decides whether a recursive rm in req needs approval. The whole tree is
+// walked, so rm nested in pipelines, subshells, command substitutions, and
+// && / || chains is still caught.
+func Check(req hook.Request) hook.Verdict {
+	file, ok := req.Shell.File()
+	if !ok {
+		return hook.Allowed()
 	}
-
-	hookio.Render(hookName, evaluate(in.ToolInput.Command))
-}
-
-// evaluate parses cmd and decides whether a recursive rm in it needs approval.
-func evaluate(cmd string) hookio.Verdict {
-	file, err := syntax.NewParser().Parse(strings.NewReader(cmd), "")
-	if err != nil {
-		return hookio.Allowed()
+	s := scan(file)
+	if v, hit := shellast.FirstCall(file, s.checkRm); hit {
+		return v
 	}
-
-	scope := scan(file)
-
-	// Walk the whole tree so rm nested in pipelines, subshells, command
-	// substitutions, && / || chains, etc. is still caught.
-	var hit *hookio.Verdict
-	syntax.Walk(file, func(n syntax.Node) bool {
-		if hit != nil {
-			return false
-		}
-		if call, ok := n.(*syntax.CallExpr); ok {
-			if v, found := scope.checkRm(call); found {
-				v := v
-				hit = &v
-				return false
-			}
-		}
-		return true
-	})
-	if hit != nil {
-		return *hit
-	}
-	return hookio.Allowed()
+	return hook.Allowed()
 }
 
 // assignment records a `NAME=literal` whose value resolved to a plain string.
@@ -191,12 +171,12 @@ func (s *scope) recordRedirect(r *syntax.Redirect) {
 
 // checkRm returns an "ask" verdict when c is a recursive `rm` with at least one
 // target that is neither scratch nor a regenerable artifact directory.
-func (s *scope) checkRm(c *syntax.CallExpr) (hookio.Verdict, bool) {
+func (s *scope) checkRm(c *syntax.CallExpr) (hook.Verdict, bool) {
 	if len(c.Args) == 0 {
-		return hookio.Verdict{}, false
+		return hook.Verdict{}, false
 	}
 	if name, ok := s.resolveWord(c.Args[0], c.Pos().Offset()); !ok || name != "rm" {
-		return hookio.Verdict{}, false
+		return hook.Verdict{}, false
 	}
 
 	recursive := false
@@ -231,12 +211,12 @@ func (s *scope) checkRm(c *syntax.CallExpr) (hookio.Verdict, bool) {
 	}
 
 	if !recursive {
-		return hookio.Verdict{}, false
+		return hook.Verdict{}, false
 	}
 	if len(paths) > 0 && allDisposable(paths) {
-		return hookio.Verdict{}, false
+		return hook.Verdict{}, false
 	}
-	return hookio.Asked(s.reasonFor(paths, c.Pos().Offset())), true
+	return hook.Asked(s.reasonFor(paths, c.Pos().Offset())), true
 }
 
 // unresolvedPath stands in for a target the resolver could not pin to a
@@ -245,7 +225,7 @@ const unresolvedPath = "\x00unresolved"
 
 // reasonFor picks the scratchpad hint when every target has a path created
 // beneath it earlier in the same command, which is the probe-then-clean-up
-// shape. The wording states only what was observed: the hook cannot tell
+// shape. The wording states only what was observed: the rule cannot tell
 // whether the target itself pre-existed.
 func (s *scope) reasonFor(paths []string, rmPos uint) string {
 	if len(paths) == 0 {
@@ -274,7 +254,7 @@ func (s *scope) createdBeneath(target string, rmPos uint) bool {
 	return false
 }
 
-// allDisposable reports whether every target is one the hook waves through:
+// allDisposable reports whether every target is one the rule waves through:
 // scratchpad space, or a directory the toolchain regenerates on demand.
 func allDisposable(paths []string) bool {
 	for _, p := range paths {
@@ -373,10 +353,9 @@ func pathSegments(p string) []string {
 	return segs
 }
 
-// underTmp reports whether p is an absolute path inside the /tmp scratchpad
-// (matching the historical `Bash(rm -rf /tmp:*)` allowance). macOS resolves
-// /tmp to /private/tmp, so both prefixes are treated as scratch. A `..`
-// component disqualifies the path, since it can escape the scratch root.
+// underTmp reports whether p is an absolute path inside the /tmp scratchpad.
+// macOS resolves /tmp to /private/tmp, so both prefixes are treated as scratch.
+// A `..` component disqualifies the path, since it can escape the scratch root.
 func underTmp(p string) bool {
 	if slices.Contains(strings.Split(p, "/"), "..") {
 		return false

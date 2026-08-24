@@ -1,6 +1,14 @@
-package main
+package dangerousgit
 
-import "testing"
+import (
+	"testing"
+
+	"claude-hooks/internal/hook"
+)
+
+func decide(cmd string) hook.Verdict {
+	return Check(hook.NewRequest("Bash", "", "", cmd))
+}
 
 func TestDecide(t *testing.T) {
 	cases := []struct {
@@ -80,5 +88,14 @@ func TestDecide(t *testing.T) {
 				t.Fatalf("decide(%q) = %q, want %q (reason: %s)", tc.cmd, got.Decision, tc.decision, got.Reason)
 			}
 		})
+	}
+}
+
+// TestNonBashIsIgnored pins that a payload from another tool is not a shell
+// command, even when it has a command field.
+func TestNonBashIsIgnored(t *testing.T) {
+	got := Check(hook.NewRequest("Read", "", "", "git push origin main"))
+	if got.Decision != hook.Allow {
+		t.Fatalf("Read payload = %q, want allow", got.Decision)
 	}
 }

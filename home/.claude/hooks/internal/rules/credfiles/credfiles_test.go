@@ -1,6 +1,10 @@
-package main
+package credfiles
 
-import "testing"
+import (
+	"testing"
+
+	"claude-hooks/internal/hook"
+)
 
 func TestClassify(t *testing.T) {
 	cases := []struct {
@@ -102,11 +106,13 @@ func TestCheckBash(t *testing.T) {
 		{name: "deny wins over ask in one command", cmd: `cat ~/.npmrc ~/.aws/credentials`, decision: "deny"},
 		{name: "unparseable command naming a secret is denied", cmd: `cat .env "unterminated`, decision: "deny"},
 		{name: "unparseable command naming nothing is allowed", cmd: `echo "unterminated`, decision: "allow"},
+		{name: "empty command is allowed", cmd: ``, decision: "allow"},
 	}
 
 	for _, tc := range cases {
-		if got := checkBash(tc.cmd).Decision.String(); got != tc.decision {
-			t.Errorf("%s: checkBash(%q) = %s, want %s", tc.name, tc.cmd, got, tc.decision)
+		got := Check(hook.NewRequest("Bash", "", "", tc.cmd)).Decision.String()
+		if got != tc.decision {
+			t.Errorf("%s: Check(%q) = %s, want %s", tc.name, tc.cmd, got, tc.decision)
 		}
 	}
 }
@@ -130,5 +136,23 @@ func TestCheckPath(t *testing.T) {
 		if got := checkPath(tc.tool, tc.path).Decision.String(); got != tc.decision {
 			t.Errorf("checkPath(%s, %q) = %s, want %s", tc.tool, tc.path, got, tc.decision)
 		}
+	}
+}
+
+// TestGrepUsesPathField pins the fallback in hook.NewRequest: Grep names its
+// argument `path`, not `file_path`.
+func TestGrepUsesPathField(t *testing.T) {
+	got := Check(hook.NewRequest("Grep", "", "/repo/.env", ""))
+	if got.Decision != hook.Deny {
+		t.Fatalf("Grep on a credential path = %q, want deny", got.Decision)
+	}
+}
+
+// TestUnmatchedToolIsAllowed pins that a tool outside the rule's list is not
+// judged, even when it carries a credential path.
+func TestUnmatchedToolIsAllowed(t *testing.T) {
+	got := Check(hook.NewRequest("Glob", "/repo/.env", "", ""))
+	if got.Decision != hook.Allow {
+		t.Fatalf("Glob payload = %q, want allow", got.Decision)
 	}
 }

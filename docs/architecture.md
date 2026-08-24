@@ -102,19 +102,31 @@ Everything else (pnpm, node, bun, cargo) managed outside Homebrew.
 
 ### Hooks (Go)
 
-The hooks share one Go module and a common `internal/hookio` package, and are
-built by `hooks/Makefile` into `*-bin` binaries. The binaries are gitignored and
-built per-machine; only the built binary is stowed into `~/.claude/hooks/`,
-never the source directory.
+One Go module builds one binary, `claude-hooks-bin`, registered as a single
+PreToolUse hook. Each guard is a pure function in `internal/rules/<name>/`; the
+registry in `internal/rules/rules.go` decides which tools each one inspects and
+reduces their verdicts worst-wins (any deny blocks, else any ask prompts, else
+allow). A rule that panics is contained and counted as a deny, so one broken
+guard cannot silence the rest.
 
-| Hook | Trigger | Purpose |
-|------|---------|---------|
-| `block-env-files` | PreToolUse (Read/Edit/Write/Bash/Grep) | Deny access to `.env` files |
-| `block-aws-cli` | PreToolUse (Bash) | Ask before any `aws` CLI invocation |
-| `block-dangerous-git` | PreToolUse (Bash) | Ask before push, merge, rebase, and other history- or worktree-destroying git commands |
-| `block-dangerous-rm` | PreToolUse (Bash) | Ask before a recursive `rm` |
-| `enforce-root` | PreToolUse (Bash) | Deny a top-level `cd`, which silently desyncs later commands |
-| `statusline.sh` | statusLine | Render branch, tokens, project in status bar |
+`internal/rules/testdata/decisions.json` records the decision the full rule set
+reaches on a corpus of payloads -- the cross-rule behaviour unit tests cannot
+see. Regenerate with `make golden` and review the diff: a change there is a
+change to what the guards allow.
+
+`hooks/Makefile` builds it. The binary is gitignored and built per-machine; only
+the built binary is stowed into `~/.claude/hooks/`, never the source tree.
+`make list` prints the registered rules and the `matcher` settings.json needs.
+
+| Rule | Applies to | Purpose |
+|------|-----------|---------|
+| `block-credential-files` | Read, Edit, Write, Bash, Grep | Deny access to credential files |
+| `block-aws-cli` | Bash | Ask before any `aws` CLI invocation |
+| `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands; deny outward-facing gh operations (`pr close`, `repo delete`, writing `gh api`) |
+| `block-dangerous-rm` | Bash | Ask before a recursive `rm` |
+| `enforce-root` | Bash | Deny a top-level `cd`, which silently desyncs later commands |
+
+`statusline.sh` is separate, registered as the `statusLine` command.
 
 ### Workflows (slash commands)
 

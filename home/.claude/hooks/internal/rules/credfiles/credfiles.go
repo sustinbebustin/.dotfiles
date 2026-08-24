@@ -1,9 +1,13 @@
-// Command block-env-files is a PreToolUse hook that guards credential files.
-// Read/Edit/Write/Grep are checked by their path argument; Bash commands are
-// parsed and every word is inspected, so reading, copying, sourcing, or
-// redirecting a credential file is caught wherever it appears in the command.
+// Package credfiles guards credential files. Read/Edit/Write/Grep are checked
+// by their path argument; for Bash, every command argument and every
+// redirection target is classified, so `cat .env`, `cp ~/.aws/credentials
+// /tmp`, `source .env`, and `tr a b < .env` are all caught.
 //
-// Paths fall into two tiers. Credential material -- env files, private keys,
+// What that does not reach: a path that only ever appears as a variable
+// assignment value or in a loop or case word list is not inspected, because
+// the walk visits call arguments and redirects rather than every Word.
+//
+// Paths that are acted on fall into two tiers. Credential material -- env files, private keys,
 // ~/.aws/credentials, .netrc, anything under ~/.ssh or ~/.gnupg -- is denied
 // outright. Config files that merely tend to carry a token (.npmrc, ~/.kube,
 // Terraform state) are sent to the human as an ask, because they are also
@@ -12,19 +16,21 @@
 // Example variants (.env.example, .sample, .template) and public key material
 // (*.pub, known_hosts, authorized_keys, certificates) stay allowed so the
 // documented shape of a config remains readable.
-package main
+package credfiles
 
 import (
 	"fmt"
 	"path"
 	"strings"
 
-	"claude-hooks/internal/hookio"
-
 	"mvdan.cc/sh/v3/syntax"
+
+	"claude-hooks/internal/hook"
+	"claude-hooks/internal/shellast"
 )
 
-const hookName = "block-env-files"
+// Name identifies this rule to the dispatcher.
+const Name = "block-credential-files"
 
 // tier is how sensitive a path is: nothing to act on, worth a human's
 // approval, or never allowed.
@@ -36,24 +42,16 @@ const (
 	tierSecret
 )
 
-func main() {
-	in, err := hookio.Read()
-	if err != nil {
-		hookio.Render(hookName, hookio.Allowed())
-	}
-
-	filePath := in.ToolInput.FilePath
-	if filePath == "" {
-		filePath = in.ToolInput.Path
-	}
-
-	switch in.ToolName {
+// Check inspects whichever surface the tool exposes: a path for the file tools,
+// the whole command for Bash.
+func Check(req hook.Request) hook.Verdict {
+	switch req.ToolName {
 	case "Read", "Edit", "Write", "Grep":
-		hookio.Render(hookName, checkPath(in.ToolName, filePath))
+		return checkPath(req.ToolName, req.FilePath)
 	case "Bash":
-		hookio.Render(hookName, checkBash(in.ToolInput.Command))
+		return checkBash(req)
 	}
-	hookio.Render(hookName, hookio.Allowed())
+	return hook.Allowed()
 }
 
 // verbs describes what each tool would do to the file, so the reason names the
@@ -65,18 +63,18 @@ var verbs = map[string]string{
 	"Grep":  "Searching",
 }
 
-func checkPath(tool, p string) hookio.Verdict {
+func checkPath(tool, p string) hook.Verdict {
 	verb, ok := verbs[tool]
 	if !ok {
 		verb = "Accessing"
 	}
 	switch classify(p) {
 	case tierSecret:
-		return hookio.Denied(fmt.Sprintf("%s credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: %s)", verb, p))
+		return hook.Denied(fmt.Sprintf("%s credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: %s)", verb, p))
 	case tierSensitive:
-		return hookio.Asked(fmt.Sprintf("%s %s needs approval: this file commonly holds an auth token. Allow only if you know this copy carries no secret.", verb, p))
+		return hook.Asked(fmt.Sprintf("%s %s needs approval: this file commonly holds an auth token. Allow only if you know this copy carries no secret.", verb, p))
 	}
-	return hookio.Allowed()
+	return hook.Allowed()
 }
 
 // classify decides the tier of a path from its basename and its directory
@@ -105,12 +103,12 @@ func classify(p string) tier {
 	return tierNone
 }
 
-// looksLikeEnv returns true for basenames such as `.env`, `.envrc`,
-// `.env.local`, `.env-staging`, `prod.env`, and `app.env.local`.
+// looksLikeEnv reports whether base names an env file: `.env`, `.envrc`,
+// `.env.local`, `.env-staging`, `prod.env`, `app.env.local`.
 //
 // The leading-dot `.env*` prefix deliberately covers direnv's `.envrc` and any
-// other `.env`-prefixed dotfile -- those carry secrets just like `.env` does
-// and were the gap that previously let `.envrc` leak.
+// other `.env`-prefixed dotfile: those carry secrets just like `.env` does, so
+// matching the exact name `.env` alone would leave a hole.
 func looksLikeEnv(base string) bool {
 	if strings.HasPrefix(base, ".env") {
 		return true
@@ -283,19 +281,19 @@ func isPublicMaterial(base string) bool {
 // intentionally no allowlist of "reader" commands: enumerating every binary
 // that can read a file is a losing game, and there is no benign reason for a
 // command to name a secret.
-func checkBash(cmd string) hookio.Verdict {
-	if cmd == "" {
-		return hookio.Allowed()
-	}
-	file, err := syntax.NewParser().Parse(strings.NewReader(cmd), "")
-	if err != nil {
+func checkBash(req hook.Request) hook.Verdict {
+	file, ok := req.Shell.File()
+	if !ok {
+		if req.Shell.Status() != shellast.Unparseable {
+			return hook.Allowed()
+		}
 		// Unparseable: fail CLOSED if the raw text names a credential path.
 		// Better to over-block a malformed command than to leak on a parse
 		// edge case the AST walk would have caught.
-		if worst, _ := rawWorstTier(cmd); worst == tierSecret {
-			return hookio.Denied("This command references a credential file but could not be parsed safely, so it is blocked. Use the .example/.sample/.template variant, or load the value through your secret manager.")
+		if worst, _ := rawWorstTier(req.Command); worst == tierSecret {
+			return hook.Denied("This command references a credential file but could not be parsed safely, so it is blocked. Use the .example/.sample/.template variant, or load the value through your secret manager.")
 		}
-		return hookio.Allowed()
+		return hook.Allowed()
 	}
 
 	found := tierNone
@@ -312,31 +310,31 @@ func checkBash(cmd string) hookio.Verdict {
 		switch x := n.(type) {
 		case *syntax.CallExpr:
 			for _, arg := range x.Args {
-				consider(wordLit(arg))
+				consider(shellast.WordLit(arg))
 			}
 		case *syntax.Redirect:
-			consider(wordLit(x.Word))
+			consider(shellast.WordLit(x.Word))
 		}
 		return true
 	})
 	return bashVerdict(found, foundPath)
 }
 
-func bashVerdict(t tier, p string) hookio.Verdict {
+func bashVerdict(t tier, p string) hook.Verdict {
 	switch t {
 	case tierSecret:
-		return hookio.Denied(fmt.Sprintf("Blocked: command references the credential file %q. Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager.", p))
+		return hook.Denied(fmt.Sprintf("Blocked: command references the credential file %q. Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager.", p))
 	case tierSensitive:
-		return hookio.Asked(fmt.Sprintf("This command references %q, which commonly holds an auth token. Approve only if you know this copy carries no secret.", p))
+		return hook.Asked(fmt.Sprintf("This command references %q, which commonly holds an auth token. Approve only if you know this copy carries no secret.", p))
 	}
-	return hookio.Allowed()
+	return hook.Allowed()
 }
 
 // rawWorstTier is the fail-closed fallback for commands the shell parser
 // rejects. It splits on whitespace and shell metacharacters and classifies each
-// resulting token.
-func rawWorstTier(cmd string) (tier, string) {
-	worst, worstPath := tierNone, ""
+// resulting token, returning the highest tier found and the token that reached
+// it. A command with nothing to act on yields tierNone and an empty path.
+func rawWorstTier(cmd string) (worst tier, worstPath string) {
 	fields := strings.FieldsFunc(cmd, func(r rune) bool {
 		switch r {
 		case ' ', '\t', '\n', '\r', ';', '|', '&', '<', '>', '(', ')', '"', '\'', '=':
@@ -351,26 +349,4 @@ func rawWorstTier(cmd string) (tier, string) {
 		}
 	}
 	return worst, worstPath
-}
-
-func wordLit(w *syntax.Word) string {
-	if w == nil {
-		return ""
-	}
-	var sb strings.Builder
-	for _, p := range w.Parts {
-		switch x := p.(type) {
-		case *syntax.Lit:
-			sb.WriteString(x.Value)
-		case *syntax.SglQuoted:
-			sb.WriteString(x.Value)
-		case *syntax.DblQuoted:
-			for _, dp := range x.Parts {
-				if lit, ok := dp.(*syntax.Lit); ok {
-					sb.WriteString(lit.Value)
-				}
-			}
-		}
-	}
-	return sb.String()
 }

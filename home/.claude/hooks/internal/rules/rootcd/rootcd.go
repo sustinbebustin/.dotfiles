@@ -1,46 +1,36 @@
-// Command enforce-root is a PreToolUse hook that denies a top-level `cd` in a
-// Bash command. The working directory does not persist between Bash tool calls,
-// so a bare `cd` silently desyncs the rest of that command and every later one.
-// A `cd` confined to a subshell is fine and is left alone; the denial message
-// points at that form and at the tool-native -C/--prefix flags.
-package main
+// Package rootcd denies a top-level `cd` in a Bash command. The working
+// directory does not persist between Bash tool calls, so a bare `cd` silently
+// desyncs the rest of that command and every later one.
+//
+// Only the explicit `( ... )` subshell form is recognised as confined and left
+// alone. A `cd` inside a command substitution or a function body is equally
+// contained but still denies. The denial message points at the `( ... )` form
+// and at the tool-native -C/--prefix flags.
+package rootcd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
-	"claude-hooks/internal/hookio"
-
 	"mvdan.cc/sh/v3/syntax"
+
+	"claude-hooks/internal/hook"
 )
 
-const hookName = "enforce-root"
+// Name identifies this rule to the dispatcher.
+const Name = "enforce-root"
 
-func main() {
-	in, err := hookio.Read()
-	if err != nil || in.ToolInput.Command == "" {
-		os.Exit(0)
+// Check denies a top-level `cd` in req.
+func Check(req hook.Request) hook.Verdict {
+	file, ok := req.Shell.File()
+	if !ok {
+		return hook.Allowed()
 	}
-	// Bash is the only tool whose input is a shell command. The hook is
-	// registered with a Bash-only matcher, but nothing in the payload
-	// guarantees that, so re-check before walking the command as shell.
-	if in.ToolName != "Bash" {
-		os.Exit(0)
-	}
-
-	file, err := syntax.NewParser().Parse(strings.NewReader(in.ToolInput.Command), "")
-	if err != nil {
-		os.Exit(0)
-	}
-
-	violations := findCdViolations(file, in.ToolInput.Command)
+	violations := findCdViolations(file, req.Command)
 	if len(violations) == 0 {
-		// Silence rather than an explicit allow: this hook has never emitted one,
-		// and staying quiet leaves Claude's own permission flow in charge.
-		os.Exit(0)
+		return hook.Allowed()
 	}
-	hookio.Render(hookName, hookio.Denied(formatReason(violations)))
+	return hook.Denied(formatReason(violations))
 }
 
 func findCdViolations(file *syntax.File, src string) []string {

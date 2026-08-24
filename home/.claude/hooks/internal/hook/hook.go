@@ -1,21 +1,24 @@
-// Package hookio holds the parts of a PreToolUse hook that are the same across
-// every hook in this tree: decoding the tool input and rendering a verdict onto
-// stdout.
-package hookio
+// Package hook holds the parts of a PreToolUse hook that are the same across
+// every rule: decoding the tool payload into a Request, reducing the rules'
+// verdicts into one (see Merge), and rendering it onto stdout.
+package hook
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+
+	"claude-hooks/internal/shellast"
 )
 
-// Decision is the verdict a hook reaches. Hooks return one of these; Render maps
-// it to the wire format.
+// Decision is the verdict a rule reaches. Rules return one of these;
+// [Decision.String] gives the name used on the wire.
 type Decision int
 
 const (
-	// Allow means the hook found nothing to act on.
+	// Allow means the rule found nothing to act on.
 	Allow Decision = iota
 	// Ask means the action is risky enough that a human should approve it
 	// case by case.
@@ -24,8 +27,9 @@ const (
 	Deny
 )
 
-// String renders a Decision as the name Claude Code uses on the wire. It is the
-// spelling the hook test tables assert against.
+// String renders a Decision as the name Claude Code uses on the wire. A value
+// outside the enum renders as Decision(n), which no consumer accepts -- it is a
+// bug signal, not a wire value.
 func (d Decision) String() string {
 	switch d {
 	case Allow:
@@ -54,10 +58,9 @@ func Asked(reason string) Verdict { return Verdict{Decision: Ask, Reason: reason
 // Denied is the verdict for "this is not permitted".
 func Denied(reason string) Verdict { return Verdict{Decision: Deny, Reason: reason} }
 
-// Input is the subset of the PreToolUse payload these hooks read. tool_input
-// varies by tool, so the fields here are the union of what the hooks in this
-// tree look at.
-type Input struct {
+// input is the subset of the PreToolUse payload the rules read. tool_input
+// varies by tool, so the fields here are the union of what they look at.
+type input struct {
 	ToolName  string `json:"tool_name"`
 	ToolInput struct {
 		FilePath string `json:"file_path"`
@@ -75,25 +78,55 @@ type output struct {
 	} `json:"hookSpecificOutput"`
 }
 
+// Request is one decoded PreToolUse payload. Shell is parsed once here rather
+// than separately by each rule that needs it.
+type Request struct {
+	ToolName string
+	// FilePath is tool_input.file_path, falling back to tool_input.path for
+	// the tools that name the field that way (Grep).
+	FilePath string
+	Command  string
+	Shell    shellast.Shell
+}
+
+// NewRequest builds a Request from already-decoded fields. It is the seam the
+// rule tests construct payloads through.
+//
+// The command is parsed as shell only for Bash. Nothing in the payload
+// guarantees the tool is what the matcher said, and a `command` field on a
+// non-Bash tool is not a shell command.
+func NewRequest(toolName, filePath, path, command string) Request {
+	if filePath == "" {
+		filePath = path
+	}
+	r := Request{ToolName: toolName, FilePath: filePath, Command: command}
+	if toolName == "Bash" {
+		r.Shell = shellast.Parse(command)
+	}
+	return r
+}
+
 // Read decodes the hook payload from stdin.
 //
 // Every failure here is reported as "no usable input" rather than as a hard
 // error. A hook that cannot read its input has no grounds to block anything,
-// and the callers all treat this as an Allow.
-func Read() (Input, error) {
-	raw, err := io.ReadAll(os.Stdin)
+// and the caller treats this as an Allow.
+func Read(r io.Reader) (Request, error) {
+	raw, err := io.ReadAll(r)
 	if err != nil {
-		return Input{}, fmt.Errorf("reading hook input from stdin: %w", err)
+		return Request{}, fmt.Errorf("reading hook input from stdin: %w", err)
 	}
-	var in Input
+	var in input
 	if err := json.Unmarshal(raw, &in); err != nil {
-		return Input{}, fmt.Errorf("decoding hook input as JSON: %w", err)
+		return Request{}, fmt.Errorf("decoding hook input as JSON: %w", err)
 	}
-	return in, nil
+	return NewRequest(in.ToolName, in.ToolInput.FilePath, in.ToolInput.Path, in.ToolInput.Command), nil
 }
 
-// Render writes v to stdout as a PreToolUse decision, then exits 0.
-func Render(name string, v Verdict) {
+// Encode renders v as the PreToolUse wire bytes, including the trailing
+// newline json.Encoder writes. It does no I/O, so tests can pin the exact
+// bytes without running a binary.
+func Encode(v Verdict) ([]byte, error) {
 	var out output
 	out.HookSpecificOutput.HookEventName = "PreToolUse"
 	out.HookSpecificOutput.PermissionDecision = v.Decision.String()
@@ -101,7 +134,21 @@ func Render(name string, v Verdict) {
 		out.HookSpecificOutput.PermissionDecisionReason = v.Reason
 	}
 
-	if err := json.NewEncoder(os.Stdout).Encode(out); err != nil {
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(out); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// Render writes v to stdout as a PreToolUse decision and exits: 0 when the
+// decision was written, 2 when it could not be. It never returns.
+func Render(name string, v Verdict) {
+	raw, err := Encode(v)
+	if err == nil {
+		_, err = os.Stdout.Write(raw)
+	}
+	if err != nil {
 		// A failed write would leave Claude Code with no decision at all, and a
 		// guard that says nothing lets the action through unchecked. So this
 		// fails closed: exit 2 blocks the tool call on PreToolUse and hands

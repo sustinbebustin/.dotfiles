@@ -1,0 +1,585 @@
+[
+  {
+    "name": "benign-ls",
+    "stdin": "{\"tool_input\":{\"command\":\"ls -la\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "benign-echo",
+    "stdin": "{\"tool_input\":{\"command\":\"echo hi\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "benign-pipeline",
+    "stdin": "{\"tool_input\":{\"command\":\"cat foo.txt | wc -l\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "benign-go-test",
+    "stdin": "{\"tool_input\":{\"command\":\"go test ./...\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "cd-top-level",
+    "stdin": "{\"tool_input\":{\"command\":\"cd /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "cd-subshell",
+    "stdin": "{\"tool_input\":{\"command\":\"(cd /tmp \\u0026\\u0026 ls)\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "cd-bare",
+    "stdin": "{\"tool_input\":{\"command\":\"cd /repo\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `cd /repo`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "cd-two",
+    "stdin": "{\"tool_input\":{\"command\":\"cd /a; cd /b\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `cd /a`, `cd /b`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "cd-in-block",
+    "stdin": "{\"tool_input\":{\"command\":\"{ cd /tmp; ls; }\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "rm-repo",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf /repo/src\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-tmp",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf /tmp/x\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-private-tmp",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf /private/tmp/x\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-node-modules",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf node_modules\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-nested-artifact",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf apps/web/.next\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-var-cache",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf var/cache\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-dotdot",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf ../foo\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-tmp-dotdot",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf /tmp/../etc\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-var-resolved",
+    "stdin": "{\"tool_input\":{\"command\":\"R=/tmp/probe; rm -rf \\\"$R\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-var-unresolved",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf \\\"$UNKNOWN\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-created-same-command",
+    "stdin": "{\"tool_input\":{\"command\":\"mkdir -p /repo/probe \\u0026\\u0026 rm -rf /repo/probe\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected, and this same command also creates paths beneath the targets. If the tooling being run does not require files inside the repo, put them under the session scratchpad instead - recursive rm there runs without a prompt. Allow?"
+  },
+  {
+    "name": "rm-non-recursive",
+    "stdin": "{\"tool_input\":{\"command\":\"rm /repo/file\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-long-flag",
+    "stdin": "{\"tool_input\":{\"command\":\"rm --recursive /repo/src\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-double-dash",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf -- /repo/src\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-in-subshell",
+    "stdin": "{\"tool_input\":{\"command\":\"(rm -rf /repo/src)\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-cmdsubst",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf $(echo /repo)\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "aws-s3",
+    "stdin": "{\"tool_input\":{\"command\":\"aws s3 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI command detected. Allow?"
+  },
+  {
+    "name": "aws-piped",
+    "stdin": "{\"tool_input\":{\"command\":\"echo x | aws sts get-caller-identity\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI command detected. Allow?"
+  },
+  {
+    "name": "aws-env-prefix",
+    "stdin": "{\"tool_input\":{\"command\":\"AWS_PROFILE=x aws s3 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI command detected. Allow?"
+  },
+  {
+    "name": "aws-abs-path",
+    "stdin": "{\"tool_input\":{\"command\":\"/usr/local/bin/aws s3 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI command detected. Allow?"
+  },
+  {
+    "name": "aws-in-subshell",
+    "stdin": "{\"tool_input\":{\"command\":\"(aws s3 ls)\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI command detected. Allow?"
+  },
+  {
+    "name": "aws-word-not-cmd",
+    "stdin": "{\"tool_input\":{\"command\":\"echo aws\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-status",
+    "stdin": "{\"tool_input\":{\"command\":\"git status\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-push",
+    "stdin": "{\"tool_input\":{\"command\":\"git push origin main\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-push-dashC",
+    "stdin": "{\"tool_input\":{\"command\":\"git -C /repo push\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-push-config",
+    "stdin": "{\"tool_input\":{\"command\":\"git -c user.name=x push\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-merge",
+    "stdin": "{\"tool_input\":{\"command\":\"git merge main\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git merge detected - allow?"
+  },
+  {
+    "name": "git-rebase",
+    "stdin": "{\"tool_input\":{\"command\":\"git rebase main\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git rebase detected - allow?"
+  },
+  {
+    "name": "git-reset-hard",
+    "stdin": "{\"tool_input\":{\"command\":\"git reset --hard\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git reset --hard discards uncommitted changes - allow?"
+  },
+  {
+    "name": "git-reset-soft",
+    "stdin": "{\"tool_input\":{\"command\":\"git reset HEAD~1\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-clean",
+    "stdin": "{\"tool_input\":{\"command\":\"git clean -fd\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git clean removes untracked files - allow?"
+  },
+  {
+    "name": "git-branch-delete",
+    "stdin": "{\"tool_input\":{\"command\":\"git branch -D feature\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git branch delete detected - allow?"
+  },
+  {
+    "name": "git-branch-list",
+    "stdin": "{\"tool_input\":{\"command\":\"git branch -a\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-checkout-dashdash",
+    "stdin": "{\"tool_input\":{\"command\":\"git checkout -- .\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git checkout -- discards working-tree changes - allow?"
+  },
+  {
+    "name": "git-checkout-branch",
+    "stdin": "{\"tool_input\":{\"command\":\"git checkout main\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-restore",
+    "stdin": "{\"tool_input\":{\"command\":\"git restore .\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git restore discards changes - allow?"
+  },
+  {
+    "name": "git-stash-drop",
+    "stdin": "{\"tool_input\":{\"command\":\"git stash drop\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git stash drop discards stashed changes - allow?"
+  },
+  {
+    "name": "git-stash-push",
+    "stdin": "{\"tool_input\":{\"command\":\"git stash push\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-tag-delete",
+    "stdin": "{\"tool_input\":{\"command\":\"git tag -d v1\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git tag delete detected - allow?"
+  },
+  {
+    "name": "gh-pr-close",
+    "stdin": "{\"tool_input\":{\"command\":\"gh pr close 3\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh pr close - PR closing not allowed"
+  },
+  {
+    "name": "gh-pr-merge",
+    "stdin": "{\"tool_input\":{\"command\":\"gh pr merge 3\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh pr merge merges and may delete the branch - allow?"
+  },
+  {
+    "name": "gh-pr-view",
+    "stdin": "{\"tool_input\":{\"command\":\"gh pr view 3\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "gh-issue-close",
+    "stdin": "{\"tool_input\":{\"command\":\"gh issue close 5\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh issue close not allowed"
+  },
+  {
+    "name": "gh-release-create",
+    "stdin": "{\"tool_input\":{\"command\":\"gh release create v1\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh release create publishes a release and tag - allow?"
+  },
+  {
+    "name": "gh-release-delete",
+    "stdin": "{\"tool_input\":{\"command\":\"gh release delete v1\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh release delete not allowed"
+  },
+  {
+    "name": "gh-repo-delete",
+    "stdin": "{\"tool_input\":{\"command\":\"gh repo delete foo\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh repo delete not allowed"
+  },
+  {
+    "name": "gh-repo-rename",
+    "stdin": "{\"tool_input\":{\"command\":\"gh repo rename bar\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh repo rename not allowed"
+  },
+  {
+    "name": "gh-workflow-run",
+    "stdin": "{\"tool_input\":{\"command\":\"gh workflow run deploy\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh workflow run dispatches a workflow (may trigger a deploy) - allow?"
+  },
+  {
+    "name": "gh-run-cancel",
+    "stdin": "{\"tool_input\":{\"command\":\"gh run cancel 1\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh run cancel mutates a workflow run - allow?"
+  },
+  {
+    "name": "gh-api-read",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api /repos/o/r\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "gh-api-post",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api -X POST /repos/o/r\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api POST not allowed"
+  },
+  {
+    "name": "gh-api-method-eq",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api --method=DELETE /repos/o/r\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api DELETE not allowed"
+  },
+  {
+    "name": "gh-api-field",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api -f a=b /repos/o/r\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api sends POST when a request parameter is supplied - not allowed. Add `--method GET` if this is meant to be a read."
+  },
+  {
+    "name": "gh-api-attached-field",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api -fa=b /repos/o/r\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api sends POST when a request parameter is supplied - not allowed. Add `--method GET` if this is meant to be a read."
+  },
+  {
+    "name": "gh-api-input",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api --input body.json /repos/o/r\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api sends POST when a request body is supplied - not allowed. Add `--method GET` if this is meant to be a read."
+  },
+  {
+    "name": "gh-api-explicit-get",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api --method GET -f a=b /repos/o/r\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-push-in-subshell",
+    "stdin": "{\"tool_input\":{\"command\":\"(git push)\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "git-push-or",
+    "stdin": "{\"tool_input\":{\"command\":\"false || git push\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push detected - allow?"
+  },
+  {
+    "name": "cred-cat",
+    "stdin": "{\"tool_input\":{\"command\":\"cat .env\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-cat-rc",
+    "stdin": "{\"tool_input\":{\"command\":\"cat .envrc\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".envrc\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-example",
+    "stdin": "{\"tool_input\":{\"command\":\"cat .env.example\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "cred-source",
+    "stdin": "{\"tool_input\":{\"command\":\"source .env\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-redirect",
+    "stdin": "{\"tool_input\":{\"command\":\"tr a b \\u003c .env\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-aws-copy",
+    "stdin": "{\"tool_input\":{\"command\":\"cp ~/.aws/credentials /tmp/x\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \"~/.aws/credentials\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-ssh-key",
+    "stdin": "{\"tool_input\":{\"command\":\"cat ~/.ssh/id_rsa\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \"~/.ssh/id_rsa\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-ssh-pub",
+    "stdin": "{\"tool_input\":{\"command\":\"cat ~/.ssh/id_rsa.pub\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "cred-npmrc",
+    "stdin": "{\"tool_input\":{\"command\":\"cat .npmrc\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "This command references \".npmrc\", which commonly holds an auth token. Approve only if you know this copy carries no secret."
+  },
+  {
+    "name": "cred-tfstate",
+    "stdin": "{\"tool_input\":{\"command\":\"cat terraform.tfstate\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "This command references \"terraform.tfstate\", which commonly holds an auth token. Approve only if you know this copy carries no secret."
+  },
+  {
+    "name": "cred-pem",
+    "stdin": "{\"tool_input\":{\"command\":\"cat server.pem\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \"server.pem\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-unparseable",
+    "stdin": "{\"tool_input\":{\"command\":\"cat .env \\u0026\\u0026 (\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "This command references a credential file but could not be parsed safely, so it is blocked. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "cred-netrc",
+    "stdin": "{\"tool_input\":{\"command\":\"cat ~/.netrc\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \"~/.netrc\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "multi-cd-and-rm",
+    "stdin": "{\"tool_input\":{\"command\":\"cd /tmp \\u0026\\u0026 rm -rf /repo/src\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "multi-push-and-aws",
+    "stdin": "{\"tool_input\":{\"command\":\"git push \\u0026\\u0026 aws s3 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI command detected. Allow? git push detected - allow?"
+  },
+  {
+    "name": "multi-cred-and-ghclose",
+    "stdin": "{\"tool_input\":{\"command\":\"cat .env \\u0026\\u0026 gh pr close 3\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager. [BLOCKED] gh pr close - PR closing not allowed"
+  },
+  {
+    "name": "multi-cd-and-push",
+    "stdin": "{\"tool_input\":{\"command\":\"cd /repo \\u0026\\u0026 git push\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Disallowed `cd` outside a subshell: `cd /repo`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+  },
+  {
+    "name": "multi-rm-and-aws",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf /repo/src \\u0026\\u0026 aws s3 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI command detected. Allow? recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "read-cred",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/repo/.env\"},\"tool_name\":\"Read\"}",
+    "decision": "deny",
+    "reason": "Reading credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: /repo/.env)"
+  },
+  {
+    "name": "read-cred-example",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/repo/.env.example\"},\"tool_name\":\"Read\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "write-cred-local",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/repo/.env.local\"},\"tool_name\":\"Write\"}",
+    "decision": "deny",
+    "reason": "Writing to credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: /repo/.env.local)"
+  },
+  {
+    "name": "edit-source",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/repo/src/main.go\"},\"tool_name\":\"Edit\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "grep-cred-path",
+    "stdin": "{\"tool_input\":{\"path\":\"/repo/.env\"},\"tool_name\":\"Grep\"}",
+    "decision": "deny",
+    "reason": "Searching credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: /repo/.env)"
+  },
+  {
+    "name": "read-ssh-key",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/home/u/.ssh/id_ed25519\"},\"tool_name\":\"Read\"}",
+    "decision": "deny",
+    "reason": "Reading credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: /home/u/.ssh/id_ed25519)"
+  },
+  {
+    "name": "read-known-hosts",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/home/u/.ssh/known_hosts\"},\"tool_name\":\"Read\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "read-npmrc",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/repo/.npmrc\"},\"tool_name\":\"Read\"}",
+    "decision": "ask",
+    "reason": "Reading /repo/.npmrc needs approval: this file commonly holds an auth token. Allow only if you know this copy carries no secret."
+  },
+  {
+    "name": "read-credentials-json",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/repo/config/credentials.json\"},\"tool_name\":\"Read\"}",
+    "decision": "deny",
+    "reason": "Reading credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: /repo/config/credentials.json)"
+  },
+  {
+    "name": "read-token-ts",
+    "stdin": "{\"tool_input\":{\"file_path\":\"/repo/src/token.ts\"},\"tool_name\":\"Read\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "read-with-command-field",
+    "stdin": "{\"tool_input\":{\"command\":\"cd /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Read\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "read-with-rm-command",
+    "stdin": "{\"tool_input\":{\"command\":\"rm -rf /repo/src\"},\"tool_name\":\"Read\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "malformed-not-json",
+    "stdin": "not json at all",
+    "decision": "allow"
+  },
+  {
+    "name": "malformed-empty",
+    "stdin": "",
+    "decision": "allow"
+  },
+  {
+    "name": "malformed-empty-object",
+    "stdin": "{}",
+    "decision": "allow"
+  },
+  {
+    "name": "bash-no-command",
+    "stdin": "{\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "bash-empty-command",
+    "stdin": "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"\"}}",
+    "decision": "allow"
+  },
+  {
+    "name": "unmatched-tool",
+    "stdin": "{\"tool_name\":\"Glob\",\"tool_input\":{\"pattern\":\"*\"}}",
+    "decision": "allow"
+  }
+]
