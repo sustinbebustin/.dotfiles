@@ -35,6 +35,18 @@ if [ -n "$_brew_bin" ]; then
 fi
 unset _brew_bin _candidate _brew_cache
 
+# `brew shellenv` marks FPATH exported, so every child process inherits it.
+# A parent that outlives a Homebrew zsh upgrade (tmux server, editor, ssh
+# agent) then hands new shells the old version's Cellar functions directory,
+# which no longer exists -- autoload breaks for compinit, add-zsh-hook and
+# is-at-least. Keep fpath per-shell, drop directories that vanished, and
+# guarantee the version-independent Homebrew functions directory is present.
+typeset +x FPATH
+[ -d "${HOMEBREW_PREFIX:-}/share/zsh/functions" ] && \
+  fpath+=("$HOMEBREW_PREFIX/share/zsh/functions")
+fpath=(${^fpath}(N-/))
+typeset -U fpath
+
 # ===== Path helpers =====
 # Defined here rather than in .zshrc so PATH construction is available to
 # every shell type, and so .zshrc can still use them.
