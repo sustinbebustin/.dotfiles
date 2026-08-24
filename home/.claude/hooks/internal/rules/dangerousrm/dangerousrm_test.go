@@ -107,6 +107,72 @@ func TestEvaluate(t *testing.T) {
 			decision: "ask",
 			reason:   reasonGeneric,
 		},
+
+		// Only bindings the shell reaches unconditionally, in the shell that
+		// runs the rm, may exempt a target.
+		{
+			name:     "assignment in a subshell does not persist",
+			cmd:      `R=/Users/me/repo; (R=/tmp/probe); rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "assignment in a pipeline stage does not persist",
+			cmd:      `R=/Users/me/repo; R=/tmp/probe | true; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "assignment in an if body may not run",
+			cmd:      `R=/Users/me/repo; if true; then R=/tmp/probe; fi; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "assignment in a for body may not run",
+			cmd:      `R=/Users/me/repo; for d in a; do R=/tmp/probe; done; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "assignment on the right of && may not run",
+			cmd:      `R=/Users/me/repo; false && R=/tmp/probe; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a command prefix binds only for that command",
+			cmd:      `R=/Users/me/repo; R=/tmp/probe true; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "background assignment does not persist",
+			cmd:      `R=/Users/me/repo; R=/tmp/probe & rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "assignment on the left of && does persist",
+			cmd:      `R=/tmp/probe && rm -rf "$R"`,
+			decision: "allow",
+		},
+		{
+			name:     "assignment in a brace block does persist",
+			cmd:      `{ R=/tmp/probe; }; rm -rf "$R"`,
+			decision: "allow",
+		},
+		{
+			name:     "an exported assignment does persist",
+			cmd:      `export R=/tmp/probe; rm -rf "$R"`,
+			decision: "allow",
+		},
+		{
+			name:     "a declared assignment does persist",
+			cmd:      `declare R=/tmp/probe; rm -rf "$R"`,
+			decision: "allow",
+		},
+
 		{
 			name:     "unknown variable fails closed",
 			cmd:      `rm -rf "$UNSET/src"`,

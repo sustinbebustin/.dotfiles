@@ -7,8 +7,10 @@
 //
 // Targets are resolved through simple literal variable assignments made earlier
 // in the same command, so the common `R=/tmp/probe; rm -rf "$R"` shape is
-// recognised as scratch rather than prompting. Anything the resolver cannot
-// pin down to a literal fails closed and reads as a non-scratch path.
+// recognised as scratch rather than prompting. Only assignments the shell
+// reaches unconditionally count, and only in the shell that runs the rm; see
+// collectAssigns. Anything the resolver cannot pin down to a literal fails
+// closed and reads as a non-scratch path.
 //
 // The resolver is deliberately local to this package rather than shared with
 // the other shell rules: it is more capable than shellast.WordLit, and lending
@@ -82,13 +84,7 @@ type scope struct {
 // ordering within the command is respected.
 func scan(file *syntax.File) *scope {
 	s := &scope{}
-
-	syntax.Walk(file, func(n syntax.Node) bool {
-		if a, ok := n.(*syntax.Assign); ok {
-			s.recordAssign(a)
-		}
-		return true
-	})
+	s.collectAssigns(file.Stmts)
 
 	syntax.Walk(file, func(n syntax.Node) bool {
 		switch x := n.(type) {
@@ -101,6 +97,49 @@ func scan(file *syntax.File) *scope {
 	})
 
 	return s
+}
+
+// collectAssigns records the bindings that are still in force when the rm runs.
+// Only statements the shell reaches unconditionally, in the shell that runs the
+// rm, are descended into: an && / || right-hand side may never run, a subshell
+// or pipeline stage binds in a child process that then exits, and the body of an
+// if/for/while/case or a function is neither.
+//
+// Skipping them is what makes the resolver fail closed. `R=/repo; (R=/tmp/x);
+// rm -rf "$R"` removes /repo, and reading the subshell's binding would have
+// waved it through as scratch.
+func (s *scope) collectAssigns(stmts []*syntax.Stmt) {
+	for _, st := range stmts {
+		s.collectStmtAssigns(st)
+	}
+}
+
+func (s *scope) collectStmtAssigns(st *syntax.Stmt) {
+	if st == nil || st.Background || st.Coprocess {
+		return
+	}
+	switch x := st.Cmd.(type) {
+	case *syntax.CallExpr:
+		// A bare `NAME=value` binds in this shell; the same assignment in front
+		// of a command word (`NAME=value cmd`) is that command's environment
+		// only and is gone afterwards.
+		if len(x.Args) == 0 {
+			for _, a := range x.Assigns {
+				s.recordAssign(a)
+			}
+		}
+	case *syntax.DeclClause:
+		// export / declare / typeset / readonly / local.
+		for _, a := range x.Args {
+			s.recordAssign(a)
+		}
+	case *syntax.BinaryCmd:
+		if x.Op == syntax.AndStmt || x.Op == syntax.OrStmt {
+			s.collectStmtAssigns(x.X)
+		}
+	case *syntax.Block:
+		s.collectAssigns(x.Stmts)
+	}
 }
 
 func (s *scope) recordAssign(a *syntax.Assign) {

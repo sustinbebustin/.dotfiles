@@ -97,6 +97,39 @@
     "decision": "allow"
   },
   {
+    "name": "rm-var-in-subshell",
+    "stdin": "{\"tool_input\":{\"command\":\"R=/repo/src; (R=/tmp/probe); rm -rf \\\"$R\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-var-conditional-reassign",
+    "stdin": "{\"tool_input\":{\"command\":\"R=/repo/src; if true; then R=/tmp/probe; fi; rm -rf \\\"$R\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-var-prefix-assign",
+    "stdin": "{\"tool_input\":{\"command\":\"R=/repo/src; R=/tmp/probe true; rm -rf \\\"$R\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-var-in-and-chain",
+    "stdin": "{\"tool_input\":{\"command\":\"R=/tmp/probe \\u0026\\u0026 rm -rf \\\"$R\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-var-in-block",
+    "stdin": "{\"tool_input\":{\"command\":\"{ R=/tmp/probe; }; rm -rf \\\"$R\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-var-exported",
+    "stdin": "{\"tool_input\":{\"command\":\"export R=/tmp/probe; rm -rf \\\"$R\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
     "name": "rm-var-unresolved",
     "stdin": "{\"tool_input\":{\"command\":\"rm -rf \\\"$UNKNOWN\\\"\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
