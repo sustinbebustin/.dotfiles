@@ -59,14 +59,38 @@ func Asked(reason string) Verdict { return Verdict{Decision: Ask, Reason: reason
 func Denied(reason string) Verdict { return Verdict{Decision: Deny, Reason: reason} }
 
 // input is the subset of the PreToolUse payload the rules read. tool_input
-// varies by tool, so the fields here are the union of what they look at.
+// varies by tool, so the fields the rules look at are pulled out of it
+// individually.
+//
+// Everything is held as raw JSON and decoded field by field on purpose. A
+// single typed struct decodes all-or-nothing, so one field of an unexpected
+// type -- and tool_input is filled in by the model -- would fail the whole
+// payload and hand the rules an empty Request. That is an allow, which means
+// `{"command":"rm -rf /","file_path":123}` would walk past every guard.
 type input struct {
-	ToolName  string `json:"tool_name"`
-	ToolInput struct {
-		FilePath string `json:"file_path"`
-		Path     string `json:"path"`
-		Command  string `json:"command"`
-	} `json:"tool_input"`
+	ToolName  json.RawMessage `json:"tool_name"`
+	ToolInput json.RawMessage `json:"tool_input"`
+}
+
+// jsonString decodes raw as a JSON string. A field that is absent, null, or of
+// some other type yields "", which reads as "not supplied" -- the fields are
+// independent, so an unusable one must not take its neighbours with it.
+func jsonString(raw json.RawMessage) string {
+	var s string
+	if len(raw) == 0 || json.Unmarshal(raw, &s) != nil {
+		return ""
+	}
+	return s
+}
+
+// toolInputFields decodes tool_input into its raw fields. A tool_input that is
+// not an object yields no fields rather than an error.
+func toolInputFields(raw json.RawMessage) map[string]json.RawMessage {
+	var fields map[string]json.RawMessage
+	if len(raw) == 0 || json.Unmarshal(raw, &fields) != nil {
+		return nil
+	}
+	return fields
 }
 
 // output is the PreToolUse wire format.
@@ -108,9 +132,11 @@ func NewRequest(toolName, filePath, path, command string) Request {
 
 // Read decodes the hook payload from stdin.
 //
-// Every failure here is reported as "no usable input" rather than as a hard
-// error. A hook that cannot read its input has no grounds to block anything,
-// and the caller treats this as an Allow.
+// Only a payload that is not JSON at all is an error, and it is reported as "no
+// usable input" rather than as a hard failure: a hook that cannot read its input
+// has no grounds to block anything, and the caller treats this as an Allow.
+// Within a payload that does parse, a field of the wrong type is dropped on its
+// own and the rest is still checked.
 func Read(r io.Reader) (Request, error) {
 	raw, err := io.ReadAll(r)
 	if err != nil {
@@ -120,7 +146,13 @@ func Read(r io.Reader) (Request, error) {
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return Request{}, fmt.Errorf("decoding hook input as JSON: %w", err)
 	}
-	return NewRequest(in.ToolName, in.ToolInput.FilePath, in.ToolInput.Path, in.ToolInput.Command), nil
+	fields := toolInputFields(in.ToolInput)
+	return NewRequest(
+		jsonString(in.ToolName),
+		jsonString(fields["file_path"]),
+		jsonString(fields["path"]),
+		jsonString(fields["command"]),
+	), nil
 }
 
 // Encode renders v as the PreToolUse wire bytes, including the trailing

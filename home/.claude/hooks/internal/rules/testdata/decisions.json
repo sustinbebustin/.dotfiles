@@ -581,5 +581,22 @@
     "name": "unmatched-tool",
     "stdin": "{\"tool_name\":\"Glob\",\"tool_input\":{\"pattern\":\"*\"}}",
     "decision": "allow"
+  },
+  {
+    "name": "malformed-wrong-typed-file-path",
+    "stdin": "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"rm -rf /etc/nginx\",\"file_path\":123}}",
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "malformed-wrong-typed-path",
+    "stdin": "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\".env\",\"path\":42}}",
+    "decision": "deny",
+    "reason": "Reading credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: .env)"
+  },
+  {
+    "name": "malformed-wrong-typed-tool-name",
+    "stdin": "{\"tool_name\":[\"Bash\"],\"tool_input\":{\"command\":\"git push\"}}",
+    "decision": "allow"
   }
 ]

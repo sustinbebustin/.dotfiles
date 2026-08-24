@@ -129,6 +129,62 @@ func TestReadMalformedInput(t *testing.T) {
 	}
 }
 
+// TestReadKeepsUsableFieldsBesideBrokenOnes is the point of decoding tool_input
+// field by field. tool_input is filled in by the model, so a wrong-typed field
+// is reachable from the thing being guarded: if one of them failed the whole
+// payload, the Request would come back empty and every rule would allow.
+func TestReadKeepsUsableFieldsBesideBrokenOnes(t *testing.T) {
+	cases := []struct {
+		name     string
+		stdin    string
+		tool     string
+		command  string
+		filePath string
+	}{
+		{
+			name:    "a wrong-typed file_path does not hide the command",
+			stdin:   `{"tool_name":"Bash","tool_input":{"command":"rm -rf /etc","file_path":123}}`,
+			tool:    "Bash",
+			command: "rm -rf /etc",
+		},
+		{
+			name:     "a wrong-typed path does not hide file_path",
+			stdin:    `{"tool_name":"Read","tool_input":{"file_path":".env","path":42}}`,
+			tool:     "Read",
+			filePath: ".env",
+		},
+		{
+			name:    "a null field reads as not supplied",
+			stdin:   `{"tool_name":"Bash","tool_input":{"command":"ls","file_path":null}}`,
+			tool:    "Bash",
+			command: "ls",
+		},
+		{
+			name:  "tool_input that is not an object yields no fields",
+			stdin: `{"tool_name":"Bash","tool_input":"rm -rf /"}`,
+			tool:  "Bash",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := Read(strings.NewReader(tc.stdin))
+			if err != nil {
+				t.Fatalf("Read: %v", err)
+			}
+			if got.ToolName != tc.tool {
+				t.Errorf("ToolName = %q, want %q", got.ToolName, tc.tool)
+			}
+			if got.Command != tc.command {
+				t.Errorf("Command = %q, want %q", got.Command, tc.command)
+			}
+			if got.FilePath != tc.filePath {
+				t.Errorf("FilePath = %q, want %q", got.FilePath, tc.filePath)
+			}
+		})
+	}
+}
+
 func TestNewRequestParsesShellForBashOnly(t *testing.T) {
 	bash := NewRequest("Bash", "", "", "ls -la")
 	if _, ok := bash.Shell.File(); !ok {
