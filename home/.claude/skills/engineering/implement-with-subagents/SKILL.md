@@ -25,7 +25,12 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
 ## Process
 
 1. List the ticket files in the issues directory. They are numbered in dependency order.
-2. Take the lowest-numbered ticket not yet implemented. Spawn **one** subagent with the Agent tool (`subagent_type: "general-purpose"`, `model: "<MODEL>"`) and send exactly this prompt, with `<TICKET-PATH>` replaced by that ticket's path:
+2. **Create the implementation branch before dispatching anything.** Run `git branch --show-current`. If it reports the default branch (`main`/`master`), create and switch to a new branch with `git checkout -b <type>/<short-description>`, named per the `commit-push-pr` convention:
+   - `<type>` is one of `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, matching the dominant change across the tickets.
+   - `<short-description>` is kebab-case, imperative, 2-4 words, derived from the issues directory's subject. Never `wip`, `patch-1`, `my-branch`, or similar.
+
+   If already on a non-default branch, stay on it. Every subagent commits onto this one branch.
+3. Take the lowest-numbered ticket not yet implemented. Spawn **one** subagent with the Agent tool (`subagent_type: "general-purpose"`, `model: "<MODEL>"`) and send exactly this prompt, with `<TICKET-PATH>` replaced by that ticket's path:
 
    ```
    Invoke the implement skill before doing anything. Then implement <TICKET-PATH> following the implement skill instructions.
@@ -44,8 +49,8 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
    ```
 
    Send nothing else -- no extra context, no restatement of the ticket.
-3. Wait for that subagent to finish before starting the next. One ticket in flight at a time.
-4. Check the subagent's report before dispatching the next ticket: it must name tdd (or state why the ticket had no behavioural seam), name code-review, and account for every finding. If any is missing, send the same subagent back to finish that part before moving on.
-5. Repeat from step 2 until every ticket file has been implemented.
+4. Wait for that subagent to finish before starting the next. One ticket in flight at a time.
+5. Check the subagent's report before dispatching the next ticket: it must name tdd (or state why the ticket had no behavioural seam), name code-review, and account for every finding. If any is missing, send the same subagent back to finish that part before moving on.
+6. Repeat from step 3 until every ticket file has been implemented.
 
 Report each ticket as it completes: its number, title, the skills the subagent invoked, and the code-review outcome.

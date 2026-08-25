@@ -1,8 +1,8 @@
 {
   "env": {
     "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "3",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-opus-5[1m]",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-5[1m]",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1m]",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_NO_FLICKER": "1"
   },
