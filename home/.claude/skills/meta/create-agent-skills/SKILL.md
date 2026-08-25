@@ -8,6 +8,8 @@ metadata:
 
 # Creating Skills & Commands
 
+First, call the Skill tool for "writing-for-agents". It governs how the skill body is written; this skill covers the structure, frontmatter, and invocation mechanics around it.
+
 This skill teaches how to create effective Claude Code skills following the official specification from [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills).
 
 ## Commands and Skills Are Now The Same Thing

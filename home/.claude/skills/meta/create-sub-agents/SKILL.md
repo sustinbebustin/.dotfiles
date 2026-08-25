@@ -8,6 +8,8 @@ metadata:
 
 # Creating Subagents
 
+First, call the Skill tool for "writing-for-agents". A subagent body is a document an agent consumes, so those rules govern how it is written; this skill covers the subagent-specific mechanics on top.
+
 Author Claude Code subagents that delegate well, stay focused, and keep the main conversation clean. Subagents are specialized AI assistants that run in their own context window with a custom system prompt, scoped tool access, and independent permissions. They follow the spec at [code.claude.com/docs/en/sub-agents](https://code.claude.com/docs/en/sub-agents).
 
 ## When To Use A Subagent

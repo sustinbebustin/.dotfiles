@@ -118,7 +118,11 @@ alias ttt="eza . -a -I '.git' --tree --level=3"
 alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
-alias reload="source ~/.config/zsh/.zshrc"
+# Re-exec rather than re-source: .zshenv holds the PATH/fpath construction, so
+# sourcing .zshrc alone leaves a stale environment behind. It also re-sources
+# the brew plugins (autosuggestions and syntax-highlighting both break when
+# loaded twice) and replaces the real compdef with the buffering stub.
+alias reload="exec zsh"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
   alias o="open ."
