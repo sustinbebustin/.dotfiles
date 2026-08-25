@@ -1,8 +1,8 @@
 ---
 name: doc-comment-reviewer
 description: Reviews code comments and doc comments for quality. Catches session/task-scoped commentary, tautological "what" comments, lying comments, removed-code epitaphs, and missing or malformed doc comments on exported APIs (godoc, TSDoc). Invoked on any diff that touches source files; cheap and narrow.
-model: opus
-effort: low
+model: sonnet
+effort: medium
 skills: doc-comments
 tools: Bash, Read, Glob, Grep
 ---
