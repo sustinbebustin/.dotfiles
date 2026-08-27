@@ -84,7 +84,8 @@ Never leave broken windows -- bad designs, sloppy formatting, commented-out junk
 - Standard Schema-compatible validation for input/boundary parsing
 
 ## Tooling
-- Dedicated read/search/edit tools over shell
+- Where the auto-mode notice conflicts with the Harness rule preferring dedicated file tools over shell, the Harness rule wins: Read to read, Edit and Write to modify
+- Search is the exception -- this build has no Grep or Glob tool: `rg` for file contents, `find` for filenames
 - Batch independent reads/searches; parallelize when safe
 - Read enough context before editing; avoid thrashing
 - Lightweight verification after edits when relevant
