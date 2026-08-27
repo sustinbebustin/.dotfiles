@@ -27,16 +27,23 @@ type Rule struct {
 	// Tools are the tool names this rule inspects. A rule is skipped for any
 	// other tool, so it contributes no verdict at all.
 	Tools []string
-	Check func(*hook.Request) hook.Verdict
+	// Nested reports whether the rule also runs over the scripts the command
+	// hands to a nested shell (`bash -c '...'`; see hook.Request.Embedded).
+	// It belongs to the rule rather than the dispatcher because a nested shell
+	// changes what some guards mean: enforce-root opts out, since a `cd` in a
+	// child shell is confined to it and is exactly the case that rule already
+	// allows in `( ... )` form.
+	Nested bool
+	Check  func(*hook.Request) hook.Verdict
 }
 
 // all is the registered rule set, in run order. Order is not arbitrary: it
 // decides how reasons are joined when several rules land on the same decision.
 var all = []Rule{
-	{Name: credfiles.Name, Tools: []string{"Read", "Edit", "Write", "Bash", "Grep"}, Check: credfiles.Check},
-	{Name: awscli.Name, Tools: []string{"Bash"}, Check: awscli.Check},
-	{Name: dangerousgit.Name, Tools: []string{"Bash"}, Check: dangerousgit.Check},
-	{Name: dangerousrm.Name, Tools: []string{"Bash"}, Check: dangerousrm.Check},
+	{Name: credfiles.Name, Tools: []string{"Read", "Edit", "Write", "Bash", "Grep"}, Nested: true, Check: credfiles.Check},
+	{Name: awscli.Name, Tools: []string{"Bash"}, Nested: true, Check: awscli.Check},
+	{Name: dangerousgit.Name, Tools: []string{"Bash"}, Nested: true, Check: dangerousgit.Check},
+	{Name: dangerousrm.Name, Tools: []string{"Bash"}, Nested: true, Check: dangerousrm.Check},
 	{Name: rootcd.Name, Tools: []string{"Bash"}, Check: rootcd.Check},
 }
 
@@ -74,16 +81,40 @@ func (r Rule) Applies(toolName string) bool {
 }
 
 // Apply runs every rule that applies to req and reduces the results to the one
-// verdict the binary emits.
+// verdict the binary emits. Rules marked Nested are run again over each script
+// the command hands to a nested shell, so a guarded command is caught whether it
+// is written out or passed to `bash -c`.
 func Apply(rs []Rule, req *hook.Request) hook.Verdict {
+	nested := req.Embedded()
+
 	var verdicts []hook.Verdict
 	for _, r := range rs {
 		if !r.Applies(req.ToolName) {
 			continue
 		}
 		verdicts = append(verdicts, checkSafely(r, req))
+		if !r.Nested {
+			continue
+		}
+		for _, sub := range nested {
+			verdicts = append(verdicts, markNested(checkSafely(r, sub)))
+		}
 	}
 	return hook.Merge(verdicts)
+}
+
+// nestedPrefix opens the reason for a verdict a rule reached inside a nested
+// shell's script. Without it the reason describes a command the user cannot
+// find in the tool call: the prompt for `bash -c 'rm -rf ~'` would report a
+// recursive rm against a command whose visible words contain no rm at all.
+const nestedPrefix = "Inside a script passed to a nested shell: "
+
+func markNested(v hook.Verdict) hook.Verdict {
+	if v.Decision == hook.Allow {
+		return v
+	}
+	v.Reason = nestedPrefix + v.Reason
+	return v
 }
 
 // checkSafely runs one rule's Check and converts a panic into a Deny.

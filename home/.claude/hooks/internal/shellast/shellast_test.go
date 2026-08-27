@@ -1,6 +1,7 @@
 package shellast
 
 import (
+	"strconv"
 	"testing"
 
 	"mvdan.cc/sh/v3/syntax"
@@ -226,5 +227,102 @@ func TestFirstCallStopsAtTheFirstMatch(t *testing.T) {
 	}
 	if visited != 2 {
 		t.Errorf("visited %d calls, want 2 -- the walk should stop at the match", visited)
+	}
+}
+
+// embedded parses cmd and returns the scripts it hands to a nested shell.
+func embedded(t *testing.T, cmd string) []string {
+	t.Helper()
+	file, ok := Parse(cmd).File()
+	if !ok {
+		t.Fatalf("Parse(%q) did not produce an AST", cmd)
+	}
+	return EmbeddedScripts(file)
+}
+
+func TestEmbeddedScripts(t *testing.T) {
+	cases := []struct {
+		name string
+		cmd  string
+		want []string
+	}{
+		{"bare -c", `bash -c 'rm -rf ~'`, []string{"rm -rf ~"}},
+		{"sh", `sh -c "aws s3 ls"`, []string{"aws s3 ls"}},
+		{"bundled short flags", `sh -ec 'git push --force'`, []string{"git push --force"}},
+		{"login shell", `bash -lc 'cat .env'`, []string{"cat .env"}},
+		{"path-prefixed shell", `/bin/bash -c 'ls'`, []string{"ls"}},
+		{"behind a wrapper", `sudo -u deploy bash -c 'ls'`, []string{"ls"}},
+		{"flag taking an operand", `bash -o pipefail -c 'ls'`, []string{"ls"}},
+		{"long option first", `bash --norc -c 'ls'`, []string{"ls"}},
+		{"nested in a pipeline", `echo x | bash -c 'ls'`, []string{"ls"}},
+		{"two scripts", `bash -c 'ls'; sh -c 'pwd'`, []string{"ls", "pwd"}},
+		{"nested shells", `bash -c 'sh -c "ls"'`, []string{`sh -c "ls"`, "ls"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := embedded(t, tc.cmd)
+			if len(got) != len(tc.want) {
+				t.Fatalf("EmbeddedScripts(%q) = %q, want %q", tc.cmd, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("script %d = %q, want %q", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestEmbeddedScriptsIgnoresNonScripts pins what must not be read as a shell
+// script: a command that is not a shell, a shell running a file rather than a
+// -c string, a -c argument that is pure expansion, and a -c with nothing after
+// it. Reading any of them would report calls the command does not make.
+func TestEmbeddedScriptsIgnoresNonScripts(t *testing.T) {
+	for _, cmd := range []string{
+		`ls -c`,
+		`python -c 'import os'`,
+		`bash deploy.sh`,
+		`bash -- -c 'ls'`,
+		`bash -c "$CMD"`,
+		`bash -c`,
+		`bash`,
+	} {
+		if got := embedded(t, cmd); len(got) != 0 {
+			t.Errorf("EmbeddedScripts(%q) = %q, want none", cmd, got)
+		}
+	}
+}
+
+// TestEmbeddedScriptsStopsAtMaxDepth keeps a hostile payload from making the
+// walk unbounded. The scripts up to the cap are still returned.
+func TestEmbeddedScriptsStopsAtMaxDepth(t *testing.T) {
+	cmd := "rm -rf ~"
+	for range maxEmbedDepth + 3 {
+		cmd = "bash -c " + strconv.Quote(cmd)
+	}
+	if got := len(embedded(t, cmd)); got != maxEmbedDepth {
+		t.Errorf("EmbeddedScripts returned %d scripts, want %d", got, maxEmbedDepth)
+	}
+}
+
+// TestEmbeddedScriptDropsExpansions documents the WordLit rendering: an
+// interpolated script keeps its literal text and loses the expansion, so the rm
+// is still seen and its target is not invented.
+func TestEmbeddedScriptDropsExpansions(t *testing.T) {
+	got := embedded(t, `bash -c "rm -rf $DIR"`)
+	if len(got) != 1 || got[0] != "rm -rf " {
+		t.Fatalf("EmbeddedScripts = %q, want [\"rm -rf \"]", got)
+	}
+}
+
+// TestEmbeddedScriptResolvesQuoteEscapes pins the one place scriptText differs
+// from WordLit: the script is handed to another parser, so the escapes the
+// outer shell strips must be stripped here too or the inner quoting no longer
+// balances.
+func TestEmbeddedScriptResolvesQuoteEscapes(t *testing.T) {
+	got := embedded(t, `bash -c "grep \"a b\" file"`)
+	if len(got) != 1 || got[0] != `grep "a b" file` {
+		t.Fatalf("EmbeddedScripts = %q, want [%q]", got, `grep "a b" file`)
 	}
 }

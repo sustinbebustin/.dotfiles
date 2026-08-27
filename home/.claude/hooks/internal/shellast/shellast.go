@@ -1,6 +1,7 @@
 // Package shellast holds the shell-parsing helpers the rules share: parsing a
-// command into an AST, and rendering words back to the literal text the rules
-// match command names against. Nothing here decides anything.
+// command into an AST, rendering words back to the literal text the rules match
+// command names against, and pulling out the scripts a command hands to a
+// nested shell so those can be parsed in turn. Nothing here decides anything.
 //
 // Deliberately absent: the variable resolver in rules/dangerousrm. It is
 // strictly more capable than WordLit (it substitutes `$VAR` from earlier
@@ -215,6 +216,165 @@ func isEnvAssign(tok string) bool {
 		}
 	}
 	return true
+}
+
+// shells are the interpreters that take a script as the argument to -c. A
+// command guarded by a rule can sit inside that script -- `bash -c 'rm -rf ~'`
+// still removes the home directory -- and it is invisible to a walk of the
+// outer tree, where the script is one quoted word.
+//
+// Only shells whose -c argument is a script in this same language are listed.
+// `python -c` and `perl -c` are deliberately absent: their argument is not
+// shell, and parsing it as shell would report calls that are not there.
+var shells = map[string]bool{
+	"bash": true, "sh": true, "zsh": true, "dash": true, "ksh": true, "ash": true,
+}
+
+// shellFlagArgs are the shell options that consume the token after them. They
+// are stepped over so the scan for -c does not stop on their operand and miss
+// the script in `bash -o pipefail -c '...'`.
+var shellFlagArgs = map[string]bool{
+	"-O": true, "+O": true, "-o": true, "+o": true,
+}
+
+// maxEmbedDepth caps how far EmbeddedScripts follows -c through nested shells.
+// `bash -c 'bash -c "..."'` is worth reading; a chain deeper than this is not
+// something a real command does, and the cap keeps a hostile payload from
+// making the hook walk an unbounded tree.
+const maxEmbedDepth = 4
+
+// EmbeddedScripts returns the scripts file hands to a nested shell via -c, in
+// the order they appear, following nesting to maxEmbedDepth. The result is the
+// script text; callers parse it themselves.
+//
+// A script is returned only when its word renders to literal text. `bash -c
+// "$CMD"` yields nothing, because there is no text to inspect -- the same
+// fail-open the rules already take on a word they cannot read.
+//
+// A script that interpolates a variable (`bash -c "rm -rf $DIR"`) is returned
+// with the expansion dropped. That can only remove text, never invent a call,
+// and what is left still parses: the caller sees `rm -rf` with no target rather
+// than nothing at all.
+func EmbeddedScripts(file *syntax.File) []string {
+	return embeddedScripts(file, maxEmbedDepth)
+}
+
+func embeddedScripts(file *syntax.File, depth int) []string {
+	if file == nil || depth <= 0 {
+		return nil
+	}
+	var out []string
+	syntax.Walk(file, func(n syntax.Node) bool {
+		call, ok := n.(*syntax.CallExpr)
+		if !ok {
+			return true
+		}
+		word, ok := ScriptWord(call)
+		if !ok {
+			return true
+		}
+		script := scriptText(word)
+		if script == "" {
+			return true
+		}
+		out = append(out, script)
+		if inner, ok := Parse(script).File(); ok {
+			out = append(out, embeddedScripts(inner, depth-1)...)
+		}
+		return true
+	})
+	return out
+}
+
+// scriptText renders a word that is about to be re-parsed as shell. It is
+// WordLit except inside double quotes, where the backslash escapes the shell
+// resolves -- \$ \` \" \\ and a line continuation -- are resolved here too.
+//
+// WordLit leaves them in place, which is right for the rules that match a word
+// against a name but wrong for text that is handed to another parser: the outer
+// shell strips those escapes before the inner shell ever sees them, so
+// `bash -c "sh -c \"rm -rf ~\""` would otherwise re-parse as a script whose
+// quoting no longer balances. Keeping this separate from WordLit is deliberate:
+// unescaping there would change what every rule matches on.
+func scriptText(w *syntax.Word) string {
+	if w == nil {
+		return ""
+	}
+	var sb strings.Builder
+	for _, p := range w.Parts {
+		switch x := p.(type) {
+		case *syntax.Lit:
+			sb.WriteString(LitText(x))
+		case *syntax.SglQuoted:
+			sb.WriteString(x.Value)
+		case *syntax.DblQuoted:
+			for _, dp := range x.Parts {
+				if lit, ok := dp.(*syntax.Lit); ok {
+					writeDblQuoted(&sb, lit.Value)
+				}
+			}
+		}
+	}
+	return sb.String()
+}
+
+// writeDblQuoted writes s with the escapes a double-quoted string resolves. A
+// backslash before anything else is literal and is kept.
+func writeDblQuoted(sb *strings.Builder, s string) {
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' || i+1 >= len(s) {
+			sb.WriteByte(s[i])
+			continue
+		}
+		switch next := s[i+1]; next {
+		case '$', '`', '"', '\\':
+			sb.WriteByte(next)
+			i++
+		case '\n':
+			// A line continuation: both bytes vanish.
+			i++
+		default:
+			sb.WriteByte(s[i])
+		}
+	}
+}
+
+// ScriptWord returns the word c passes to a shell as the argument of -c. Short
+// flags may be bundled, so `sh -ec 'cmd'` and `bash -lc 'cmd'` are recognised
+// as well as a bare -c.
+//
+// A `--` before the -c ends the options, which makes the next word a script
+// *file* rather than a command; that is not something this reads, so the scan
+// stops. The same goes for the first operand of a shell invoked without -c.
+//
+// Rules that inspect every argument of a call use this to leave the script word
+// out: it is a program, not an operand, and reading it as one describes
+// something the command does not do -- `sh -c 'cat .env'` would report a file
+// named "cat .env". The script is checked on its own terms instead, as a
+// derived request (see hook.Request.Embedded).
+func ScriptWord(c *syntax.CallExpr) (*syntax.Word, bool) {
+	name, rest := Invocation(c.Args, WordLit)
+	if !shells[CommandName(name)] {
+		return nil, false
+	}
+	for i := 0; i < len(rest); i++ {
+		tok := WordLit(rest[i])
+		if tok == "--" || len(tok) < 2 || (tok[0] != '-' && tok[0] != '+') {
+			return nil, false
+		}
+		switch {
+		case strings.HasPrefix(tok, "--"):
+			// A long option; bash has none that take a script.
+		case strings.ContainsRune(tok[1:], 'c'):
+			if i+1 >= len(rest) {
+				return nil, false
+			}
+			return rest[i+1], true
+		case shellFlagArgs[tok]:
+			i++
+		}
+	}
+	return nil, false
 }
 
 // FirstCall walks the whole tree and returns the first CallExpr for which match

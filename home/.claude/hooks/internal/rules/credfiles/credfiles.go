@@ -357,7 +357,15 @@ func checkBash(req *hook.Request) hook.Verdict {
 		}
 		switch x := n.(type) {
 		case *syntax.CallExpr:
+			// The script a nested shell runs is a program, not a path operand;
+			// it is classified on its own as a derived request. Reading it here
+			// too would name a file that does not exist, since `cat .env` ends
+			// in .env as surely as a filename does.
+			script, nested := shellast.ScriptWord(x)
 			for _, arg := range x.Args {
+				if nested && arg == script {
+					continue
+				}
 				consider(shellast.WordLit(arg))
 			}
 		case *syntax.Redirect:

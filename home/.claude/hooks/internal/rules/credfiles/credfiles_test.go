@@ -185,3 +185,25 @@ func TestUnmatchedToolIsAllowed(t *testing.T) {
 		t.Fatalf("Glob payload = %q, want allow", got.Decision)
 	}
 }
+
+// TestNestedShellScriptIsNotAPath keeps the reason truthful: the script a shell
+// runs with -c is a program, and classifying the whole word as a path would
+// report a credential file named "cat .env". The dispatcher checks that script
+// on its own, where the real path is named.
+func TestNestedShellScriptIsNotAPath(t *testing.T) {
+	got := Check(hook.NewRequest("Bash", "", "", `sh -c 'cat .env'`))
+	if got.Decision != hook.Allow {
+		t.Errorf("decision = %q, want allow -- the outer call names no path itself (reason: %s)",
+			got.Decision, got.Reason)
+	}
+}
+
+// TestNestedShellScriptWithARealPathStillCounts pins the other side: only the
+// script word is exempt, so a credential named as an operand of the shell
+// itself is still caught.
+func TestNestedShellScriptWithARealPathStillCounts(t *testing.T) {
+	got := Check(hook.NewRequest("Bash", "", "", `sh -c 'ls' < .env`))
+	if got.Decision != hook.Deny {
+		t.Errorf("decision = %q, want deny", got.Decision)
+	}
+}

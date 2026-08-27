@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -135,5 +136,82 @@ func TestEveryRuleIsUsable(t *testing.T) {
 		if r.Check == nil {
 			t.Errorf("rule %q has no Check", r.Name)
 		}
+	}
+}
+
+// TestApplyRunsNestedRulesOverEmbeddedScripts is the reason Rule.Nested exists:
+// a guarded command handed to `bash -c` is invisible to a walk of the outer
+// tree, where the whole script is one quoted word.
+func TestApplyRunsNestedRulesOverEmbeddedScripts(t *testing.T) {
+	var seen []string
+	rs := []Rule{rule("nested", []string{"Bash"}, func(req *hook.Request) hook.Verdict {
+		seen = append(seen, req.Command)
+		return hook.Allowed()
+	})}
+	rs[0].Nested = true
+
+	Apply(rs, hook.NewRequest("Bash", "", "", `bash -c 'rm -rf ~'`))
+
+	want := []string{`bash -c 'rm -rf ~'`, "rm -rf ~"}
+	if !slices.Equal(seen, want) {
+		t.Errorf("rule saw %q, want %q", seen, want)
+	}
+}
+
+// TestApplySkipsEmbeddedScriptsForRulesThatOptOut keeps enforce-root's
+// behaviour: a `cd` in a child shell is confined to it, so the rule must not be
+// handed the child's script.
+func TestApplySkipsEmbeddedScriptsForRulesThatOptOut(t *testing.T) {
+	var seen []string
+	rs := []Rule{rule("flat", []string{"Bash"}, func(req *hook.Request) hook.Verdict {
+		seen = append(seen, req.Command)
+		return hook.Allowed()
+	})}
+
+	Apply(rs, hook.NewRequest("Bash", "", "", `bash -c 'cd /tmp'`))
+
+	if want := []string{`bash -c 'cd /tmp'`}; !slices.Equal(seen, want) {
+		t.Errorf("rule saw %q, want %q", seen, want)
+	}
+}
+
+// TestNestedVerdictSaysWhereItCameFrom keeps the prompt honest: the reason
+// describes a command the user cannot find in the words of the tool call, so it
+// has to say that it came from a nested shell.
+func TestNestedVerdictSaysWhereItCameFrom(t *testing.T) {
+	rs := []Rule{rule("nested", []string{"Bash"}, func(req *hook.Request) hook.Verdict {
+		if req.Command == "rm -rf ~" {
+			return hook.Denied("recursive rm")
+		}
+		return hook.Allowed()
+	})}
+	rs[0].Nested = true
+
+	got := Apply(rs, hook.NewRequest("Bash", "", "", `bash -c 'rm -rf ~'`))
+	if got.Decision != hook.Deny {
+		t.Fatalf("decision = %q, want deny", got.Decision)
+	}
+	if !strings.HasPrefix(got.Reason, nestedPrefix) {
+		t.Errorf("reason = %q, want it to open with %q", got.Reason, nestedPrefix)
+	}
+	if !strings.HasSuffix(got.Reason, "recursive rm") {
+		t.Errorf("reason = %q, want it to carry the rule's own words", got.Reason)
+	}
+}
+
+// TestRepeatedFindingIsReportedOnce keeps one rule's several verdicts -- one per
+// nested script -- from reading as several different problems.
+func TestRepeatedFindingIsReportedOnce(t *testing.T) {
+	rs := []Rule{rule("nested", []string{"Bash"}, func(req *hook.Request) hook.Verdict {
+		if req.Command == "aws s3 ls" {
+			return hook.Asked("AWS CLI command detected.")
+		}
+		return hook.Allowed()
+	})}
+	rs[0].Nested = true
+
+	got := Apply(rs, hook.NewRequest("Bash", "", "", `bash -c 'aws s3 ls'; sh -c 'aws s3 ls'`))
+	if n := strings.Count(got.Reason, "AWS CLI"); n != 1 {
+		t.Errorf("reason names the finding %d times, want 1: %s", n, got.Reason)
 	}
 }

@@ -147,6 +147,41 @@ func NewRequest(toolName, filePath, path, command string) *Request {
 	return r
 }
 
+// Embedded returns one derived Request per script this command hands to a
+// nested shell (see shellast.EmbeddedScripts), so a rule can check `bash -c
+// 'rm -rf ~'` by running over the inner script as if it had arrived on its own.
+// It returns nothing for a non-Bash tool, an unparsed command, or a command
+// that starts no nested shell.
+//
+// Each derived Request carries the inner script as its Command and Shell, and
+// keeps the rest of the payload -- tool, cwd, config -- from its parent. Giving
+// the inner script its own Shell rather than splicing it into the parent tree is
+// what keeps node positions meaningful: the rules that compare offsets, and the
+// one that slices the reason out of Command, would both read a spliced subtree
+// against the wrong text.
+//
+// The derived shell is a separate process from the parent's, and the parent's
+// variables are not resolved into it. That is the safe direction: an unresolved
+// target reads as non-scratch, which prompts.
+func (r *Request) Embedded() []*Request {
+	file, ok := r.Shell.File()
+	if !ok {
+		return nil
+	}
+	scripts := shellast.EmbeddedScripts(file)
+	if len(scripts) == 0 {
+		return nil
+	}
+	out := make([]*Request, 0, len(scripts))
+	for _, script := range scripts {
+		sub := *r
+		sub.Command = script
+		sub.Shell = shellast.Parse(script)
+		out = append(out, &sub)
+	}
+	return out
+}
+
 // Read decodes the hook payload from stdin.
 //
 // Only a payload that is not JSON at all is an error, and it is reported as "no

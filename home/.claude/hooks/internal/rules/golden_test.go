@@ -135,15 +135,22 @@ func TestReasonAccompaniesEveryBlock(t *testing.T) {
 // Deriving it from rules.All() would make the test vacuous: the point is that a
 // rule quietly losing a tool, or the order changing, fails here rather than
 // silently going unguarded. Order matters because it decides how reasons join.
+//
+// nested is pinned for the same reason: a rule that loses it stops looking
+// inside `bash -c '...'`, and every payload that does not use a nested shell
+// goes on passing.
 var wiring = []struct {
-	name  string
-	tools []string
+	name   string
+	tools  []string
+	nested bool
 }{
-	{"block-credential-files", []string{"Read", "Edit", "Write", "Bash", "Grep"}},
-	{"block-aws-cli", []string{"Bash"}},
-	{"block-dangerous-git", []string{"Bash"}},
-	{"block-dangerous-rm", []string{"Bash"}},
-	{"enforce-root", []string{"Bash"}},
+	{"block-credential-files", []string{"Read", "Edit", "Write", "Bash", "Grep"}, true},
+	{"block-aws-cli", []string{"Bash"}, true},
+	{"block-dangerous-git", []string{"Bash"}, true},
+	{"block-dangerous-rm", []string{"Bash"}, true},
+	// enforce-root is not nested: a `cd` inside a child shell is confined to
+	// it, which is the case the rule deliberately allows.
+	{"enforce-root", []string{"Bash"}, false},
 }
 
 func TestRegistryWiring(t *testing.T) {
@@ -158,6 +165,9 @@ func TestRegistryWiring(t *testing.T) {
 		}
 		if !slices.Equal(r.Tools, wiring[i].tools) {
 			t.Errorf("%s tools = %v, want %v", r.Name, r.Tools, wiring[i].tools)
+		}
+		if r.Nested != wiring[i].nested {
+			t.Errorf("%s nested = %v, want %v", r.Name, r.Nested, wiring[i].nested)
 		}
 	}
 }

@@ -11,6 +11,11 @@ import "strings"
 // the order the rules are registered, so nothing a rule said is dropped. Every
 // reason is a self-contained sentence, so a space is enough to separate them.
 //
+// A reason already joined is not repeated. One rule now yields several verdicts
+// on the same command -- one per nested shell script it inspects -- and the same
+// finding in two of them says nothing the first said, while reading as though
+// two different things were wrong.
+//
 // An empty slice means no rule applied to this tool, which is an Allow.
 func Merge(verdicts []Verdict) Verdict {
 	winner := Allow
@@ -24,10 +29,13 @@ func Merge(verdicts []Verdict) Verdict {
 	}
 
 	var reasons []string
+	seen := make(map[string]bool, len(verdicts))
 	for _, v := range verdicts {
-		if v.Decision == winner && v.Reason != "" {
-			reasons = append(reasons, v.Reason)
+		if v.Decision != winner || v.Reason == "" || seen[v.Reason] {
+			continue
 		}
+		seen[v.Reason] = true
+		reasons = append(reasons, v.Reason)
 	}
 	return Verdict{Decision: winner, Reason: strings.Join(reasons, " ")}
 }

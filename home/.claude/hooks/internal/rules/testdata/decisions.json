@@ -829,5 +829,60 @@
     "stdin": "{\"tool_input\":{\"command\":\"echo $(gh pr close 4)\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",
     "reason": "[BLOCKED] gh pr close - PR closing not allowed"
+  },
+  {
+    "name": "nested-rm",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c 'rm -rf ~/work'\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "nested-rm-scratch-still-allowed",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c 'rm -rf /tmp/probe'\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "nested-credential-file",
+    "stdin": "{\"tool_input\":{\"command\":\"sh -c 'cat .env'\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Inside a script passed to a nested shell: Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "nested-aws-bundled-flags",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -lc 'aws s3 ls'\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: AWS CLI command detected. Allow?"
+  },
+  {
+    "name": "nested-git-force-push",
+    "stdin": "{\"tool_input\":{\"command\":\"sh -ec 'git push --force'\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: git push detected - allow?"
+  },
+  {
+    "name": "nested-twice",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c 'sh -c \\\"rm -rf ~/work\\\"'\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "nested-cd-is-confined",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c 'cd /tmp \u0026\u0026 ls'\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "nested-script-is-an-expansion",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"$CMD\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "nested-non-shell-interpreter",
+    "stdin": "{\"tool_input\":{\"command\":\"python -c 'import os; os.system(\\\"rm -rf /\\\")'\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "nested-script-file-is-not-read",
+    "stdin": "{\"tool_input\":{\"command\":\"bash deploy.sh\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
   }
 ]
