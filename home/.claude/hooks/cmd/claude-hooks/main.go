@@ -17,6 +17,7 @@ import (
 	"os"
 	"strings"
 
+	"claude-hooks/internal/config"
 	"claude-hooks/internal/hook"
 	"claude-hooks/internal/rules"
 )
@@ -43,7 +44,25 @@ func main() {
 		return
 	}
 
+	req.Config = loadConfig()
+
 	hook.Render(progName, rules.Apply(selected, req))
+}
+
+// loadConfig reads the machine-local configuration, reporting a broken one on
+// stderr and carrying on with none.
+//
+// This does not block. The configuration only ever widens what runs unprompted,
+// so running without it costs extra approvals and never fewer -- whereas
+// exiting non-zero here would block every tool call in the session over a
+// misplaced comma.
+func loadConfig() config.Config {
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v.\nThe guards are still running, with no configured "+
+			"exemptions, so affected commands prompt as they did before.\n", progName, err)
+	}
+	return cfg
 }
 
 func selectRules(args []string) ([]rules.Rule, error) {

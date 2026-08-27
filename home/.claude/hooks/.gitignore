@@ -3,3 +3,7 @@
 
 # `make cover` output
 coverage.out
+
+# Machine-local hook settings: the paths in here are specific to one machine
+# and this repository is public. config.json.example records the shape.
+config.json

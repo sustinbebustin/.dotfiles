@@ -1,0 +1,7 @@
+{
+  "dangerousRm": {
+    "allowedRoots": [
+      "~/dev/example-project"
+    ]
+  }
+}

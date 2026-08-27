@@ -1,9 +1,10 @@
 // Package dangerousrm prompts before a recursive `rm` runs. It mirrors
 // dangerousgit: instead of a hard `deny`, it returns `ask` so the user can
-// approve destructive removals case by case. Two kinds of target are exempt so
-// routine cleanup stays friction-free: absolute paths under /tmp (the
-// scratchpad area), and relative paths inside a toolchain artifact directory
-// such as var/cache or node_modules (see artifactDirs).
+// approve destructive removals case by case. Three kinds of target are exempt
+// so routine cleanup stays friction-free: absolute paths under /tmp (the
+// scratchpad area), relative paths inside a toolchain artifact directory such
+// as var/cache or node_modules (see artifactDirs), and paths below a root the
+// machine-local config names (see underAllowedRoot).
 //
 // Targets are resolved through simple literal variable assignments made earlier
 // in the same command, so the common `R=/tmp/probe; rm -rf "$R"` shape is
@@ -24,6 +25,7 @@
 package dangerousrm
 
 import (
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -52,7 +54,7 @@ func Check(req *hook.Request) hook.Verdict {
 	if !ok {
 		return hook.Allowed()
 	}
-	s := scan(file)
+	s := scan(file, req.Cwd, req.Config.AllowedRmRoots)
 	if v, hit := shellast.FirstCall(file, s.checkRm); hit {
 		return v
 	}
@@ -73,17 +75,25 @@ type createdPath struct {
 	pos  uint
 }
 
-// scope holds everything the rm checks need from a single parsed command.
+// scope holds everything the rm checks need from a single parsed command,
+// together with the context the payload supplies around it.
 type scope struct {
 	assigns []assignment
 	created []createdPath
+	// cwd is the directory the command runs in, used to resolve relative
+	// targets against allowedRoots. Empty when the payload carried none, which
+	// leaves relative targets unresolvable and therefore prompting.
+	cwd string
+	// allowedRoots are absolute, cleaned directories from the machine-local
+	// config, already validated by package config.
+	allowedRoots []string
 }
 
 // scan collects variable assignments and created paths in one pass. Created
 // paths are resolved against the assignments visible at their own position, so
 // ordering within the command is respected.
-func scan(file *syntax.File) *scope {
-	s := &scope{}
+func scan(file *syntax.File, cwd string, allowedRoots []string) *scope {
+	s := &scope{cwd: cwd, allowedRoots: allowedRoots}
 	s.collectAssigns(file.Stmts)
 
 	syntax.Walk(file, func(n syntax.Node) bool {
@@ -254,7 +264,7 @@ func (s *scope) checkRm(c *syntax.CallExpr) (hook.Verdict, bool) {
 	if !recursive {
 		return hook.Verdict{}, false
 	}
-	if len(paths) > 0 && allDisposable(paths) {
+	if len(paths) > 0 && s.allDisposable(paths) {
 		return hook.Verdict{}, false
 	}
 	return hook.Asked(s.reasonFor(paths, c.Pos().Offset())), true
@@ -296,14 +306,66 @@ func (s *scope) createdBeneath(target string, rmPos uint) bool {
 }
 
 // allDisposable reports whether every target is one the rule waves through:
-// scratchpad space, or a directory the toolchain regenerates on demand.
-func allDisposable(paths []string) bool {
+// scratchpad space, a directory the toolchain regenerates on demand, or a
+// directory the machine-local config has signed off on.
+func (s *scope) allDisposable(paths []string) bool {
 	for _, p := range paths {
-		if !underTmp(p) && !underArtifactDir(p) {
+		if !underTmp(p) && !underArtifactDir(p) && !s.underAllowedRoot(p) {
 			return false
 		}
 	}
 	return true
+}
+
+// underAllowedRoot reports whether p resolves to a path strictly below one of
+// the roots in the machine-local config.
+//
+// Strictly below is deliberate: the root itself is the whole project, and
+// wiping it is the one removal still worth a prompt. Matching is by path
+// segment, so an allowed /home/you/dev/app does not also cover the neighbouring
+// /home/you/dev/app-old that a string prefix would catch.
+//
+// The comparison is textual. A root that is itself a symlink elsewhere is
+// therefore taken at face value; resolving it would mean touching the
+// filesystem, and Check is a pure function by design.
+func (s *scope) underAllowedRoot(p string) bool {
+	if len(s.allowedRoots) == 0 {
+		return false
+	}
+	abs, ok := s.absTarget(p)
+	if !ok {
+		return false
+	}
+	segs := pathSegments(abs)
+	for _, root := range s.allowedRoots {
+		want := pathSegments(root)
+		if len(segs) > len(want) && slices.Equal(segs[:len(want)], want) {
+			return true
+		}
+	}
+	return false
+}
+
+// absTarget resolves an rm target to an absolute, cleaned path. It reports
+// false for anything it cannot pin down, which leaves the target matching no
+// root and prompting as before.
+//
+// A `~` is an ordinary literal to the shell parser, and expanding it would need
+// the home directory this rule does not go looking for, so tilde targets never
+// match a root. Relative targets need a cwd; without one they cannot be placed.
+// Any `..` is resolved away by Clean before matching, so a target cannot climb
+// out of a root and back in under a name that still looks like it.
+func (s *scope) absTarget(p string) (string, bool) {
+	if p == "" || p == unresolvedPath || strings.HasPrefix(p, "~") {
+		return "", false
+	}
+	if !filepath.IsAbs(p) {
+		if !filepath.IsAbs(s.cwd) {
+			return "", false
+		}
+		p = filepath.Join(s.cwd, p)
+	}
+	return filepath.Clean(p), true
 }
 
 // artifactDirs are directory paths whose contents are produced by a toolchain

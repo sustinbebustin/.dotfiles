@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 
+	"claude-hooks/internal/config"
 	"claude-hooks/internal/shellast"
 )
 
@@ -70,6 +71,7 @@ func Denied(reason string) Verdict { return Verdict{Decision: Deny, Reason: reas
 type input struct {
 	ToolName  json.RawMessage `json:"tool_name"`
 	ToolInput json.RawMessage `json:"tool_input"`
+	Cwd       json.RawMessage `json:"cwd"`
 }
 
 // jsonString decodes raw as a JSON string. A field that is absent, null, or of
@@ -111,14 +113,25 @@ type Request struct {
 	FilePath string
 	Command  string
 	Shell    shellast.Shell
+	// Cwd is the directory Claude Code ran the tool in, which is what a
+	// relative path in the command is relative to. It is empty when the payload
+	// carried none; a rule that resolves paths must still work without it.
+	Cwd string
+	// Config is the machine-local configuration, attached by the binary after
+	// decoding. It is deliberately not a NewRequest parameter: the rule tests
+	// that need it set it directly, and the rest get the zero value, which is
+	// the no-config state.
+	Config config.Config
 }
 
 // NewRequest builds a Request from already-decoded fields. It is the seam the
-// rule tests construct payloads through.
+// rule tests construct payloads through. Cwd and Config are set as fields
+// rather than passed here, so this does not grow into a row of interchangeable
+// string parameters.
 //
-// A Request is passed around by pointer: it carries the parsed shell tree, and
-// copying that into every rule is waste the rules have no use for. Nothing
-// mutates it after this returns.
+// A Request is passed around by pointer: it carries the parsed shell tree and
+// the configuration, and copying that into every rule is waste the rules have
+// no use for. Nothing mutates it after this returns.
 //
 // The command is parsed as shell only for Bash. Nothing in the payload
 // guarantees the tool is what the matcher said, and a `command` field on a
@@ -151,12 +164,14 @@ func Read(r io.Reader) (*Request, error) {
 		return nil, fmt.Errorf("decoding hook input as JSON: %w", err)
 	}
 	fields := toolInputFields(in.ToolInput)
-	return NewRequest(
+	req := NewRequest(
 		jsonString(in.ToolName),
 		jsonString(fields["file_path"]),
 		jsonString(fields["path"]),
 		jsonString(fields["command"]),
-	), nil
+	)
+	req.Cwd = jsonString(in.Cwd)
+	return req, nil
 }
 
 // Encode renders v as the PreToolUse wire bytes, including the trailing

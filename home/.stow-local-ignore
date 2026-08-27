@@ -21,6 +21,11 @@
 ^/\.claude/hooks/go\.sum$
 ^/\.claude/hooks/\.golangci\.yml$
 
+# The template for the hook's machine-local settings. The real config.json is
+# gitignored and deliberately NOT ignored here: the binary reads it from
+# ~/.claude/hooks/config.json, so it has to be linked like the binary is.
+^/\.claude/hooks/config\.json\.example$
+
 # The skills tree. Published by dot's stow_skills() instead -- categories
 # flattened, each skill linked as a folder.
 ^/\.claude/skills$

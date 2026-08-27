@@ -120,6 +120,50 @@ func TestMerge(t *testing.T) {
 	}
 }
 
+// TestReadDecodesCwd covers the field the rm guard resolves relative paths
+// against. A payload without one, or with one of the wrong type, must still
+// decode: the rules that use Cwd fall back to prompting, and the rest are
+// unaffected.
+func TestReadDecodesCwd(t *testing.T) {
+	cases := []struct {
+		name  string
+		stdin string
+		want  string
+	}{
+		{
+			name:  "cwd is read",
+			stdin: `{"tool_name":"Bash","cwd":"/repo","tool_input":{"command":"ls"}}`,
+			want:  "/repo",
+		},
+		{
+			name:  "an absent cwd is empty",
+			stdin: `{"tool_name":"Bash","tool_input":{"command":"ls"}}`,
+			want:  "",
+		},
+		{
+			name:  "a wrong-typed cwd is empty",
+			stdin: `{"tool_name":"Bash","cwd":42,"tool_input":{"command":"ls"}}`,
+			want:  "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := Read(strings.NewReader(tc.stdin))
+			if err != nil {
+				t.Fatalf("Read() error = %v, want nil", err)
+			}
+			if req.Cwd != tc.want {
+				t.Errorf("Cwd = %q, want %q", req.Cwd, tc.want)
+			}
+			if req.Command != "ls" {
+				t.Errorf("Command = %q, want %q -- cwd must not take its neighbours with it",
+					req.Command, "ls")
+			}
+		})
+	}
+}
+
 func TestReadMalformedInput(t *testing.T) {
 	for _, in := range []string{"", "not json at all", "{", "[]"} {
 		if _, err := Read(strings.NewReader(in)); err == nil {

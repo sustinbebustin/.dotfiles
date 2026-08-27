@@ -52,6 +52,15 @@ linters:
           - gosec
         text: G306
 
+      # Reading a file the user named through $CLAUDE_HOOKS_CONFIG is what the
+      # config loader is for, so the path being "tainted" is the feature. There
+      # is no privilege boundary to cross: the hook already runs as the user who
+      # set the variable, and it only ever reads the file.
+      - path: internal/config/config\.go
+        linters:
+          - gosec
+        text: "G(304|703)"
+
 formatters:
   enable:
     - gofumpt

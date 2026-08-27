@@ -3,6 +3,7 @@ package dangerousrm
 import (
 	"testing"
 
+	"claude-hooks/internal/config"
 	"claude-hooks/internal/hook"
 )
 
@@ -363,5 +364,120 @@ func TestNonBashIsIgnored(t *testing.T) {
 	got := Check(hook.NewRequest("Read", "", "", "rm -rf /repo/src"))
 	if got.Decision != hook.Allow {
 		t.Fatalf("Read payload = %q, want allow", got.Decision)
+	}
+}
+
+// allowedRoot is the configured root the tests below run against. Package
+// config has already validated the roots a rule sees, so these are given in the
+// absolute, cleaned form it produces.
+const allowedRoot = "/home/tester/dev/app"
+
+func evaluateIn(cwd, cmd string) hook.Verdict {
+	req := hook.NewRequest("Bash", "", "", cmd)
+	req.Cwd = cwd
+	req.Config = config.Config{AllowedRmRoots: []string{allowedRoot}}
+	return Check(req)
+}
+
+// TestAllowedRoots covers the machine-local exemption: a recursive rm below a
+// configured root runs unprompted, and everything the resolver cannot place
+// below one still asks.
+func TestAllowedRoots(t *testing.T) {
+	cases := []struct {
+		name     string
+		cwd      string
+		cmd      string
+		decision string
+	}{
+		{
+			name:     "absolute target below the root is exempt",
+			cwd:      "/elsewhere",
+			cmd:      `rm -rf /home/tester/dev/app/backend/tmp`,
+			decision: "allow",
+		},
+		{
+			name:     "relative target resolves against the cwd",
+			cwd:      "/home/tester/dev/app/backend",
+			cmd:      `rm -rf build/artifacts`,
+			decision: "allow",
+		},
+		{
+			name:     "target through a variable is exempt",
+			cwd:      "/elsewhere",
+			cmd:      "B=/home/tester/dev/app/backend\nrm -rf $B/docs",
+			decision: "allow",
+		},
+		{
+			name:     "every target must be below a root",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `rm -rf backend/tmp /etc/hosts`,
+			decision: "ask",
+		},
+		{
+			name:     "the root itself still asks",
+			cwd:      "/elsewhere",
+			cmd:      `rm -rf /home/tester/dev/app`,
+			decision: "ask",
+		},
+		{
+			name:     "a sibling sharing the root's prefix is not below it",
+			cwd:      "/elsewhere",
+			cmd:      `rm -rf /home/tester/dev/app-old/src`,
+			decision: "ask",
+		},
+		{
+			name:     "climbing out of the root is not below it",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `rm -rf backend/../../other/src`,
+			decision: "ask",
+		},
+		{
+			name:     "a relative target with no cwd cannot be placed",
+			cwd:      "",
+			cmd:      `rm -rf backend/tmp`,
+			decision: "ask",
+		},
+		{
+			name:     "a tilde target is not expanded",
+			cwd:      "/elsewhere",
+			cmd:      `rm -rf ~/dev/app/backend/tmp`,
+			decision: "ask",
+		},
+		{
+			name:     "an unresolvable target is never exempt",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `rm -rf "$(cat target)"`,
+			decision: "ask",
+		},
+		{
+			name:     "a non-recursive rm below a root was never asked about",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `rm backend/tmp`,
+			decision: "allow",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := evaluateIn(tc.cwd, tc.cmd)
+			if name := got.Decision.String(); name != tc.decision {
+				t.Fatalf("decision = %q, want %q (reason: %s)", name, tc.decision, got.Reason)
+			}
+		})
+	}
+}
+
+// TestNoConfigKeepsAsking pins that the exemption is opt-in: with no configured
+// roots, the same commands decide exactly as they did before config existed.
+func TestNoConfigKeepsAsking(t *testing.T) {
+	for _, cmd := range []string{
+		`rm -rf /home/tester/dev/app/backend/tmp`,
+		`rm -rf backend/tmp`,
+	} {
+		req := hook.NewRequest("Bash", "", "", cmd)
+		req.Cwd = "/home/tester/dev/app"
+		if got := Check(req); got.Decision != hook.Ask {
+			t.Errorf("%s = %q with no config, want ask", cmd, got.Decision)
+		}
 	}
 }

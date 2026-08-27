@@ -114,6 +114,18 @@ reaches on a corpus of payloads -- the cross-rule behaviour unit tests cannot
 see. Regenerate with `make golden` and review the diff: a change there is a
 change to what the guards allow.
 
+Machine-specific settings live in `~/.claude/hooks/config.json`, read by
+`internal/config`. This repository is public, so that file is gitignored and
+`config.json.example` records the shape; unlike the source tree it *is* stowed,
+since the binary reads it from `~/.claude/hooks/`. Today it holds
+`dangerousRm.allowedRoots`, absolute (or `~/`-prefixed) directories under which
+a recursive `rm` runs without prompting -- strictly under, so the root itself
+still asks. Roots must be at least two directories deep, and one bad entry
+rejects the whole file: the config only ever widens what runs unprompted, so a
+half-applied allowlist would be worse than none. A broken file is reported on
+stderr and the guards run with no exemptions rather than blocking the session.
+`$CLAUDE_HOOKS_CONFIG` overrides the location.
+
 `hooks/Makefile` builds it. The binary is gitignored and built per-machine; only
 the built binary is stowed into `~/.claude/hooks/`, never the source tree.
 `make list` prints the registered rules and the `matcher` settings.json needs.
