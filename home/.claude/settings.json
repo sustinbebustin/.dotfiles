@@ -140,6 +140,7 @@
   "autoCompactWindow": 226000,
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
+  "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "remoteControlAtStartup": false,
   "skipAutoPermissionPrompt": true,
