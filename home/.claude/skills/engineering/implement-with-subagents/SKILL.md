@@ -37,11 +37,10 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
 
    When you spawn subagents of your own, use the Agent tool and pass model: "opus" on every call -- only invoke opus subagents.
 
-   The implement skill names three skills. Invoke each with the Skill tool -- reading the file or working from memory does not count:
+   The implement skill names two skills. Invoke each with the Skill tool -- reading the file or working from memory does not count:
 
    1. tdd -- invoke it at every seam where the ticket changes behaviour or fixes a bug, and write the failing test first.
    2. code-review -- invoke it once the implementation is complete, before you commit.
-   3. Any language or framework skill the touched files call for.
 
    Address every finding code-review returns, then commit.
 

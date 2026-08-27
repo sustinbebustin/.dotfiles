@@ -84,7 +84,9 @@ Never leave broken windows -- bad designs, sloppy formatting, commented-out junk
 - Standard Schema-compatible validation for input/boundary parsing
 
 ## Tooling
-- Where the auto-mode notice conflicts with the Harness rule preferring dedicated file tools over shell, the Harness rule wins: Read to read, Edit and Write to modify
+- Never hand-edit file *contents* through Bash -- no `sed -i`, `tee`, heredoc redirects, or inline `python`/`node` scripts that rewrite repo files. Use Edit or Write; bash edits are invisible to checkpointing and bypass Edit deny rules. This holds in auto mode
+- Bash remains correct for: formatters, linters, codemods, and code generators (`gofmt -w`, `eslint --fix`, `jscodeshift`, `sqlc generate`); file operations (`git mv`, `mkdir`, `rm`); and any file outside the repo. For repo-wide renames prefer a codemod or LSP rename over `sed`
+- Read to read; Edit and Write to modify
 - Search is the exception -- this build has no Grep or Glob tool: `rg` for file contents, `find` for filenames
 - Batch independent reads/searches; parallelize when safe
 - Read enough context before editing; avoid thrashing
