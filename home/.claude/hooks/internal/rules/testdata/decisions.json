@@ -271,8 +271,7 @@
   {
     "name": "git-checkout-dashdash",
     "stdin": "{\"tool_input\":{\"command\":\"git checkout -- .\"},\"tool_name\":\"Bash\"}",
-    "decision": "ask",
-    "reason": "git checkout -- discards working-tree changes - allow?"
+    "decision": "allow"
   },
   {
     "name": "git-checkout-branch",
@@ -282,14 +281,22 @@
   {
     "name": "git-restore",
     "stdin": "{\"tool_input\":{\"command\":\"git restore .\"},\"tool_name\":\"Bash\"}",
-    "decision": "ask",
-    "reason": "git restore discards changes - allow?"
+    "decision": "allow"
   },
   {
     "name": "git-stash-drop",
     "stdin": "{\"tool_input\":{\"command\":\"git stash drop\"},\"tool_name\":\"Bash\"}",
-    "decision": "ask",
-    "reason": "git stash drop discards stashed changes - allow?"
+    "decision": "allow"
+  },
+  {
+    "name": "git-stash-clear",
+    "stdin": "{\"tool_input\":{\"command\":\"git stash clear\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-c-restore",
+    "stdin": "{\"tool_input\":{\"command\":\"git -C frontend restore apps/internal/package.json\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
   },
   {
     "name": "git-stash-push",

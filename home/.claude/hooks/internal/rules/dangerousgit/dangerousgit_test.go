@@ -84,8 +84,15 @@ func TestDecide(t *testing.T) {
 		{"git push", `git push origin main`, "ask"},
 		{"git reset --hard", `git reset --hard origin/main`, "ask"},
 		{"git reset --soft", `git reset --soft HEAD~1`, "allow"},
-		{"git checkout --", `git checkout -- a.php`, "ask"},
 		{"git checkout branch", `git checkout main`, "allow"},
+
+		// Discarding uncommitted work is unguarded, including behind `git -C`.
+		{"git checkout --", `git checkout -- a.php`, "allow"},
+		{"git restore", `git restore a.php`, "allow"},
+		{"git stash drop", `git stash drop`, "allow"},
+		{"git stash clear", `git stash clear`, "allow"},
+		{"git -C checkout --", `git -C frontend checkout -- a.php`, "allow"},
+		{"git -C restore", `git -C frontend restore a.php`, "allow"},
 		{"git branch -D", `git branch -D feat`, "ask"},
 		{"git status", `git status`, "allow"},
 

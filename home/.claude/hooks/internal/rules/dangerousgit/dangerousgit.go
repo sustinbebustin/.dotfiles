@@ -1,7 +1,13 @@
 // Package dangerousgit guards git and gh invocations. Commands that publish
-// work or discard it (push, merge, rebase, reset --hard, clean, restore,
-// checkout --, branch/tag delete, stash drop/clear) return `ask`, so the user
-// approves each case by case. Operations that are outward-facing and hard to
+// work or discard it (push, merge, rebase, reset --hard, clean, branch/tag
+// delete) return `ask`, so the user approves each case by case.
+//
+// Discarding uncommitted work is not guarded: `git checkout -- <path>`, `git
+// restore`, and the whole of `git stash`. Those are routine enough that the
+// prompt was pure friction, and what they throw away is working-tree state, not
+// published history.
+//
+// Operations that are outward-facing and hard to
 // undo return a hard `deny`: gh pr close, gh issue close/delete, gh release
 // delete, gh repo delete/rename, and any writing `gh api` call - both the
 // explicit method flag and the payload flags that make gh choose POST on its
@@ -13,7 +19,6 @@ package dangerousgit
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
@@ -76,16 +81,6 @@ func checkGit(args []string) (hook.Verdict, bool) {
 			if a == "-d" || a == "-D" || a == "--delete" {
 				return hook.Asked("git branch delete detected - allow?"), true
 			}
-		}
-	case "checkout":
-		if slices.Contains(rest, "--") {
-			return hook.Asked("git checkout -- discards working-tree changes - allow?"), true
-		}
-	case "restore":
-		return hook.Asked("git restore discards changes - allow?"), true
-	case "stash":
-		if len(rest) > 0 && (rest[0] == "drop" || rest[0] == "clear") {
-			return hook.Asked(fmt.Sprintf("git stash %s discards stashed changes - allow?", rest[0])), true
 		}
 	case "tag":
 		for _, a := range rest {
