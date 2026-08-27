@@ -45,7 +45,7 @@ const (
 
 // Check inspects whichever surface the tool exposes: a path for the file tools,
 // the whole command for Bash.
-func Check(req hook.Request) hook.Verdict {
+func Check(req *hook.Request) hook.Verdict {
 	switch req.ToolName {
 	case "Read", "Edit", "Write", "Grep":
 		return checkPath(req.ToolName, req.FilePath)
@@ -329,7 +329,7 @@ func isPublicMaterial(base string) bool {
 // intentionally no allowlist of "reader" commands: enumerating every binary
 // that can read a file is a losing game, and there is no benign reason for a
 // command to name a secret.
-func checkBash(req hook.Request) hook.Verdict {
+func checkBash(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		if req.Shell.Status() != shellast.Unparseable {

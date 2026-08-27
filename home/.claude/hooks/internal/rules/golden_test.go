@@ -60,7 +60,7 @@ func decide(stdin string) hook.Verdict {
 	if err != nil {
 		// A payload that cannot be read is no grounds to block anything, which
 		// is what the zero Request produces.
-		req = hook.Request{}
+		req = &hook.Request{}
 	}
 	return rules.Apply(rules.All(), req)
 }

@@ -15,7 +15,7 @@ import (
 const Name = "block-aws-cli"
 
 // Check asks for approval when req invokes the aws CLI.
-func Check(req hook.Request) hook.Verdict {
+func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		return hook.Allowed()

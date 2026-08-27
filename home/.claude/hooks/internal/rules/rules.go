@@ -27,7 +27,7 @@ type Rule struct {
 	// Tools are the tool names this rule inspects. A rule is skipped for any
 	// other tool, so it contributes no verdict at all.
 	Tools []string
-	Check func(hook.Request) hook.Verdict
+	Check func(*hook.Request) hook.Verdict
 }
 
 // all is the registered rule set, in run order. Order is not arbitrary: it
@@ -75,7 +75,7 @@ func (r Rule) Applies(toolName string) bool {
 
 // Apply runs every rule that applies to req and reduces the results to the one
 // verdict the binary emits.
-func Apply(rs []Rule, req hook.Request) hook.Verdict {
+func Apply(rs []Rule, req *hook.Request) hook.Verdict {
 	var verdicts []hook.Verdict
 	for _, r := range rs {
 		if !r.Applies(req.ToolName) {
@@ -92,7 +92,7 @@ func Apply(rs []Rule, req hook.Request) hook.Verdict {
 // binary down and emit no decision at all -- and a guard that says nothing lets
 // the action through unchecked. Containing the panic here means a rule that
 // crashes still blocks, and the rules that did not crash still get to speak.
-func checkSafely(r Rule, req hook.Request) (v hook.Verdict) {
+func checkSafely(r Rule, req *hook.Request) (v hook.Verdict) {
 	defer func() {
 		if p := recover(); p != nil {
 			v = hook.Denied(fmt.Sprintf(

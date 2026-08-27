@@ -7,11 +7,11 @@ import (
 	"claude-hooks/internal/hook"
 )
 
-func rule(name string, tools []string, check func(hook.Request) hook.Verdict) Rule {
+func rule(name string, tools []string, check func(*hook.Request) hook.Verdict) Rule {
 	return Rule{Name: name, Tools: tools, Check: check}
 }
 
-func allow(hook.Request) hook.Verdict { return hook.Allowed() }
+func allow(*hook.Request) hook.Verdict { return hook.Allowed() }
 
 // TestApplySkipsRulesThatDoNotMatchTheTool pins per-rule tool filtering: a rule
 // that does not list the tool is not consulted, so it cannot contribute a
@@ -19,7 +19,7 @@ func allow(hook.Request) hook.Verdict { return hook.Allowed() }
 // so rules do see tools they did not ask for.
 func TestApplySkipsRulesThatDoNotMatchTheTool(t *testing.T) {
 	ran := false
-	rs := []Rule{rule("bash-only", []string{"Bash"}, func(hook.Request) hook.Verdict {
+	rs := []Rule{rule("bash-only", []string{"Bash"}, func(*hook.Request) hook.Verdict {
 		ran = true
 		return hook.Denied("should not be reached")
 	})}
@@ -35,10 +35,10 @@ func TestApplySkipsRulesThatDoNotMatchTheTool(t *testing.T) {
 
 func TestApplyMergesApplicableRules(t *testing.T) {
 	rs := []Rule{
-		rule("a", []string{"Bash"}, func(hook.Request) hook.Verdict { return hook.Asked("ask-reason") }),
+		rule("a", []string{"Bash"}, func(*hook.Request) hook.Verdict { return hook.Asked("ask-reason") }),
 		rule("b", []string{"Bash"}, allow),
-		rule("c", []string{"Bash"}, func(hook.Request) hook.Verdict { return hook.Denied("deny-reason") }),
-		rule("d", []string{"Read"}, func(hook.Request) hook.Verdict { return hook.Denied("wrong tool") }),
+		rule("c", []string{"Bash"}, func(*hook.Request) hook.Verdict { return hook.Denied("deny-reason") }),
+		rule("d", []string{"Read"}, func(*hook.Request) hook.Verdict { return hook.Denied("wrong tool") }),
 	}
 
 	got := Apply(rs, hook.NewRequest("Bash", "", "", "ls"))
@@ -56,10 +56,10 @@ func TestApplyMergesApplicableRules(t *testing.T) {
 func TestPanickingRuleDeniesAndDoesNotSilenceTheRest(t *testing.T) {
 	after := false
 	rs := []Rule{
-		rule("boom", []string{"Bash"}, func(hook.Request) hook.Verdict {
+		rule("boom", []string{"Bash"}, func(*hook.Request) hook.Verdict {
 			panic("index out of range")
 		}),
-		rule("after", []string{"Bash"}, func(hook.Request) hook.Verdict {
+		rule("after", []string{"Bash"}, func(*hook.Request) hook.Verdict {
 			after = true
 			return hook.Allowed()
 		}),
@@ -84,8 +84,8 @@ func TestPanickingRuleDeniesAndDoesNotSilenceTheRest(t *testing.T) {
 // out a guard that actually has something to say.
 func TestPanickingRuleLosesToARealDeny(t *testing.T) {
 	rs := []Rule{
-		rule("boom", []string{"Bash"}, func(hook.Request) hook.Verdict { panic("boom") }),
-		rule("real", []string{"Bash"}, func(hook.Request) hook.Verdict { return hook.Denied("[BLOCKED] rm -rf /") }),
+		rule("boom", []string{"Bash"}, func(*hook.Request) hook.Verdict { panic("boom") }),
+		rule("real", []string{"Bash"}, func(*hook.Request) hook.Verdict { return hook.Denied("[BLOCKED] rm -rf /") }),
 	}
 
 	got := Apply(rs, hook.NewRequest("Bash", "", "", "ls"))

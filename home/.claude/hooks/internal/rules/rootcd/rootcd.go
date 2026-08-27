@@ -22,7 +22,7 @@ import (
 const Name = "enforce-root"
 
 // Check denies a top-level `cd` in req.
-func Check(req hook.Request) hook.Verdict {
+func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		return hook.Allowed()

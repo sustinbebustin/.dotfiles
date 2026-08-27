@@ -29,7 +29,7 @@ const Name = "block-dangerous-git"
 // a guarded call nested in a pipeline, subshell, brace block, command
 // substitution, && / || chain, or the body of an if/for/while/case or function
 // is still found.
-func Check(req hook.Request) hook.Verdict {
+func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		return hook.Allowed()

@@ -47,7 +47,7 @@ const (
 // Check decides whether a recursive rm in req needs approval. The whole tree is
 // walked, so rm nested in pipelines, subshells, command substitutions, and
 // && / || chains is still caught.
-func Check(req hook.Request) hook.Verdict {
+func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		return hook.Allowed()

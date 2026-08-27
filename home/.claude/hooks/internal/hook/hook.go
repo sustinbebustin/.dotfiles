@@ -116,14 +116,18 @@ type Request struct {
 // NewRequest builds a Request from already-decoded fields. It is the seam the
 // rule tests construct payloads through.
 //
+// A Request is passed around by pointer: it carries the parsed shell tree, and
+// copying that into every rule is waste the rules have no use for. Nothing
+// mutates it after this returns.
+//
 // The command is parsed as shell only for Bash. Nothing in the payload
 // guarantees the tool is what the matcher said, and a `command` field on a
 // non-Bash tool is not a shell command.
-func NewRequest(toolName, filePath, path, command string) Request {
+func NewRequest(toolName, filePath, path, command string) *Request {
 	if filePath == "" {
 		filePath = path
 	}
-	r := Request{ToolName: toolName, FilePath: filePath, Command: command}
+	r := &Request{ToolName: toolName, FilePath: filePath, Command: command}
 	if toolName == "Bash" {
 		r.Shell = shellast.Parse(command)
 	}
@@ -137,14 +141,14 @@ func NewRequest(toolName, filePath, path, command string) Request {
 // has no grounds to block anything, and the caller treats this as an Allow.
 // Within a payload that does parse, a field of the wrong type is dropped on its
 // own and the rest is still checked.
-func Read(r io.Reader) (Request, error) {
+func Read(r io.Reader) (*Request, error) {
 	raw, err := io.ReadAll(r)
 	if err != nil {
-		return Request{}, fmt.Errorf("reading hook input from stdin: %w", err)
+		return nil, fmt.Errorf("reading hook input from stdin: %w", err)
 	}
 	var in input
 	if err := json.Unmarshal(raw, &in); err != nil {
-		return Request{}, fmt.Errorf("decoding hook input as JSON: %w", err)
+		return nil, fmt.Errorf("decoding hook input as JSON: %w", err)
 	}
 	fields := toolInputFields(in.ToolInput)
 	return NewRequest(
