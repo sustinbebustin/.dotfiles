@@ -40,7 +40,7 @@ Capable agent for complex, multi-step tasks needing both exploration and action.
 
 The default Agent tool target when nothing more specific fits. Claude delegates here when the task requires exploration AND modification, complex reasoning to interpret results, or multiple dependent steps.
 
-When fork mode is on (`CLAUDE_CODE_FORK_SUBAGENT=1`, or the staged rollout), Claude can spawn a FORK that inherits the parent conversation by requesting the `fork` subagent type. When it requests no type it still gets `general-purpose`; named subagents are unaffected.
+Where fork mode is on — the default in interactive sessions since v2.1.232 — Claude can spawn a FORK that inherits the parent conversation by requesting the `fork` subagent type. When it requests no type it still gets `general-purpose`; named subagents are unaffected.
 
 ## Helper Subagents
 
@@ -48,6 +48,7 @@ Used automatically by specific commands; you usually don't invoke these directly
 
 | Agent | Model | When Claude uses it |
 | --- | --- | --- |
+| `claude` | Inherits | Catch-all for a task no specialized agent fits; has every subagent-available tool. Also the default agent for a dispatched background session |
 | `statusline-setup` | Sonnet | When you run `/statusline` |
 | `claude-code-guide` | Haiku | When you ask questions about Claude Code features |
 

@@ -44,7 +44,7 @@ All fields are optional. Only `description` is recommended.
 | `user-invocable` | No | Set `false` to hide from `/` menu. Use for background knowledge. Default: `true` |
 | `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict tools — every tool remains callable and permission settings still govern unlisted tools. Accepts space-separated string or YAML list. |
 | `disallowed-tools` | No | Tools removed from Claude's available pool while the skill is active. Use for autonomous skills that must never call a tool (e.g. `AskUserQuestion` in a background loop). Restriction clears on the next message. Accepts space/comma-separated string or YAML list. |
-| `model` | No | Model to use. Accepts an alias (`haiku`, `sonnet`, `opus`), a full model ID (e.g. `claude-opus-4-7`, `claude-sonnet-4-6`), or `inherit`. Override applies for the rest of the current turn and is **not** saved to settings — the session model resumes on the next prompt. |
+| `model` | No | Model to use. Accepts an alias (`haiku`, `sonnet`, `opus`, `fable`), a full model ID (e.g. `claude-opus-5`, `claude-sonnet-5`), or `inherit`. Override applies for the rest of the current turn and is **not** saved to settings — the session model resumes on the next prompt. A value excluded by the org's `availableModels` allowlist is ignored. With `context: fork` it sets the forked subagent's model. |
 | `effort` | No | Effort level while skill is active. Options: `low`, `medium`, `high`, `xhigh`, `max`; available levels depend on the model. Overrides session effort. |
 | `context` | No | Set `fork` to run in isolated subagent context |
 | `agent` | No | Subagent type when `context: fork`. Options: `Explore`, `Plan`, `general-purpose`, or any custom subagent from `.claude/agents/`. Defaults to `general-purpose`. |
@@ -52,8 +52,15 @@ All fields are optional. Only `description` is recommended.
 | `hooks` | No | Hooks scoped to this skill's lifecycle. See [Hooks in skills and agents](https://code.claude.com/docs/en/hooks#hooks-in-skills-and-agents). |
 | `paths` | No | Glob patterns limiting auto-activation. When set, Claude loads the skill automatically only when working with matching files. Comma-separated string or YAML list. Same format as path-specific memory rules. |
 | `shell` | No | Shell for inline and fenced shell-injection blocks. `bash` (default) or `powershell`. `powershell` requires the PowerShell tool: on by default on Windows without Git Bash, `CLAUDE_CODE_USE_POWERSHELL_TOOL=1` elsewhere. |
+| `metadata` | No | Free-form YAML map for your own tooling. Claude Code doesn't act on it and drops a non-map value. Don't reuse frontmatter field names as keys. |
+| `license` | No | Agent Skills spec field. Accepted, not acted on. |
+| `compatibility` | No | Agent Skills spec field for environment requirements. String, max 500 chars. Accepted, not acted on. |
 
-Boolean fields accept `yes`, `no`, `on`, `off`, `1`, and `0` in any case as well as `true`/`false` (v2.1.218+; earlier versions recognized only `true`/`false`).
+Boolean fields accept `yes`, `no`, `on`, `off`, `1`, and `0` in any case as well as `true`/`false` (v2.1.218+; earlier versions recognized only `true`/`false`). Frontmatter is parsed only when the opening `---` is the file's first line; otherwise the whole file is treated as content. Files in `.claude/commands/` accept the same fields except `name` and `paths`, which are ignored there.
+
+### Portability
+
+Claude Code accepts every field above at every skill level, plugins included. The Agent Skills spec — what claude.ai uploads, the Skills API, and `package_skill.py` accept — allows only `name`, `description`, `license`, `compatibility`, `metadata`, and `allowed-tools`; any other field fails packaging with `Unexpected key(s) in SKILL.md frontmatter` rather than being ignored. Body features such as dynamic context injection don't function outside Claude Code. Enabling a personal skill for Cowork or cloud sessions uploads it to claude.ai, so the same restriction applies there.
 
 ## Invocation Control
 
@@ -116,8 +123,10 @@ Claude auto-invokes some of them, but since v2.1.215 `/verify` and `/code-review
 | `${CLAUDE_EFFORT}` | Current effort level: `low`, `medium`, `high`, `xhigh`, or `max`. Use to adapt skill instructions to the active effort setting. |
 | `${CLAUDE_SKILL_DIR}` | Directory containing the skill's `SKILL.md`. For plugin skills, the skill's subdirectory within the plugin, not the plugin root. Use inside shell-injection blocks to reference bundled scripts regardless of cwd. |
 | `${CLAUDE_PROJECT_DIR}` | Project root — the same path hooks and MCP servers receive. Requires v2.1.196+. |
+| `${CLAUDE_PLUGIN_ROOT}` | Plugin install directory. Plugin skills only. Use for resources shared between a plugin's skills. |
+| `${CLAUDE_PLUGIN_DATA}` | Plugin's persistent data directory, which survives plugin updates. Plugin skills only. |
 
-`${CLAUDE_SKILL_DIR}` and `${CLAUDE_PROJECT_DIR}` are substituted both in the markdown body and in `allowed-tools` Bash rules, so `allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/render.sh *)` matches the exact command the body tells Claude to run and the script executes without prompting. (`allowed-tools` substitution requires v2.1.129+.)
+`${CLAUDE_SKILL_DIR}` and `${CLAUDE_PROJECT_DIR}` (plus `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_DATA}` in plugin skills) are substituted both in the markdown body and in `allowed-tools` Bash rules, so `allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/render.sh *)` matches the exact command the body tells Claude to run and the script executes without prompting. (`allowed-tools` substitution requires v2.1.129+.)
 
 ## Dynamic Context Injection
 
@@ -208,7 +217,7 @@ A few built-in commands *are* available through the Skill tool (e.g. `/init`, `/
 
 ### `skillOverrides` setting
 
-`skillOverrides` in [settings](https://code.claude.com/docs/en/settings) controls per-skill visibility *without* editing the skill's frontmatter — useful for shared-repo or MCP-provided skills you can't modify. The `/skills` menu writes overrides to `.claude/settings.local.json` (cycle with `Space`, save with `Enter`).
+`skillOverrides` in [settings](https://code.claude.com/docs/en/settings) controls per-skill visibility *without* editing the skill's frontmatter — useful for shared-repo or MCP-provided skills you can't modify. The `/skills` menu writes overrides to `.claude/settings.local.json` (cycle with `Space`, save with `Esc`).
 
 | Value | Listed to Claude | In `/` menu |
 |-------|------------------|-------------|

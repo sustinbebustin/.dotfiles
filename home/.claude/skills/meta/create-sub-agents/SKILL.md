@@ -3,7 +3,7 @@ name: create-sub-agents
 description: Designing, authoring, and auditing Claude Code subagents — frontmatter, tool scoping, model choice, and memory.
 disable-model-invocation: true
 metadata:
-  last_reviewed: 2026-07-29
+  last_reviewed_version: 2.1.251
 ---
 
 # Creating Subagents
@@ -67,22 +67,23 @@ Only `name` and `description` are required. Full details in [frontmatter.md](ref
 
 | Field | Purpose |
 | --- | --- |
-| `name` | Unique identifier. Lowercase letters and hyphens. |
+| `name` | Unique identifier. Lowercase letters and hyphens. Can't start with `-` or contain `:` (reserved for plugin scoping) — such files are skipped with a debug-log error (v2.1.218+). |
 | `description` | When Claude should delegate to this subagent. Front-load trigger phrases. |
 | `tools` | Allowlist of tools. If omitted, inherits all tools from parent. |
 | `disallowedTools` | Denylist. Applied before `tools` resolves. |
 | `model` | `sonnet`, `opus`, `haiku`, `fable`, a full model ID, or `inherit`. Defaults to `inherit`. |
 | `permissionMode` | `default` (alias `manual`), `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, or `plan`. |
-| `maxTurns` | Hard cap on agentic turns before the subagent stops. |
+| `maxTurns` | Hard cap on agentic turns before the subagent stops. Output is returned marked partial and can be resumed (v2.1.246+). |
 | `skills` | Skills to fully preload into the subagent's context at startup. |
 | `mcpServers` | MCP servers scoped to this subagent. Inline definitions or names. |
 | `hooks` | Lifecycle hooks scoped to this subagent's runtime. |
 | `memory` | `user`, `project`, or `local`. Enables cross-session persistent memory. |
-| `background` | `true` to always run in background, even when Claude needs the result right away. Unset lets Claude choose, and since v2.1.198 it backgrounds by default. |
+| `background` | `true` to always run in background, even when Claude needs the result right away. Redundant where fork mode is on — Claude Code backgrounds every spawned subagent there and Claude can't ask for the foreground. |
 | `effort` | `low`, `medium`, `high`, `xhigh`, `max`. Available levels depend on the model. |
 | `isolation` | `worktree` to run in a temporary git worktree. |
 | `color` | UI color: red, blue, green, yellow, purple, orange, pink, cyan. |
 | `initialPrompt` | Auto-submitted first user turn when this agent runs as the main session via `--agent`. |
+| `experimental` | Map of experimental options. Its `cacheTtl` key (`5m` or `1h`) picks the prompt-cache lifetime for this subagent's requests. Read only from subagent files. Requires v2.1.248+. |
 
 Plugin subagents IGNORE `hooks`, `mcpServers`, and `permissionMode`. Copy the file into `.claude/agents/` if you need those.
 
@@ -94,7 +95,7 @@ Pick exactly one of these strategies, not both at once unless intentional:
 - **Denylist** with `disallowedTools: Edit, Write` -> subagent inherits everything else from parent.
 - Both fields set: `disallowedTools` applies first, then `tools` resolves against the remainder.
 
-Subagents run in the background by default (v2.1.198+), and a background subagent keeps every MCP tool but only a narrow set of built-ins: `Read`, `Grep`, `Glob`, `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `Skill`, `ToolSearch`, `EnterWorktree`, `ExitWorktree`, `Monitor`, `TaskStop`, `SendMessage`, `Artifact`. Anything else is dropped silently, whether inherited or named in `tools`, so the same definition can resolve to different tools in foreground and background. Forks are exempt.
+Fork mode is on by default in interactive sessions (v2.1.232+) and off under `-p`/the Agent SDK. Where it's on, every subagent Claude spawns runs in the background; where it's off, Claude backgrounds by default and foregrounds when it needs the result. A background subagent keeps every MCP tool but only a narrow set of built-ins: `Read`, `Grep`, `Glob`, `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `Skill`, `ToolSearch`, `EnterWorktree`, `ExitWorktree`, `Monitor`, `TaskStop`, `SendMessage`, `Artifact`. Anything else is dropped silently, whether inherited or named in `tools`, so the same definition can resolve to different tools in foreground and background. Forks are exempt.
 
 `permissionMode` works like CLI `--permission-mode`. Parent modes `bypassPermissions`, `acceptEdits`, and `auto` always take precedence over the subagent's setting. See [tools-and-permissions.md](references/tools-and-permissions.md) for `Agent(type)` spawn restrictions and `permissions.deny` rules.
 
@@ -107,6 +108,7 @@ Claude Code already ships with several. Don't recreate these:
 | `Explore` | Inherits (capped at Opus on the Claude API) | Read-only codebase search and analysis |
 | `Plan` | Inherits | Read-only research during plan mode |
 | `general-purpose` | Inherits | Multi-step tasks needing both exploration and modification |
+| `claude` | Inherits | Catch-all with every subagent-available tool, for tasks no specialized agent fits |
 | `statusline-setup` | Sonnet | Triggered by `/statusline` |
 | `claude-code-guide` | Haiku | Triggered by questions about Claude Code features |
 

@@ -42,19 +42,21 @@ A subagent can spawn its own subagents through the Agent tool. Use this when a d
 
 Nesting is capped at three layers below the main conversation by default; at the limit the Agent tool is withheld (a fork keeps it but the tool errors instead of spawning). Set `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` to change it, `1` to turn nesting off. Earlier versions differed: v2.1.172–v2.1.216 allowed five layers with no way to change it, and v2.1.217–v2.1.218 defaulted to one. To stop a specific subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`.
 
-Two other limits apply per session: at most 200 subagents spawned in total (`CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION`, reset by `/clear`) and at most 20 running concurrently (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`; not enforced under ultracode).
+There's no cap on how many subagents a session spawns in total, but at most 20 may run concurrently (`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`, v2.1.217+; not enforced under ultracode). A `/subtask` fork occupies a slot but is never blocked by the limit, and resuming a finished subagent takes a fresh slot without checking it.
 
-## Fork Mode (Experimental)
+## Fork Mode
 
 A fork is a subagent that inherits the ENTIRE conversation so far instead of starting fresh. The fork's tool calls stay out of your conversation; only its final result comes back. Use a fork when:
 
 - A named subagent would need too much background to be useful
 - You want to try several approaches in parallel from the same starting point
 
-Fork mode ships behind a staged rollout; force it with `CLAUDE_CODE_FORK_SUBAGENT=1` or disable it with `0`. When on:
+Fork mode is ON by default in interactive sessions (v2.1.232+) and OFF under `-p` and the Agent SDK. `CLAUDE_CODE_FORK_SUBAGENT=1` turns it on everywhere, `0` off everywhere. When on:
 
 - Claude can spawn a fork by requesting the `fork` subagent type. Untyped requests still get `general-purpose`, and named subagents (Explore, custom ones) still spawn fresh.
-- Every subagent spawn runs in the BACKGROUND (forks AND named), and the frontmatter `background` field has no effect. Set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` to keep spawns synchronous.
+- Every subagent spawn runs in the BACKGROUND (forks AND named). Claude Code removes the Agent tool's `run_in_background` parameter, so Claude can't ask for the foreground. Set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` to keep spawns synchronous.
+
+To keep fork mode on but stop Claude from forking, deny `Agent(fork)` in `permissions.deny`. Spawns still run in the background.
 
 Manual fork — `/subtask` (v2.1.212+; `/fork` on v2.1.161–v2.1.211, where `/fork` now copies the session into a new background session instead unless agent view is off):
 
@@ -108,7 +110,7 @@ Use this for:
 
 ## Background Subagents
 
-Subagents run in the background by default (v2.1.198+); Claude foregrounds one when it needs the result before continuing. `background: true` forces background regardless.
+Where fork mode is on (interactive default since v2.1.232) every spawned subagent runs in the background and Claude can't request the foreground. Where fork mode is off, Claude backgrounds by default and foregrounds when it needs the result before continuing; `background: true` forces background there.
 
 Permissions: as of v2.1.186, a background subagent's permission prompt surfaces in your main session and names the asking subagent. Approve to continue, or Esc to deny that one tool call without stopping the subagent. (Before v2.1.186 background subagents auto-denied anything that would have prompted.)
 

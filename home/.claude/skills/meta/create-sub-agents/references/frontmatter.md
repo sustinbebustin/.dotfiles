@@ -8,6 +8,8 @@ Every field a subagent's YAML frontmatter accepts. Source: [code.claude.com/docs
 
 Unique identifier. Lowercase letters and hyphens only. Should match the filename (without `.md`). Used in `@`-mentions, `tools: Agent(name)` allowlists, and `permissions.deny: Agent(name)` rules.
 
+A name can't start with `-` or contain `:` — the colon is reserved for plugin-scoped identifiers like `my-plugin:reviewer`, and since v2.1.218 Claude Code skips such files and logs an error to the debug log. Files are also skipped silently when there's no `name`, no `description`, the opening `---` isn't the first line, or the YAML doesn't parse. Run `claude plugin validate .claude/agents` (or `~/.claude/agents`) to find unparseable frontmatter (v2.1.233+); it won't flag a file that parses but has no `name`.
+
 ```yaml
 name: code-reviewer
 ```
@@ -82,6 +84,8 @@ Hard cap on agentic turns before the subagent stops.
 ```yaml
 maxTurns: 20
 ```
+
+When the cap is hit, Claude Code returns the output marked partial (v2.1.246+) and, for subagents that return an agent ID, notes that Claude can message the subagent to continue from where it stopped.
 
 ## Model
 
@@ -181,7 +185,7 @@ memory: project
 
 ### `background`
 
-`true` to always run as a background task, even when Claude needs the result right away. When unset, Claude chooses — and since v2.1.198 it backgrounds by default.
+`true` to always run as a background task, even when Claude needs the result right away. Where [fork mode](advanced-patterns.md) is on — the default in interactive sessions since v2.1.232 — Claude Code already backgrounds every subagent Claude spawns, so the field only matters where fork mode is off (`-p`, the Agent SDK). Claude Code refuses to spawn an agent-team teammate's subagent whose definition sets `background: true`.
 
 ```yaml
 background: true
@@ -218,6 +222,17 @@ Auto-submitted as the first user turn when this agent runs as the MAIN session (
 ```yaml
 initialPrompt: "Analyze the project structure and report key entry points."
 ```
+
+### `experimental`
+
+Map of experimental options. Only `cacheTtl` is defined: set it to `5m` or `1h` to choose the [prompt cache lifetime](https://code.claude.com/docs/en/prompt-caching) for this subagent's requests. Any other value is ignored, `1h` is ignored while the subscription is on usage credits, and the field is read only from subagent files (not `--agents` JSON). Requires v2.1.248+.
+
+```yaml
+experimental:
+  cacheTtl: 1h
+```
+
+Write `cacheTtl` inside the map, not at the top level.
 
 ## Field Compatibility
 
