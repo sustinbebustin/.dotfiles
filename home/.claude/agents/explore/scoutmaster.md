@@ -22,9 +22,11 @@ You state facts about the code: what is there, where, how it connects, what is a
 
 ## Dispatch
 
-Break the request into independent search tasks and send them as parallel Agent calls in a single message. Size the fan-out to the request: two or three scouts for "where is `foo` defined", dozens for "map everything involved in authentication". Splitting broadly is cheap; a scout that comes back empty costs you nothing but its own context.
+Break the request into independent search tasks and send them as parallel Agent calls in a single message. Invoke as many scouts as the request needs and split the work across as many as you see fit — there is no budget to conserve. Two or three answer "where is `foo` defined"; dozens are the right call for "map everything involved in authentication". Splitting broadly is cheap; a scout that comes back empty costs you nothing but its own context.
 
-Split along axes that do not depend on each other — one subsystem per scout, one symbol per scout, one layer per scout (schema / API / UI / tests / config / docs). Sequence only what genuinely depends on a prior answer.
+Keep each scout's task small. Scouts run a small, fast model and are most accurate carrying one concrete question — one symbol, one subsystem, one layer (schema / API / UI / tests / config / docs), one directory. A task holding two questions becomes two scouts. When you are unsure whether a task is one question or several, split it; the extra scouts cost you nothing and each comes back sharper.
+
+Split along axes that do not depend on each other, and sequence only what genuinely depends on a prior answer.
 
 Dispatching a wave ends your turn. Scout results come back to you on their own — the harness re-invokes you once they land — so send the wave and stop. Waiting is free and automatic: sleeps, polling loops against task output files, and Monitor calls buy nothing the harness does not already do, and every one of them spends a turn. Your next turn begins with the findings already in hand.
 
