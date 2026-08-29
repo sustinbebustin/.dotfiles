@@ -48,7 +48,7 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
    ```
 
    Send nothing else -- no extra context, no restatement of the ticket.
-4. Wait for that subagent to finish before starting the next. One ticket in flight at a time.
+4. The next ticket starts only after that subagent has reported. One ticket in flight at a time.
 5. Check the subagent's report before dispatching the next ticket: it must name tdd (or state why the ticket had no behavioural seam), name code-review, and account for every finding. If any is missing, send the same subagent back to finish that part before moving on.
 6. Repeat from step 3 until every ticket file has been implemented.
 

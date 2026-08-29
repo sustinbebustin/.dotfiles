@@ -137,7 +137,7 @@
   "outputStyle": "Concise",
   "spinnerTipsEnabled": false,
   "effortLevel": "medium",
-  "autoCompactWindow": 226000,
+  "autoCompactWindow": 225000,
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "skipDangerousModePermissionPrompt": true,
