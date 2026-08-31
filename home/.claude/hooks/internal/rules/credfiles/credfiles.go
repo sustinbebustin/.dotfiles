@@ -168,6 +168,13 @@ func globNamesSecret(base string) bool {
 }
 
 // secretNames are basenames that are credential material wherever they appear.
+// Every entry has to be a name nothing else plausibly carries, because checkBash
+// classifies each call argument without knowing whether it is a path: an
+// ordinary English word here denies it as a grep pattern too. That is why
+// `identity` -- OpenSSH's alternate default private key name -- is absent. It
+// lives in ~/.ssh, which secretDirs already denies wholesale, so listing it by
+// name added no real coverage while blocking every directory and search term
+// called identity.
 var secretNames = map[string]bool{
 	"credentials":      true, // aws, and the conventional name elsewhere
 	"credentials.json": true,
@@ -185,7 +192,6 @@ var secretNames = map[string]bool{
 	"shadow":           true, // /etc/shadow
 	"master.key":       true, // rails
 	"secring.gpg":      true,
-	"identity":         true, // ssh private key under its default alternate name
 	".s3cfg":           true,
 	".boto":            true,
 	".rclone.conf":     true,
