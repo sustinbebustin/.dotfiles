@@ -154,6 +154,12 @@ fable()     { _claude_run fable   ""                      "$@" }
 # Plan in Fable 5, then approve the plan to drop back into your default model.
 fableplan() { _claude_run fable   "--permission-mode plan" "$@" }
 
+# Second Claude account. CLAUDE_CONFIG_DIR gives it its own credentials,
+# settings, and session history, so both logins stay live at once. The word
+# after the assignment is still in command position, so this runs the `claude`
+# function above and keeps the effort-token handling.
+alias claude-work='CLAUDE_CONFIG_DIR=~/.claude-work claude'
+
 # Git
 alias gpl='git pull'
 alias gmain='git checkout main && git pull'

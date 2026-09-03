@@ -217,6 +217,7 @@ var secretExts = map[string]bool{
 	".pem": true, ".key": true, ".p12": true, ".pfx": true, ".jks": true,
 	".keystore": true, ".ppk": true, ".kdbx": true, ".keytab": true,
 	".gpg": true, ".pkcs12": true, ".asc": true, ".ovpn": true,
+	".enc": true, // sops/ansible-vault ciphertext; the plaintext name it shadows
 }
 
 func isSecretName(base string) bool {

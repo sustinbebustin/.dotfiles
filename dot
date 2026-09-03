@@ -10,6 +10,9 @@ readonly BREWFILE="${PACKAGES_DIR}/Brewfile"
 # The single stow package; its tree mirrors $HOME.
 readonly STOW_PACKAGE="home"
 
+# Config dir for the second Claude Code account (see stow_claude_work).
+readonly CLAUDE_WORK_DIR="${HOME}/.claude-work"
+
 # Node toolchain. Must stay in step with PNPM_HOME in home/.config/zsh/.zshenv.
 readonly PNPM_HOME_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
 readonly NODE_VERSION="24"
@@ -76,6 +79,9 @@ stow_target_paths() {
         [[ "$rel" == ".stow-local-ignore" ]] && continue
         printf '%s\0' "${HOME}/${rel}"
     done < <(find "$pkg_dir" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+    # The second Claude account dir mirrors part of the same package
+    # (stow_claude_work), so it can hold orphans too.
+    printf '%s\0' "$CLAUDE_WORK_DIR"
 }
 
 # Emit NUL-separated paths to broken stow symlinks (orphans left behind
@@ -181,7 +187,6 @@ build_hooks() {
 # clarity (e.g. skills/meta/claude-code-docs/); that layer is flattened here.
 
 skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude/skills"; }
-skills_dst_dir() { printf '%s\n' "${HOME}/.claude/skills"; }
 
 # True when $1 is safe for link_skill_tree to replace: absent, a symlink, or
 # a dir we built ourselves (every file under it is a symlink into the dotfiles
@@ -231,8 +236,7 @@ skill_dir_kind() {
 # Links to still-existing sources are left alone -- link_skill_tree() replaces
 # those itself if the target needs to change (e.g. a skill moved categories).
 prune_skill_links() {
-    local dst marker pattern removed=0 link
-    dst="$(skills_dst_dir)"
+    local dst="$1" marker pattern removed=0 link
     [[ -d "$dst" ]] || return 0
     marker="/$(basename "$DOTFILES_DIR")/"
     pattern="*${marker}*"
@@ -306,16 +310,15 @@ enumerate_skills() {
 }
 
 stow_skills() {
-    local src dst listing
+    local dst="$1" src listing
     src="$(skills_src_dir)"
-    dst="$(skills_dst_dir)"
     [[ -d "$src" ]] || return 0
-    info "Linking Claude skills..."
+    info "Linking Claude skills into ${dst/#$HOME/\~}..."
     # Command substitution (not a pipe) so an enumeration failure -- duplicate
     # name, malformed skill dir -- aborts before anything is linked.
     listing="$(enumerate_skills)" || return 1
     mkdir -p "$dst"
-    prune_skill_links
+    prune_skill_links "$dst"
     local skill name skill_src count=0
     while IFS= read -r skill; do
         [[ -n "$skill" ]] || continue
@@ -325,6 +328,43 @@ stow_skills() {
         ((++count))
     done <<< "$listing"
     ok "Linked $count skill(s) -> $dst"
+}
+
+# --- Second Claude Code account ---
+
+# The `claude-work` alias (home/.config/zsh/.zshrc) points CLAUDE_CONFIG_DIR at
+# $CLAUDE_WORK_DIR so a second login keeps its own credentials, settings and
+# session history. Everything tracked here -- CLAUDE.md, agents, commands,
+# rules, hooks, statusline, skills -- is shared, so it gets linked into that
+# directory too. home/.claude is stowed as a package in its own right for
+# this, which is why it carries a second .stow-local-ignore.
+
+claude_pkg_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude"; }
+
+# Move aside real files in $CLAUDE_WORK_DIR that stow is about to replace with
+# symlinks -- Claude Code writes its own settings.json there on first launch.
+backup_claude_work_conflicts() {
+    local pkg file rel target backup_dir=""
+    pkg="$(claude_pkg_dir)"
+    while IFS= read -r -d '' file; do
+        rel="${file#"$pkg"/}"
+        target="${CLAUDE_WORK_DIR}/${rel}"
+        [[ -e "$target" && ! -L "$target" ]] || continue
+        [[ -n "$backup_dir" ]] || backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)/.claude-work"
+        mkdir -p "$(dirname "${backup_dir}/${rel}")"
+        mv "$target" "${backup_dir}/${rel}"
+    done < <(find "$pkg" -type f -print0)
+    [[ -n "$backup_dir" ]] && ok "Backed up pre-existing ~/.claude-work files to $backup_dir"
+    return 0
+}
+
+stow_claude_work() {
+    info "Linking Claude config into ~/.claude-work..."
+    mkdir -p "$CLAUDE_WORK_DIR"
+    backup_claude_work_conflicts
+    stow -R --no-folding --dir="${DOTFILES_DIR}/${STOW_PACKAGE}" --target="$CLAUDE_WORK_DIR" ".claude"
+    stow_skills "${CLAUDE_WORK_DIR}/skills"
+    ok "Second Claude account linked"
 }
 
 # --- Core operations ---
@@ -668,7 +708,8 @@ cmd_stow() {
     info "Stowing dotfiles (${STOW_PACKAGE})..."
     prune_broken_stow_links
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "$STOW_PACKAGE"
-    stow_skills
+    stow_skills "${HOME}/.claude/skills"
+    stow_claude_work
     ok "Dotfiles linked"
 }
 

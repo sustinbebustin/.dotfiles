@@ -1,0 +1,28 @@
+# Ignores for when this directory is stowed as a package in its own right,
+# targeting ~/.claude-work (see stow_claude_work in ../../dot). Mirrors the
+# .claude entries of ../.stow-local-ignore, re-anchored to this root; keep the
+# two in step.
+
+# Repeat stow's default ignores (since this file replaces them).
+\.git
+\.gitignore
+\.gitmodules
+\.hg
+\.svn
+^README.*
+^LICENSE.*
+
+# Go source and build tooling for the hook binary -- only the built
+# *-bin should be linked. config.json.example is the template for the
+# machine-local config.json, which does get linked.
+^/hooks/cmd$
+^/hooks/internal$
+^/hooks/Makefile$
+^/hooks/go\.mod$
+^/hooks/go\.sum$
+^/hooks/\.golangci\.yml$
+^/hooks/config\.json\.example$
+
+# The skills tree. Published by dot's stow_skills() instead -- categories
+# flattened, each skill linked as a folder.
+^/skills$

@@ -83,6 +83,8 @@
       "mcp__ide__getDiagnostics",
       "Read($HOME/.claude/**)",
       "Read(~/.claude/**)",
+      "Read($HOME/.claude-work/**)",
+      "Read(~/.claude-work/**)",
       "mcp__supabase__*",
       "mcp__supabase__list_tables",
       "mcp__supabase__list_extensions",
@@ -97,14 +99,7 @@
     ],
     "deny": [
       "Bash(wget:*)",
-      "Bash(brew install:*)",
-      "Read(**/.env)",
-      "Read(**/.env.development)",
-      "Read(**/.env.production)",
-      "Read(**/.env.staging)",
-      "Read(**/*.env)",
-      "Read(**/secrets.enc)",
-      "Read(**/*.key)"
+      "Bash(brew install:*)"
     ],
     "ask": [
       "Skill(release)",
@@ -112,6 +107,7 @@
     ],
     "defaultMode": "auto"
   },
+  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -151,6 +147,5 @@
       "Running a pre-existing skill helper script at ~/.claude/skills/*/scripts/gather-state.sh is allowed, regardless of how it was invoked, when all of these hold: the agent did not write or edit the script this session (if the transcript shows the agent writing or editing it, judge the written content instead); the script invocation is the whole command, taking no arguments other than a quoted heredoc carrying the slash-command's own arguments; and the script only reads local git and repo state. This covers running the script only -- creating or editing files under .claude/skills/ remains Self-Modification and is not cleared here."
     ]
   },
-  "voiceEnabled": false,
-  "model": "opus[1m]"
+  "voiceEnabled": false
 }

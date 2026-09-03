@@ -26,6 +26,10 @@
 # ~/.claude/hooks/config.json, so it has to be linked like the binary is.
 ^/\.claude/hooks/config\.json\.example$
 
+# Ignores for stowing .claude on its own into ~/.claude-work; meaningless
+# inside ~/.claude itself.
+^/\.claude/\.stow-local-ignore$
+
 # The skills tree. Published by dot's stow_skills() instead -- categories
 # flattened, each skill linked as a folder.
 ^/\.claude/skills$
