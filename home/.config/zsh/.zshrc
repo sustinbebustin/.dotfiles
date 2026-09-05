@@ -155,10 +155,24 @@ fable()     { _claude_run fable   ""                      "$@" }
 fableplan() { _claude_run fable   "--permission-mode plan" "$@" }
 
 # Second Claude account. CLAUDE_CONFIG_DIR gives it its own credentials,
-# settings, and session history, so both logins stay live at once. The word
-# after the assignment is still in command position, so this runs the `claude`
-# function above and keeps the effort-token handling.
-alias claude-work='CLAUDE_CONFIG_DIR=~/.claude-work claude'
+# settings, and session history, so both logins stay live at once; the tracked
+# config (CLAUDE.md, agents, skills, hooks) is linked into both by `dot stow`.
+#
+# `work` takes an optional wrapper name, then the same effort token and flags
+# the personal wrappers take: `work`, `work h`, `work fable h`,
+# `work fableplan x --resume`. zsh scopes the export to this call and its
+# dynamic extent, so the wrapper it delegates to still sees it.
+work() {
+  local -x CLAUDE_CONFIG_DIR="$HOME/.claude-work"
+  case "$1" in
+    claude|fable|fableplan)
+      local wrapper="$1"
+      shift
+      "$wrapper" "$@"
+      ;;
+    *) claude "$@" ;;
+  esac
+}
 
 # Git
 alias gpl='git pull'
