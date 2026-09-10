@@ -1,4 +1,4 @@
-Generate a `DESIGN.md` file at the project root that captures the current visual design system, so AI agents generating new screens stay on-brand.
+Generate a `DESIGN.md` file in the project's `.impeccable/` directory (`PROJECT_ROOT/.impeccable/DESIGN.md`) that captures the current visual design system, so AI agents generating new screens stay on-brand.
 
 DESIGN.md follows the [official DESIGN.md format spec](https://raw.githubusercontent.com/google-labs-code/design.md/main/docs/spec.md): optional YAML frontmatter carrying machine-readable design tokens, followed by up to eight markdown sections in a fixed order. **Tokens are normative; prose provides context for how to apply them.** Sections may be omitted when not relevant, but those present stay in the specified order. Use the canonical headings below so the file remains portable across DESIGN.md-aware tools.
 
@@ -127,7 +127,7 @@ Carry a line from PRODUCT.md only when it is a durable brand commitment that act
 
 ### Step 4: Write DESIGN.md
 
-The file opens with the YAML frontmatter staged in Step 2b (schema documented at the top of this reference), then the markdown body using the canonical structure below.
+Write to `PROJECT_ROOT/.impeccable/DESIGN.md` (create `.impeccable/` if missing). If a legacy root, `.agents/context/`, or `docs/` copy already exists, update it in place instead. The file opens with the YAML frontmatter staged in Step 2b (schema documented at the top of this reference), then the markdown body using the canonical structure below.
 
 ```markdown
 ---
@@ -252,7 +252,7 @@ Concrete visual guardrails grounded in the incumbent implementation or the user'
 
 The frontmatter owns token primitives (colors, typography, rounded, spacing, components). The sidecar at `.impeccable/design.json` carries **what Stitch's schema can't hold**: tonal ramps per color, shadow/elevation tokens, motion tokens, breakpoints, full component HTML/CSS snippets (the panel renders these into a shadow DOM), and narrative (north star, rules, do's/don'ts). It extends the frontmatter, it doesn't duplicate it.
 
-Regenerate the sidecar whenever you regenerate root `DESIGN.md`. If the user only asks to refresh the sidecar (e.g., from the live panel's stale-hint), preserve `DESIGN.md` and write only `.impeccable/design.json`.
+Regenerate the sidecar whenever you regenerate `.impeccable/DESIGN.md`. If the user only asks to refresh the sidecar (e.g., from the live panel's stale-hint), preserve `DESIGN.md` and write only `.impeccable/design.json`.
 
 #### Schema
 
@@ -361,7 +361,7 @@ If new-work already completed the workshop in this session, use its chosen direc
 
 ### Step 2: Write seed DESIGN.md
 
-Use the canonical section order from Scan mode. Populate the selected workshop direction and leave unresolved implementation facts as honest placeholders. The seed commits a world and its invariants; it does not pretend implementation tokens already exist.
+Write to the same location as Scan mode. Use the canonical section order from Scan mode. Populate the selected workshop direction and leave unresolved implementation facts as honest placeholders. The seed commits a world and its invariants; it does not pretend implementation tokens already exist.
 
 Lead the file with:
 

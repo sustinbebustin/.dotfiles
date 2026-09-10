@@ -4,7 +4,8 @@
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5[1m]",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1m]",
     "ENABLE_TOOL_SEARCH": "true",
-    "CLAUDE_CODE_NO_FLICKER": "1"
+    "CLAUDE_CODE_NO_FLICKER": "1",
+    "IMPECCABLE_CONTEXT_DIR": ".impeccable"
   },
   "attribution": {
     "commit": "",
