@@ -2,7 +2,7 @@
 name: commit
 description: Git commit workflow combining atomic scope with conventional message format.
 allowed-tools: Bash
-argument_hint: [subdir...] [-- note]
+argument_hint: [subdir...] [--all|--yours] [-- note]
 disable-model-invocation: true
 ---
 
@@ -14,15 +14,20 @@ Create clean, meaningful commits by combining **atomic commits** (one logical ch
 
 Argument: `$ARGUMENTS`
 
-Accepts zero or more subdir scopes and/or a free-form user note separated by ` -- `:
+Accepts zero or more subdir scopes, an optional selection flag, and/or a free-form user note separated by ` -- `:
 
 - `/commit` -> commit in current repo (or sibling repos one level down if cwd isn't a repo)
 - `/commit frontend` -> scope to one subdir
 - `/commit frontend backend` -> scope to both subdirs (handle each as its own commit set)
 - `/commit -- don't touch lockfile` -> no scope, note only
 - `/commit frontend backend -- don't touch lockfile` -> multiple scopes + note
+- `/commit --all` -> commit everything in the worktree
+- `/commit --yours` -> commit only what this session changed
+- `/commit frontend --yours -- keep the lockfile out` -> scope + selection + note
 
 Subdir names with spaces aren't supported in the multi-scope form -- use the single-scope form for those.
+
+`--all` and `--yours` may appear anywhere before the ` -- ` note separator and apply to every scope in the invocation. When one is present the gathered state below starts with a `### Selection mode:` block. See [Selection modes](#selection-modes).
 
 When multiple scopes are given, treat each repo independently: assess atomicity, stage, and commit per repo. Don't blend changes across repos into one commit.
 
@@ -41,10 +46,35 @@ __SKILL_ARGUMENTS__
 ## Commit Workflow
 
 1. **Assess atomicity** -- can this be split into independent logical changes?
-2. **Stage selectively** -- use `git add -p` or specific files to isolate changes
+2. **Stage selectively** -- use `git add -p` or specific files to isolate changes, restricted to the file set that [Selection modes](#selection-modes) allows
 3. **Write message** -- follow conventional format below
 4. **Verify** -- run `git diff --staged` before committing
 5. **Commit** -- create the commit
+
+## Selection modes
+
+The `### Selection mode:` block in the gathered state decides **which files** may be staged. It never changes how many commits you make -- atomicity still governs that, so a mode's file set may still split across several commits.
+
+| Block | File set |
+|-------|----------|
+| (absent) | Default. Judge from the state what belongs in this commit set, as always. |
+| `all` | Every change in the worktree -- tracked modifications, deletions, and untracked files. The worktree ends clean. |
+| `yours` | Only the files this session changed. Everything else stays exactly as it is: unstaged, untracked, and uncommitted. |
+| `CONFLICT` | Both flags were passed. Stop and ask which one was meant. |
+
+### `--all`
+
+Include untracked files -- `git status` in the gathered state lists them, and the diffs do not. Read each one before staging it; scratch files, secrets, and build output that belong in `.gitignore` are still excluded, and say which ones you left out and why.
+
+### `--yours`
+
+The file set is what **you** changed in this session: files you wrote or edited, plus files your commands rewrote (formatters, codegen, lockfiles from an install you ran). Derive it from this conversation's own history, not from the diff -- a file you never touched can still be dirty from the user's own editing.
+
+Name the file set explicitly before staging, then stage those paths by name. `git add -A`, `git add .`, and `git commit -a` all sweep in the user's work, so stage path by path instead.
+
+Some of your files may carry the user's edits on top of yours. That is still your file -- stage it whole and mention the overlap.
+
+If this session changed nothing, stop and say so rather than falling back to the default mode.
 
 ## Atomic Commit Principles
 

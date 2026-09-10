@@ -10,6 +10,8 @@
 # - "<subdir1> <subdir2> ..."             -> scope to multiple subdirs (space-separated)
 # - "-- <note text>"                      -> no scope, emit note
 # - "<scopes> -- <note text>"             -> scopes + note
+# - "--all" anywhere before " -- "        -> commit every change in the worktree
+# - "--yours" anywhere before " -- "      -> commit only this session's own changes
 #
 # Subdir names with spaces are not supported in the multi-scope form;
 # use the single-scope form for those.
@@ -35,8 +37,25 @@ else
   scopes_raw="$raw"
 fi
 
-# Split scopes on whitespace into an array.
-read -r -a scopes <<< "$scopes_raw"
+# Split scopes on whitespace, pulling out selection flags wherever they appear.
+selection=""
+selection_conflict=0
+scopes=()
+read -r -a raw_scopes <<< "$scopes_raw"
+for tok in ${raw_scopes[@]+"${raw_scopes[@]}"}; do
+  case "$tok" in
+    --all|--yours)
+      mode="${tok#--}"
+      if [ -n "$selection" ] && [ "$selection" != "$mode" ]; then
+        selection_conflict=1
+      fi
+      selection="$mode"
+      ;;
+    *)
+      scopes+=("$tok")
+      ;;
+  esac
+done
 
 report_repo() {
   local dir="$1"
@@ -58,6 +77,20 @@ report_repo() {
 if [ -n "$note" ]; then
   echo "### User note"
   echo "$note"
+  echo ""
+fi
+
+if [ "$selection_conflict" = "1" ]; then
+  echo "### Selection mode: CONFLICT"
+  echo "Both --all and --yours were passed. Stop and ask which one the user meant."
+  echo ""
+elif [ "$selection" = "all" ]; then
+  echo "### Selection mode: all"
+  echo "Commit every change in the worktree, tracked and untracked, leaving it clean."
+  echo ""
+elif [ "$selection" = "yours" ]; then
+  echo "### Selection mode: yours"
+  echo "Commit only the files this session changed. Leave every other change in place."
   echo ""
 fi
 

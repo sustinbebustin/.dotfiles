@@ -11,6 +11,10 @@
 # - "-- <note text>"                    -> no scope, emit note
 # - "<repos> -- <note text>"            -> scopes + note
 # - "--merge" anywhere before " -- "    -> merge mode (watch CI, merge, sync main)
+# - "--bypass" / "--merge-bypass"       -> merge mode without waiting for CI
+#                                          (implies --merge)
+# - "--all" anywhere before " -- "      -> commit every change in the worktree
+# - "--yours" anywhere before " -- "    -> commit only this session's own changes
 #
 # Subdir names with spaces are not supported in the multi-scope form;
 # use the single-scope form for those.
@@ -41,16 +45,27 @@ else
   args_raw="$raw"
 fi
 
-# Split scopes on whitespace, pulling out the --merge flag wherever it appears.
+# Split scopes on whitespace, pulling out the merge and selection flags
+# wherever they appear.
 merge=0
+bypass=0
+selection=""
+selection_conflict=0
 scopes=()
 read -r -a raw_scopes <<< "$args_raw"
 for tok in ${raw_scopes[@]+"${raw_scopes[@]}"}; do
-  if [ "$tok" = "--merge" ]; then
-    merge=1
-  else
-    scopes+=("$tok")
-  fi
+  case "$tok" in
+    --merge) merge=1 ;;
+    --bypass|--merge-bypass) merge=1; bypass=1 ;;
+    --all|--yours)
+      mode="${tok#--}"
+      if [ -n "$selection" ] && [ "$selection" != "$mode" ]; then
+        selection_conflict=1
+      fi
+      selection="$mode"
+      ;;
+    *) scopes+=("$tok") ;;
+  esac
 done
 
 if [ -n "$note" ]; then
@@ -59,9 +74,28 @@ if [ -n "$note" ]; then
   echo ""
 fi
 
+if [ "$selection_conflict" = "1" ]; then
+  echo "### Selection mode: CONFLICT"
+  echo "Both --all and --yours were passed. Stop and ask which one the user meant."
+  echo ""
+elif [ "$selection" = "all" ]; then
+  echo "### Selection mode: all"
+  echo "Commit every change in the worktree, tracked and untracked, leaving it clean."
+  echo ""
+elif [ "$selection" = "yours" ]; then
+  echo "### Selection mode: yours"
+  echo "Commit only the files this session changed. Leave every other change in place."
+  echo ""
+fi
+
 if [ "$merge" = "1" ]; then
   echo "### Merge mode: ON"
   echo "After the PR is created, run the merge flow (step 8) for that target."
+  if [ "$bypass" = "1" ]; then
+    echo "**Bypass CI:** yes -- skip the CI watch and merge immediately."
+  else
+    echo "**Bypass CI:** no -- watch CI to completion before merging."
+  fi
   echo ""
 fi
 
@@ -173,7 +207,7 @@ report_repo() {
 
   # Only relevant in merge mode: knowing up front whether the repo has any
   # workflow files distinguishes "CI hasn't reported yet" from "no CI at all".
-  if [ "$merge" = "1" ]; then
+  if [ "$merge" = "1" ] && [ "$bypass" = "0" ]; then
     local wf found_wf=0
     echo "**CI workflow files:**"
     shopt -s nullglob

@@ -2,7 +2,7 @@
 name: commit-push-pr
 allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git pull:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(gh pr checks:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh run:*), Bash(bash:*), Monitor, Read, Write, Edit, AskUserQuestion
 description: Commit, push, and open a GitHub PR in one flow; optionally watch CI and merge.
-argument_hint: [repo...] [--merge] [-- note]
+argument_hint: [repo...] [--merge|--bypass] [--all|--yours] [-- note]
 disable-model-invocation: true
 ---
 
@@ -18,9 +18,14 @@ Accepts zero or more repo subdirs and/or a free-form user note separated by ` --
 - `/commit-push-pr -- skip lockfile` -> note only
 - `/commit-push-pr frontend backend -- skip lockfile` -> scopes + note
 - `/commit-push-pr --merge` -> also watch CI, merge the PR, and sync local default branch
-- `/commit-push-pr frontend --merge -- skip lockfile` -> scope + merge + note
+- `/commit-push-pr --bypass` -> merge mode without waiting for CI (alias: `--merge-bypass`)
+- `/commit-push-pr --all` -> commit everything in the worktree
+- `/commit-push-pr --yours` -> commit only what this session changed
+- `/commit-push-pr frontend --merge --yours -- skip lockfile` -> scope + merge + selection + note
 
-`--merge` may appear anywhere before the ` -- ` note separator and applies to every target in the invocation. When it's present the gathered state below starts with a `### Merge mode: ON` block.
+`--merge`, `--bypass`, and `--merge-bypass` may appear anywhere before the ` -- ` note separator and apply to every target in the invocation. When any is present the gathered state below starts with a `### Merge mode: ON` block carrying a `**Bypass CI:**` line. `--bypass` implies `--merge`; `--merge --bypass` is the same thing.
+
+`--all` and `--yours` may likewise appear anywhere before the ` -- ` note separator and apply to every target. When one is present the gathered state emits a `### Selection mode:` block. See [Selection modes](#selection-modes).
 
 Subdir names with spaces aren't supported in the multi-scope form -- use the single-scope form for those.
 
@@ -52,7 +57,7 @@ __SKILL_ARGUMENTS__
    - If no repos were found, STOP and tell the user.
 2. **Create a new branch if on main.** Always name it with a conventional prefix. See [Branch naming](#branch-naming).
 3. **Assess atomicity** -- split into multiple commits if changes contain independent logical units. See [When to split commits](#when-to-split-commits).
-4. **Stage selectively per commit** (specific files or `git add -p`) and commit with a conventional message. See [Conventional commit format](#conventional-commit-format). Each commit subject should read as a user-facing sentence; release tooling (e.g., Release Please, GitHub Releases auto-notes) uses these subjects to build release notes verbatim.
+4. **Stage selectively per commit** (specific files or `git add -p`), restricted to the file set that [Selection modes](#selection-modes) allows, and commit with a conventional message. See [Conventional commit format](#conventional-commit-format). Each commit subject should read as a user-facing sentence; release tooling (e.g., Release Please, GitHub Releases auto-notes) uses these subjects to build release notes verbatim.
 5. **Release-notes handling.** The gathered state above contains a `**Release-notes action:**` line. That verdict is authoritative — do **not** run additional `ls`, `cat`, `grep`, or any other commands to re-detect release tooling. Dispatch on the action:
    - `skip` -> do nothing for release notes.
    - `update-changelog` -> following [references/changelog.md](references/changelog.md), add entries under `[Unreleased]` for user-facing changes from the commits you just made. Commit the CHANGELOG change separately as `docs(changelog): ...`.
@@ -63,9 +68,36 @@ __SKILL_ARGUMENTS__
 8. **Merge mode (only if `### Merge mode: ON` appears in the gathered state).** Watch CI, merge the PR, and resync the local default branch. See [Merge mode](#merge-mode). Without that block, stop after step 7 -- never merge a PR that wasn't asked to be merged.
 9. After the target repo is determined, keep output to tool calls only -- no extra prose.
 
+## Selection modes
+
+The `### Selection mode:` block in the gathered state decides **which files** may be staged. It never changes how many commits you make -- atomicity still governs that, so a mode's file set may still split across several commits. Release-notes files you write in step 5 are always yours to commit, in every mode.
+
+| Block | File set |
+|-------|----------|
+| (absent) | Default. Judge from the state what belongs in this branch, as always. |
+| `all` | Every change in the worktree -- tracked modifications, deletions, and untracked files. The worktree ends clean. |
+| `yours` | Only the files this session changed. Everything else stays exactly as it is: unstaged, untracked, and uncommitted. |
+| `CONFLICT` | Both flags were passed. Stop and ask which one was meant. |
+
+### `--all`
+
+Include untracked files -- `git status` in the gathered state lists them, and the diffs do not. Read each one before staging it; scratch files, secrets, and build output that belong in `.gitignore` are still excluded, and say which ones you left out and why.
+
+### `--yours`
+
+The file set is what **you** changed in this session: files you wrote or edited, plus files your commands rewrote (formatters, codegen, lockfiles from an install you ran). Derive it from this conversation's own history, not from the diff -- a file you never touched can still be dirty from the user's own editing.
+
+Name the file set explicitly before staging, then stage those paths by name. `git add -A`, `git add .`, and `git commit -a` all sweep in the user's work, so stage path by path instead.
+
+Some of your files may carry the user's edits on top of yours. That is still your file -- stage it whole and mention the overlap.
+
+If this session changed nothing and the branch has no unpushed commits, stop and say so rather than falling back to the default mode.
+
 ## Merge mode
 
 Runs only when the gathered state contains `### Merge mode: ON`. Run it per target, right after that target's PR is created. `gh` has no `-C` flag, so run every `gh` command for a target in a subshell: `(cd <target> && gh ...)`, using the relative path from the `### Target:` block.
+
+If the block says `**Bypass CI:** yes`, skip step 1 entirely -- go straight to step 2 without arming a monitor or polling `gh pr checks`. Steps 2-4 are unchanged; a merge that fails for a non-CI reason (conflicts, merge queue, ruleset) still stops the flow per step 4.
 
 1. **Watch CI with the Monitor tool**, not a blocking foreground command -- `gh pr checks --watch` holds the turn open for the whole run. Arm a monitor that emits each check as it reaches a terminal state and exits when the run is done:
    ```sh
