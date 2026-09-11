@@ -144,6 +144,7 @@
   "autoCompactEnabled": true,
   "autoContinueAtUsageLimit": false,
   "remoteControlAtStartup": false,
+  "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "autoMode": {
     "allow": [
@@ -153,5 +154,9 @@
     ]
   },
   "voiceEnabled": false,
-  "agentPushNotifEnabled": true
+  "modelSettings": {
+    "claude-fable-5-1": {
+      "effortLevel": "medium"
+    }
+  }
 }
