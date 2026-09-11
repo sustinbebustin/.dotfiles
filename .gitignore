@@ -86,3 +86,4 @@ home/.pi/
 home/.claude/hooks/_archived
 
 docs/skills
+docs/vendor/**/*.md
