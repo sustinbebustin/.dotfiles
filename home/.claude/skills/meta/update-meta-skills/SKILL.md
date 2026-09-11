@@ -3,12 +3,16 @@ name: update-meta-skills
 description: Refresh the meta skills (create-agent-skills, create-sub-agents, create-codemode-mcp) against their upstream docs and packages.
 argument-hint: "[skills] [agents] [codemode]"
 disable-model-invocation: true
-allowed-tools: Read, Edit, Skill, Bash(claude --version), Bash(curl *), Bash(docs/vendor/codemode/scrape.sh)
+allowed-tools: Read, Edit, Skill, Bash(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel), Bash(claude --version), Bash(curl *), Bash(*/docs/vendor/codemode/scrape.sh)
 ---
 
 # Update Meta Skills
 
-Keep the meta authoring skills current with their upstream sources. All paths are relative to the dotfiles repo root.
+Keep the meta authoring skills current with their upstream sources.
+
+Dotfiles repo: !`git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel`
+
+Every path below is relative to that repo; prefix it to get the absolute path, whatever the cwd. The repo is the source of truth — edit skills there, not through the `~/.claude/skills/` symlinks.
 
 ## Targets
 
