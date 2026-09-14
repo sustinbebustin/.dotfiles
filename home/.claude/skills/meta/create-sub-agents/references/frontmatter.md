@@ -70,10 +70,12 @@ Controls permission prompting. Inherits from parent unless overridden.
 | `acceptEdits` | Auto-accept file edits and common filesystem commands in working dir / `additionalDirectories` |
 | `auto` | Background classifier reviews commands and protected-directory writes |
 | `dontAsk` | Auto-deny permission prompts (explicitly allowed tools still work) |
-| `bypassPermissions` | Skip permission prompts entirely (DANGEROUS - allows writes to `.git`, `.claude`, etc.) |
+| `bypassPermissions` | Skip permission prompts entirely (DANGEROUS - allows writes to `.git`, `.claude`, etc.). Honored only when the parent is already in this mode |
 | `plan` | Plan mode (read-only exploration) |
 
 Parent precedence: if parent uses `bypassPermissions`, `acceptEdits`, or `auto`, that takes precedence and CANNOT be overridden by the subagent's frontmatter.
+
+A subagent can't escalate INTO `bypassPermissions` either: when the parent is in `default`, `dontAsk`, or `plan`, a subagent declaring `bypassPermissions` keeps the parent's mode (v2.1.267+). It runs in that mode only when the parent already does.
 
 Plugin subagents IGNORE this field.
 
@@ -98,16 +100,18 @@ Which AI model the subagent uses.
 | `haiku` | Fast and cheap. Good for high-volume read tasks. |
 | `sonnet` | Balanced. Good default for most subagents. |
 | `opus` | Hard reasoning. Reserve for review/architecture/debugging tasks. |
-| `fable` | Fable 5 model alias. |
+| `fable` | Fable model alias; resolves to Fable 5.1 as of v2.1.257. |
 | `claude-opus-4-8` (full ID) | Pin a specific model. |
 | `inherit` | Use the same model as the main conversation. Default. |
 
 Resolution order when invoking:
 
-1. `CLAUDE_CODE_SUBAGENT_MODEL` env var (setting it to `inherit` is the same as leaving it unset, v2.1.196+)
-2. Per-invocation `model` parameter (when Claude calls Agent tool)
-3. The subagent's `model` frontmatter
+1. Per-invocation `model` parameter (when Claude calls Agent tool)
+2. The subagent's `model` frontmatter
+3. `CLAUDE_CODE_SUBAGENT_MODEL` env var (setting it to `inherit` is the same as leaving it unset, v2.1.196+)
 4. Main conversation's model
+
+Before v2.1.251 the env var came first and overrode the other two. Set `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` (v2.1.257+) to make it override them again, across subagents, teammates, and workflow agents — see [model-and-effort.md](model-and-effort.md).
 
 ### `effort`
 

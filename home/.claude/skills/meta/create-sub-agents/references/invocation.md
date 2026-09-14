@@ -50,6 +50,8 @@ claude --agent code-reviewer
 
 The subagent's system prompt REPLACES the default Claude Code system prompt entirely (same as `--system-prompt`). `CLAUDE.md` and project memory still load through the normal message flow.
 
+In non-interactive mode, `--append-subagent-system-prompt <text>` appends to the end of every subagent's system prompt, nested subagents included; forks keep the conversation's own prompt (v2.1.205+). For text too long for the command line, pass a path with `--append-subagent-system-prompt-file` instead (v2.1.261+).
+
 The agent name appears as `@<name>` in the startup header. The choice persists when you resume the session.
 
 For a plugin-provided subagent:

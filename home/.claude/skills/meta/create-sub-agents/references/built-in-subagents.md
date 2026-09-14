@@ -6,7 +6,7 @@ Claude Code ships with several subagents that are always available. Don't recrea
 
 Fast, read-only agent for searching and analyzing codebases.
 
-- **Model**: Inherits from main conversation, capped at Opus on the Claude API (v2.1.198+; it always ran on Haiku before). Define a user or project subagent named `Explore` with `model: haiku` to override.
+- **Model**: Inherits from main conversation, capped at Opus on the Claude API (v2.1.198+; it always ran on Haiku before). On other providers it inherits directly, uncapped. Define a user or project subagent named `Explore` with `model: haiku` to override; `CLAUDE_CODE_SUBAGENT_MODEL` alone doesn't move it, only `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` does.
 - **Tools**: Read-only (Edit and Write are denied)
 - **Purpose**: File discovery, code search, codebase exploration
 
@@ -84,3 +84,5 @@ Or via CLI:
 ```bash
 claude --disallowedTools "Agent(Explore)"
 ```
+
+To turn off delegation entirely, deny the `Agent` tool itself. To drop only `Explore` and `Plan` so Claude reads files directly, set `CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS=1` (v2.1.198+). Under `-p` and the Agent SDK, `CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS=1` removes every built-in type and leaves only your own.

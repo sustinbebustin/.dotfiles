@@ -102,7 +102,7 @@ Works for both built-in and custom subagents.
 | `acceptEdits` | Auto-accept file edits and common filesystem commands in working dir / `additionalDirectories` |
 | `auto` | Background classifier reviews commands and protected-directory writes |
 | `dontAsk` | Auto-deny prompts (explicitly allowed tools still work) |
-| `bypassPermissions` | Skip ALL prompts. Allows writes to `.git`, `.claude`, `.vscode`, `.idea`, `.husky`. Root and home `rm -rf` still prompt as a circuit breaker. |
+| `bypassPermissions` | Skip ALL prompts. Allows writes to `.git`, `.claude`, `.vscode`, `.idea`, `.husky`. Root and home `rm -rf` still prompt as a circuit breaker. Only honored when the parent is already in this mode. |
 | `plan` | Plan mode (read-only exploration) |
 
 ### Parent Precedence
@@ -112,6 +112,8 @@ Some parent modes CANNOT be overridden by the subagent's frontmatter:
 - Parent `bypassPermissions` -> subagent runs in `bypassPermissions` regardless of its own setting
 - Parent `acceptEdits` -> same
 - Parent `auto` -> subagent inherits auto mode; its `permissionMode` is ignored. The classifier evaluates the subagent's tool calls with the same block/allow rules as the parent.
+
+Escalation is blocked in the other direction too: under a parent in `default`, `dontAsk`, or `plan`, a subagent's `permissionMode` applies except `bypassPermissions`, which is dropped in favor of the parent's mode (v2.1.267+).
 
 ### Plugin Subagents Ignore `permissionMode`
 
