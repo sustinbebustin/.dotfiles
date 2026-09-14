@@ -1,6 +1,8 @@
 ---
 name: go-best-practices
-description: Go idioms, clean architecture, concurrency patterns, and production-ready code. Use when writing, reviewing, or refactoring any Go (.go) code.
+description: Go idioms for production code -- project layout, error wrapping, context rules, concurrency, clean architecture, sqlc, golangci-lint. Use when working with Go.
+paths:
+  - "**/*.go"
 ---
 
 # Go Best Practices

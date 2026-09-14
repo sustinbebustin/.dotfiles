@@ -1,6 +1,6 @@
 ---
 name: supabase
-description: Supabase Postgres expert. Use when working with Supabase projects, writing SQL migrations, creating RLS policies, building database functions or Edge Functions, implementing Realtime, or optimizing Postgres queries, indexes, schema design, connections, or locking.
+description: Supabase Postgres expert. Use for SQL migrations, RLS policies, database functions, Edge Functions, auth and JWT claims, storage policies, Realtime, the Supabase CLI or MCP server, and Postgres query, index, schema, connection, and locking performance.
 ---
 
 # Supabase Development

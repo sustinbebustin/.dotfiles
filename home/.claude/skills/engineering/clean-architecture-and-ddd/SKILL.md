@@ -1,6 +1,6 @@
 ---
 name: clean-architecture-and-ddd
-description: Canonical principles for Clean/Hexagonal/Onion Architecture, SOLID, and Domain-Driven Design. Use when reviewing cross-stack changes, module boundaries, dependency direction, context boundaries, aggregate design, and architectural contracts.
+description: Clean/Hexagonal/Onion Architecture, SOLID, and DDD as a review lens. Use when judging dependency direction, what a boundary crossing leaks, aggregate and transaction scope, bounded contexts, contract stability, or whether an abstraction is warranted.
 ---
 
 # Clean Architecture & Domain-Driven Design

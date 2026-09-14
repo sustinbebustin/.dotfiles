@@ -1,6 +1,11 @@
 ---
 name: typescript-best-practices
-description: TypeScript best practices. Use when reading or editing any .ts or .tsx file.
+description: TypeScript type-safety rules -- discriminated unions, branded types, unknown over any, no as casts, narrowing, exhaustiveness, satisfies, boundary validation. Use when working with TypeScript types.
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.mts"
+  - "**/*.cts"
 ---
 
 # TypeScript best practices
