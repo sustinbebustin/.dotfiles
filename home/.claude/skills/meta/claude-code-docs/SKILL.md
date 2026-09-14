@@ -2,7 +2,6 @@
 name: claude-code-docs
 description: Answer Claude Code questions (CLI, Agent SDK, plugins, hooks, skills, slash commands, MCP, settings) from a locally cached copy of the official docs.
 argument-hint: [question]
-disable-model-invocation: true
 allowed-tools: Bash(bash:*), Read, Grep, Glob
 ---
 
