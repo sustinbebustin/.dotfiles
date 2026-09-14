@@ -3,7 +3,7 @@ name: codemode
 description: Author Code Mode MCP servers that wrap multiple host functions behind one code-generating tool, replacing per-call JSON tool dispatch with a single executed JavaScript function.
 disable-model-invocation: true
 metadata:
-  last_reviewed_version: 0.2.2
+  last_reviewed_version: 0.5.2
 ---
 
 # Code Mode for Local Claude Code Tools
@@ -12,11 +12,10 @@ Build a local MCP server that exposes a single `code` tool. Claude Code (as the 
 
 ## What Code Mode Is
 
-Inspired by Apple's CodeAct paper. LLMs have seen millions of lines of real code and relatively few JSON tool-call schemas, so generating code is more reliable than dispatching structured tool calls. `@cloudflare/codemode` gives you three portable pieces:
+Inspired by Apple's CodeAct paper. LLMs have seen millions of lines of real code and relatively few JSON tool-call schemas, so generating code is more reliable than dispatching structured tool calls. For a local server, `@cloudflare/codemode` gives you two pieces:
 
-1. **`generateTypes(tools)`** — builds the TypeScript declarations the LLM reads
-2. **`createCodeTool({ tools, executor })`** — returns one AI SDK tool the LLM calls by writing code
-3. **`Executor` interface** — where the code runs; the Cloudflare `DynamicWorkerExecutor` is one implementation, you write another for local use
+1. **`codeMcpServer({ server, executor })`** — wraps an upstream `McpServer` into a new one exposing a single `code` tool whose description carries TypeScript declarations for every upstream tool
+2. **`Executor` interface** — where the code runs; the Cloudflare `DynamicWorkerExecutor` is one implementation, you write another for local use
 
 The `Executor` contract is deliberately minimal so Node VM, subprocess, and container executors are all first-class. The authoritative signature lives in `node_modules/@cloudflare/codemode/dist/executor-*.d.ts` after install.
 
@@ -34,75 +33,77 @@ The `Executor` contract is deliberately minimal so Node VM, subprocess, and cont
 mkdir my-codemode-tool && cd my-codemode-tool
 npm init -y
 npm pkg set type=module
-npm install @cloudflare/codemode @modelcontextprotocol/sdk 'ai@^6' zod
+npm install @cloudflare/codemode @modelcontextprotocol/sdk @cfworker/json-schema zod
 npm install -D typescript tsx @types/node
 mkdir src
 cp ${CLAUDE_SKILL_DIR}/templates/server.ts src/server.ts
 ```
 
+`@cfworker/json-schema` is an optional peer of the MCP SDK that `@cloudflare/codemode/mcp` imports unconditionally; without it the server dies at startup with `Cannot find package '@cfworker/json-schema'`. `ai` is not needed for this path.
+
 The copied file is [templates/server.ts](templates/server.ts). Edit its `createUpstream()` function to add your own tools, then register with Claude Code:
 
 ```bash
-claude mcp add codemode-local-dev -- npx tsx "$(pwd)/src/server.ts"
+claude mcp add --scope user codemode-local-dev -- npx tsx "$(pwd)/src/server.ts"
 ```
 
 Restart Claude Code. Your server now advertises one `code` tool whose description contains the typed signatures of every tool in `createUpstream()`. See [references/mcp-wiring.md](references/mcp-wiring.md) for the production (compiled) registration and scope choice.
 
 ## Minimum Viable Server
 
-Use [templates/server.ts](templates/server.ts) verbatim — it is the reference. Do not hand-roll a smaller version from memory. Two details the first-draft executor keeps getting wrong are load-bearing:
+Use [templates/server.ts](templates/server.ts) verbatim — it is the reference. Do not hand-roll a smaller version from memory. Three details the first-draft executor keeps getting wrong are load-bearing:
 
-1. **`codemode@0.2.x` passes `ResolvedProvider[]` to `Executor.execute`**, not the flat `Record<string, fn>` shown in Cloudflare's published developer docs. An executor that only handles the flat form silently breaks: the array `[{name:"codemode", fns}]` gets bound to `codemode`, and every sandbox call like `codemode.query(...)` fails with `codemode.query is not a function`. See [references/gotchas.md](references/gotchas.md#version-drift-between-docs-and-package-codemode02x).
-2. **Sandbox fns return the raw MCP `CallToolResult` wrapper** — `{content: [{type:"text", text}], isError?}` — not the data. LLM-written `r.rows.map(...)` fails with `r.rows is undefined`, and `try/catch` does not fire on tool errors. The template unwraps MCP results inside the executor so sandbox code sees parsed data and `try/catch` works. See [references/gotchas.md](references/gotchas.md#mcp-result-wrapping-under-codemcpserver).
+1. **The executor owns name sanitization and code normalization.** `codeMcpServer` passes the model's code verbatim and keys `fns` by raw MCP tool names, while the tool description advertises sanitized names (`get-user` becomes `codemode.get_user`). Skip the sanitizing and every hyphenated tool fails with `codemode.get_user is not a function`; skip normalizing and fenced or bare-statement code fails to parse. `DynamicWorkerExecutor` does both internally, which is why Worker examples never show it.
+2. **Import only types from `@cloudflare/codemode`.** The root entry imports `cloudflare:workers` at runtime, so a value import crashes Node with `ERR_UNSUPPORTED_ESM_URL_SCHEME`. That rules out the library's own `normalizeCode` and `sanitizeToolName`; the template carries local equivalents. See [references/gotchas.md](references/gotchas.md#workers-only-entry-points).
+3. **Shadow `console` inside the sandbox.** An in-process executor shares the host console, so a generated `console.log` writes to stdout and corrupts the MCP stream. The template binds a capturing `console` that collects `logs` instead.
 
 The shape of the template's executor:
 
 ```ts
 class NodeVMExecutor implements Executor {
   async execute(code, providersOrFns): Promise<ExecuteResult> {
+    const providers = Array.isArray(providersOrFns)
+      ? providersOrFns
+      : [{ name: "codemode", fns: providersOrFns }]; // deprecated flat form
+    const logs: string[] = [];
+    const names = ["console"];
+    const values: unknown[] = [sandboxConsole]; // pushes into logs
+    for (const p of providers) {
+      // (template first rejects invalid or duplicate provider names)
+      const fns = {};
+      for (const [tool, fn] of Object.entries(p.fns)) fns[sanitizeToolName(tool)] = fn;
+      names.push(p.name);
+      values.push(fns);
+    }
     try {
-      const names: string[] = [];
-      const values: unknown[] = [];
-      if (Array.isArray(providersOrFns)) {
-        for (const p of providersOrFns) {
-          names.push(p.name);
-          values.push(wrapProviderFns(p.fns)); // unwraps MCP result + throws on isError
-        }
-      } else {
-        names.push("codemode");
-        values.push(wrapProviderFns(providersOrFns));
-      }
-      const fn = new AsyncFunction(...names, `return await (${code})()`);
-      return { result: await fn(...values) };
+      return { result: await compile(names, code)(...values), logs }; // normalizes code
     } catch (err) {
-      return { result: undefined, error: err instanceof Error ? err.message : String(err) };
+      return { result: undefined, error: err instanceof Error ? err.message : String(err), logs };
     }
   }
 }
 ```
 
-Tools are authored with `McpServer.registerTool` (which `codeMcpServer` unwraps internally), or equivalently with the AI SDK `tool()` + `zod` style. When the tool handler returns structured data, JSON-stringify it inside the `content[0].text` field — the executor's `wrapProviderFns` will `JSON.parse` it back before handing it to sandbox code.
+Tools are authored with `McpServer.registerTool`. `codeMcpServer` unwraps each result before sandbox code sees it: `structuredContent` is returned as-is, all-text content is `JSON.parse`d (or returned as the raw string), `isError: true` throws a catchable `Error`, and mixed text/binary content comes through as the raw `CallToolResult`. So returning `JSON.stringify(data)` as the text content gives sandbox code `data`.
 
 ## Portable vs Cloudflare-Specific API
 
-Most of `@cloudflare/codemode` works off-Worker. The split:
+What loads under plain Node is decided by entry point, not by function — the root and `/ai` entries import `cloudflare:workers` at module load (verified against 0.5.x):
 
-| Portable (use locally) | Cloudflare-only (ignore or replace) |
+| Loads in Node | Workers-only at runtime (ignore or replace) |
 |---|---|
-| `createCodeTool` | `DynamicWorkerExecutor` |
-| `codeMcpServer` | `ToolDispatcher` (`extends RpcTarget`) |
-| `openApiMcpServer` | `WorkerLoader` binding, `worker_loaders` in `wrangler.jsonc` |
-| `generateTypes`, `generateTypesFromJsonSchema` | `AIChatAgent`, `agents/mcp#createMcpHandler` |
-| `normalizeCode`, `sanitizeToolName` | `SqlStorage`, `workers-ai-provider` |
-| `Executor`, `ExecuteResult` interfaces | `agents/tsconfig` |
+| `@cloudflare/codemode/mcp`: `codeMcpServer`, `openApiMcpServer` | Root entry values: `DynamicWorkerExecutor`, `ToolDispatcher`, `normalizeCode`, `sanitizeToolName`, `generateTypesFromJsonSchema`, `truncateResult`, `runCode` |
+| Type-only root imports: `Executor`, `ExecuteResult`, `ResolvedProvider` | Durable runtime: `createCodemodeRuntime`, `CodemodeRuntime`, connectors (`CodemodeConnector`, `McpConnector`, `OpenApiConnector`), snippets |
+| | `@cloudflare/codemode/ai`: `createCodeTool`, `generateTypes`, `toolSetConnector` |
+| | `WorkerLoader` binding, `worker_loaders` in `wrangler.jsonc`, `AIChatAgent`, `agents/mcp`, `agents/tsconfig` |
 
-Write a local `Executor` to replace `DynamicWorkerExecutor`. Everything else on the left is drop-in. See [references/local-executor.md](references/local-executor.md) for three executor options (AsyncFunction, `node:vm`, subprocess) and their trade-offs.
+Write a local `Executor` to replace `DynamicWorkerExecutor`; `codeMcpServer` is the drop-in. `@cloudflare/codemode/browser` (`IframeSandboxExecutor`) also loads but needs a DOM. See [references/local-executor.md](references/local-executor.md) for three executor options (AsyncFunction, `node:vm`, subprocess) and their trade-offs.
 
 ## Hard Rules
 
-- **Never pass `needsApproval: true` tools to `createCodeTool`.** Code Mode has no approval flow — the tool runs immediately inside the sandbox. Route approval-required tools through a separate, non-codemode MCP server.
-- **Never call `codemode.*` from host code.** It is a sandbox-only Proxy that only exists during `execute()`. Host code calls your tool functions directly.
-- **Never normalize or sanitize tool names or code before `execute()`.** The library already does both internally.
+- **Keep approval-required tools off the codemode server.** `codeMcpServer` has no approval flow and exposes every upstream tool, so each runs the moment sandbox code calls it. Durable approvals exist only in the Workers `CodemodeRuntime`. Route approval-required tools through a separate, non-codemode MCP server.
+- **Never call `codemode.*` from host code.** It only exists inside generated code during `execute()`. Host code calls your tool functions directly.
+- **Normalize code and sanitize tool names inside the executor, nowhere else.** `codeMcpServer` hands `execute()` raw code and raw names; host code must not pre-process either.
 - **Never write to `stdout` except the MCP protocol.** `StdioServerTransport` owns it. Route diagnostics to `stderr` via `console.error`.
 - **Local executors have no network sandbox.** `AsyncFunction` and `vm.runInContext` run with full host capabilities. Acceptable for personal use; if you ever expose the server to untrusted input, move to the subprocess executor.
 
@@ -119,6 +120,7 @@ Write a local `Executor` to replace `DynamicWorkerExecutor`. Everything else on 
 
 Authoritative sources, in order of preference:
 
-- `node_modules/@cloudflare/codemode/dist/executor-*.d.ts` — the installed package's type definitions; the only source that matches runtime behavior for `Executor.execute` in `codemode@0.2.x`
-- The `@cloudflare/codemode` package README and Cloudflare's developer docs for Code Mode — full API reference and conceptual overview
+- `node_modules/@cloudflare/codemode/dist/*.d.ts` and `dist/mcp.js` — the installed package; `mcp.js` is short and shows exactly what `codeMcpServer` hands your executor
+- `node_modules/@cloudflare/codemode/docs/` and `README.md` — package docs, shipped in the tarball since 0.4.2
+- Cloudflare's developer docs for Code Mode — API reference and conceptual overview; they match the package's `Executor` signature as of 0.5.2 but trail new releases
 - The `codemode-mcp` example in Cloudflare's published examples — the closest Worker-shaped reference; port per [references/gotchas.md](references/gotchas.md)

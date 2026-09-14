@@ -35,64 +35,42 @@ Keep:
 
 - `@cloudflare/codemode`
 - `@modelcontextprotocol/sdk`
-- `ai`
 - `zod`
 
 Add:
 
-- `tsx` + `typescript` as dev deps
+- `@cfworker/json-schema` — optional MCP SDK peer that `@cloudflare/codemode/mcp` imports unconditionally
+- `tsx` + `typescript` + `@types/node` as dev deps
+
+`ai` is only needed for `@cloudflare/codemode/ai`, which is Workers-only at runtime — drop it.
 
 ## Behavioral gotchas
 
 These apply the same locally as they do on Cloudflare:
 
-- **`needsApproval: true` tools execute immediately** inside the sandbox. Code Mode has no approval flow. If a tool needs user confirmation, run it through a **separate** non-codemode MCP server and keep it out of the `tools` map passed to `codeMcpServer`.
-- **`codemode.*` is a sandbox-only Proxy.** Never call it from host code — it only exists inside generated code at execution time. Host code calls the tool functions directly.
-- **Do not normalize or sanitize tool names or code before `execute()`.** The library calls `sanitizeToolName` and `normalizeCode` internally. Doing it again creates double-escaped identifiers the LLM cannot hit.
-- **Default prompt works.** The auto-generated description with `{{types}}` injection is tuned. Only override `description` if you have a specific constraint to enforce (e.g. "return `{ok, data, error}`").
+- **Approval-gated tools run immediately under `codeMcpServer`.** It has no approval flow and exposes every upstream MCP tool. (`createCodeTool` silently drops `needsApproval` tools; durable pause-for-approval exists only in the Workers `CodemodeRuntime`.) If a tool needs user confirmation, serve it from a **separate** non-codemode MCP server and keep it off the upstream server passed to `codeMcpServer`.
+- **`codemode.*` only exists inside generated code.** Never call it from host code — host code calls the tool functions directly.
+- **The executor owns `sanitizeToolName` and `normalizeCode`.** `DynamicWorkerExecutor` applies both inside `execute()`; `codeMcpServer` does neither before calling it. A ported executor that skips them breaks on hyphenated tool names and fenced code. Both are idempotent, so the `createCodeTool` path (which pre-normalizes) is unaffected.
+- **Results are already unwrapped.** Since 0.3.2 `codeMcpServer` turns each `CallToolResult` into plain data and throws on `isError`. Executors written against 0.2.x that unwrap again corrupt results whose data has a `content` array — delete that layer.
+- **Default prompt works.** The auto-generated description with `{{types}}` and `{{example}}` injection is tuned. Only override `description` if you have a specific constraint to enforce (e.g. "return `{ok, data, error}`").
 - **Local executors have no network sandbox.** Workers' `DynamicWorkerExecutor` has `globalOutbound: null` by default, which blocks `fetch`. The `AsyncFunction` and `vm.runInContext` executors do not — any host capability is reachable from generated code. Trust boundary is you + Claude Code.
 
-## Version drift between docs and package (codemode@0.2.x)
+## Workers-only entry points
 
-Cloudflare's published developer docs still show the original `Executor` interface:
+Checked against 0.5.x under Node 24:
 
-```ts
-execute(code: string, fns: Record<string, (...args: unknown[]) => Promise<unknown>>): Promise<ExecuteResult>
-```
+| Import | Under Node |
+|---|---|
+| `@cloudflare/codemode` (root) | `ERR_UNSUPPORTED_ESM_URL_SCHEME ... Received protocol 'cloudflare:'` — imports `DurableObject`/`RpcTarget` from `cloudflare:workers` |
+| `@cloudflare/codemode/ai` | Same error, via the `CodemodeConnector` base class (`extends WorkerEntrypoint`) |
+| `@cloudflare/codemode/mcp` | Loads, once `@cfworker/json-schema` is installed |
+| `import type` from any entry | Fine — erased at compile time |
 
-The installed package ships a different signature — `node_modules/@cloudflare/codemode/dist/executor-*.d.ts` is the authoritative source:
+So `normalizeCode`, `sanitizeToolName`, `generateTypesFromJsonSchema`, `truncateResult`, and `createCodeTool` are all out of reach in plain Node. The template carries local `sanitizeToolName` and code-normalizing equivalents. Copying Worker examples that value-import `DynamicWorkerExecutor` or `createCodeTool` fails the same way — replace, don't port.
 
-```ts
-execute(
-  code: string,
-  providersOrFns: ResolvedProvider[] | Record<string, (...args: unknown[]) => Promise<unknown>>,
-): Promise<ExecuteResult>
-```
+## Peer-dep ranges (codemode@0.5.x)
 
-`ResolvedProvider` is `{ name: string; fns: Record<string, fn>; positionalArgs?: boolean }`. At runtime, `codeMcpServer` passes the **array** form: `[{ name: "codemode", fns }]`. The flat record form is deprecated and scheduled for removal in the next major.
-
-**Trap:** an executor that reads the docs and implements only the flat form receives the array `[{name, fns}]` at runtime, binds it to `codemode`, and then every call like `codemode.query(...)` fails with `codemode.query is not a function`. The template in this skill handles both shapes — see [local-executor.md](local-executor.md) for the full implementation.
-
-## MCP result wrapping under `codeMcpServer`
-
-When you wrap an `McpServer` with `codeMcpServer({ server, executor })`, the fns passed to your executor return the raw MCP `CallToolResult`:
-
-```ts
-{ content: [{ type: "text", text: "..." }], isError?: boolean }
-```
-
-So `await codemode.myTool({...})` inside the sandbox resolves to the wrapper, **not** the data. LLM-written code like `r.rows.map(...)` will silently fail with `r.rows is undefined`. Worse, `try { await codemode.foo() } catch` will **not** fire on `isError: true` — the fn resolves normally with the wrapper still attached.
-
-Two fixes:
-
-1. **Unwrap inside the executor.** Wrap each provider fn so `{content: [{type:"text", text}]}` becomes `JSON.parse(text)` (or raw text on parse failure), and `{isError: true}` becomes a thrown `Error`. The template and [local-executor.md](local-executor.md) show the full helper.
-2. **Document the wrapper in each tool's description** and force sandbox code to do `JSON.parse(r.content[0].text)` + `r.isError` checks. Simpler executor, worse LLM UX.
-
-Use (1) unless you have a reason to preserve the raw shape (e.g. passing MCP results through to another MCP client).
-
-## Peer-dep pin: `ai@^6` for codemode@0.2.2
-
-`@cloudflare/codemode@0.2.2` declares `ai: ^6.0.0` as a peerOptional. If you copy the `ai@^4` pin from older examples, `npm install` fails with `ERESOLVE could not resolve`. Install `ai@^6` even if you do not import from `@cloudflare/codemode/ai` directly — `codeMcpServer` pulls it in transitively.
+All peers are optional: `@modelcontextprotocol/sdk ^1.25.0`, `zod ^4.0.0` (Zod 3 dropped in 0.3.0), `ai ^6 || ^7` (since 0.5.0), `@tanstack/ai >=0.8.0 <1.0.0`. Older examples pinning `ai@^4` or `zod@^3` fail with `ERESOLVE`.
 
 ## What to write to stdout
 

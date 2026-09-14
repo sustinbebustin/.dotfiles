@@ -15,86 +15,109 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { codeMcpServer } from "@cloudflare/codemode/mcp";
-import type { Executor, ExecuteResult } from "@cloudflare/codemode";
+// Type-only: the root entry imports `cloudflare:workers` at runtime, so a
+// value import from it crashes under Node.
+import type {
+  Executor,
+  ExecuteResult,
+  ResolvedProvider,
+} from "@cloudflare/codemode";
 import { z } from "zod";
+
+type ProviderFn = ResolvedProvider["fns"][string];
 
 const AsyncFunction: new (...args: string[]) => (
   ...args: unknown[]
 ) => Promise<unknown> = Object.getPrototypeOf(async function () {}).constructor;
 
-type ProviderFn = (...args: unknown[]) => Promise<unknown>;
-type ResolvedProvider = {
-  name: string;
-  fns: Record<string, ProviderFn>;
-  positionalArgs?: boolean;
-};
+// Mirrors codemode's `sanitizeToolName`, which generates the `codemode.*`
+// names in the tool description but is only exported from the Workers-only
+// root entry. Executors own this mapping: codeMcpServer passes raw tool names.
+const JS_RESERVED = new Set(
+  (
+    "abstract arguments await boolean break byte case catch char class const " +
+    "continue debugger default delete do double else enum eval export extends " +
+    "false final finally float for function goto if implements import in " +
+    "instanceof int interface let long native new null package private " +
+    "protected public return short static super switch synchronized this " +
+    "throw throws transient true try typeof undefined var void volatile " +
+    "while with yield"
+  ).split(" "),
+);
+function sanitizeToolName(name: string): string {
+  let s = name.replace(/[-.\s]/g, "_").replace(/[^a-zA-Z0-9_$]/g, "");
+  if (!s) return "_";
+  if (/^[0-9]/.test(s)) s = `_${s}`;
+  return JS_RESERVED.has(s) ? `${s}_` : s;
+}
 
-// When you wrap an upstream McpServer with codeMcpServer, the tool fns
-// injected into the sandbox return the raw MCP CallToolResult shape:
-//   { content: [{ type: "text", text: "..." }], isError?: boolean }
-// Sandbox code authored by the LLM does NOT want to unwrap that by hand.
-// This helper flattens the wrapper so `await codemode.myTool()` returns the
-// parsed JSON value (or raw text), and throws on `isError: true` so normal
-// `try/catch` in the sandbox works.
-type McpLikeResult = {
-  content?: Array<{ type: string; text?: string }>;
-  isError?: boolean;
-};
-function isMcpLike(v: unknown): v is McpLikeResult {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    Array.isArray((v as { content?: unknown }).content)
-  );
-}
-function unwrapMcpResult(result: unknown): unknown {
-  if (!isMcpLike(result)) return result;
-  const firstText = result.content?.find((c) => c.type === "text")?.text ?? "";
-  if (result.isError) throw new Error(firstText || "Tool returned an error");
-  if (firstText === "") return undefined;
+// codeMcpServer passes the model's code verbatim; normalization is the
+// executor's job. Accepts a function expression (the prompted form), a bare
+// expression, or a statement body with its own `return`.
+function compile(
+  names: string[],
+  code: string,
+): (...args: unknown[]) => Promise<unknown> {
+  const fenced = code.trim().match(/^```[a-z]*\s*\n([\s\S]*?)```$/);
+  const src = (fenced?.[1] ?? code).trim() || "async () => {}";
   try {
-    return JSON.parse(firstText);
+    const expr = new AsyncFunction(
+      ...names,
+      `return (${src.replace(/;+$/, "")}\n)`,
+    );
+    return async (...args) => {
+      const value = await expr(...args);
+      return typeof value === "function" ? await value() : value;
+    };
   } catch {
-    return firstText;
+    return new AsyncFunction(...names, src);
   }
 }
-function wrapProviderFns(
-  fns: Record<string, ProviderFn>,
-): Record<string, ProviderFn> {
-  const wrapped: Record<string, ProviderFn> = {};
-  for (const [key, fn] of Object.entries(fns)) {
-    wrapped[key] = async (...args) => unwrapMcpResult(await fn(...args));
-  }
-  return wrapped;
-}
+
+const IDENTIFIER = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 
 class NodeVMExecutor implements Executor {
-  // codemode@0.2.x passes `providersOrFns` as ResolvedProvider[]; older
-  // versions passed a flat Record<string, fn>. Handle both — the flat form
-  // is deprecated and will be removed in the next major release.
   async execute(
     code: string,
-    providersOrFns: ResolvedProvider[] | Record<string, ProviderFn>,
+    providersOrFns: Parameters<Executor["execute"]>[1],
   ): Promise<ExecuteResult> {
-    try {
-      const names: string[] = [];
-      const values: unknown[] = [];
-      if (Array.isArray(providersOrFns)) {
-        for (const p of providersOrFns) {
-          names.push(p.name);
-          values.push(wrapProviderFns(p.fns));
-        }
-      } else {
-        names.push("codemode");
-        values.push(wrapProviderFns(providersOrFns));
+    // The flat-record form is deprecated upstream but still in the interface.
+    const providers: ResolvedProvider[] = Array.isArray(providersOrFns)
+      ? providersOrFns
+      : [{ name: "codemode", fns: providersOrFns }];
+    const logs: string[] = [];
+    // Shadows the host console: sandbox output must never reach stdout,
+    // which carries the MCP protocol.
+    const sandboxConsole = {
+      log: (...a: unknown[]) => logs.push(a.map(String).join(" ")),
+      warn: (...a: unknown[]) => logs.push(`[warn] ${a.map(String).join(" ")}`),
+      error: (...a: unknown[]) =>
+        logs.push(`[error] ${a.map(String).join(" ")}`),
+    };
+    const names = ["console"];
+    const values: unknown[] = [sandboxConsole];
+    for (const p of providers) {
+      if (!IDENTIFIER.test(p.name) || names.includes(p.name)) {
+        return {
+          result: undefined,
+          error: `Provider name "${p.name}" is invalid, reserved, or duplicated`,
+        };
       }
-      const fn = new AsyncFunction(...names, `return await (${code})()`);
-      const result = await fn(...values);
-      return { result };
+      const fns: Record<string, ProviderFn> = {};
+      for (const [toolName, fn] of Object.entries(p.fns)) {
+        fns[sanitizeToolName(toolName)] = fn;
+      }
+      names.push(p.name);
+      values.push(fns);
+    }
+    try {
+      const result = await compile(names, code)(...values);
+      return { result, logs };
     } catch (err) {
       return {
         result: undefined,
         error: err instanceof Error ? err.message : String(err),
+        logs,
       };
     }
   }
@@ -113,9 +136,8 @@ function createUpstream(): McpServer {
       },
     },
     async ({ a, b }) => ({
-      // Any data you want the sandbox to see as a plain value should be
-      // JSON-stringified here. The wrapProviderFns helper in the executor
-      // will JSON.parse it back for sandbox code.
+      // codeMcpServer JSON-parses all-text content before sandbox code sees
+      // it, so `await codemode.add(...)` resolves to `{ sum }`.
       content: [{ type: "text", text: JSON.stringify({ sum: a + b }) }],
     }),
   );
