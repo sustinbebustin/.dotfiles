@@ -83,7 +83,7 @@ Enterprise (highest priority) → Personal → Project → Plugin (lowest priori
 | Project | `.claude/skills/<name>/SKILL.md` | Anyone working in repository |
 | Plugin | `<plugin>/skills/<name>/SKILL.md` | Where plugin is enabled |
 
-Plugin skills use a `plugin-name:skill-name` namespace, so they cannot conflict with other levels. If a skill and a command share the same name, the skill takes precedence.
+Plugin skills use a `plugin-name:skill-name` namespace, so they cannot conflict with other levels. If a skill and a command share the same name, the skill takes precedence. A skill synced from a claude.ai account is namespaced `anthropic-skills:<name>` (v2.1.269+) and keeps the bare `/<name>` only while no other command uses it.
 
 ### Live change detection
 
@@ -91,11 +91,11 @@ Claude Code watches skill directories for file changes. Adding, editing, or remo
 
 ### Nested directory discovery
 
-When working with files in subdirectories, Claude Code automatically discovers skills from nested `.claude/skills/` directories. If you're editing a file in `packages/frontend/`, Claude Code also looks for skills in `packages/frontend/.claude/skills/`. Supports monorepo setups where packages have their own skills.
+Project skills load from `.claude/skills/` in the session's starting directory and every parent up to the repo root, so starting in `packages/frontend/` still picks up root skills. Skills *below* the starting directory don't load at startup: they load the first time Claude reads or edits a file in that subdirectory and stay available for the rest of the session. Until then they're absent from the `/` menu and can't be invoked by name. `/add-dir <subdirectory>` loads them immediately (v2.1.257+). `/cd` adds the new directory's project skills (v2.1.246+).
 
 ### Skills from `--add-dir`
 
-The `--add-dir` flag and `/add-dir` command grant file access, not configuration discovery — but skills are an exception: `.claude/skills/` within an added directory is loaded automatically (as is `.claude/agents/`). Commands and output styles are *not* loaded from additional directories. The exception covers only `--add-dir`/`/add-dir`; the `permissions.additionalDirectories` setting grants file access alone and loads no skills.
+The `--add-dir` flag and `/add-dir` command grant file access, not configuration discovery — but skills are an exception: `.claude/skills/` within an added directory is loaded automatically, along with its `.claude/commands/` and `.claude/agents/`. Only `.claude/skills/` is watched for live changes; restart after editing a file in the added directory's `commands/` or `agents/`. The exception covers only `--add-dir`/`/add-dir`; the `permissions.additionalDirectories` setting grants file access alone and loads no skills.
 
 ## Bundled Skills
 
@@ -211,6 +211,8 @@ Skill(review-pr *)     # prefix match with any arguments
 Skill(deploy *)        # in deny rules, blocks the skill
 ```
 
+A `deny` rule also matches an alias or an unqualified name: `Skill(review)` blocks the bundled `/code-review` through its `/review` alias, and `Skill(deploy)` blocks a nested skill listed as `apps/web:deploy` (v2.1.260+). An `allow` rule matches only the skill's own name and the name Claude invoked.
+
 **Hide individual skills** with `disable-model-invocation: true` — removes the skill from Claude's context entirely. Note: `user-invocable` only controls menu visibility, not Skill-tool access.
 
 A few built-in commands *are* available through the Skill tool (e.g. `/init`, `/review`, `/security-review`). Others like `/compact` are not.
@@ -237,6 +239,12 @@ A few built-in commands *are* available through the Skill tool (e.g. `/init`, `/
 
 A skill absent from `skillOverrides` is treated as `"on"`. Plugin skills are not affected — manage those via `/plugin`.
 
+In managed settings or a file passed with `--settings`, an entry written under a bundled skill's alias applies to the skill behind it, but can only restrict it further; an entry under the skill's own name takes precedence (v2.1.260+). User, project, and local settings match skill names only.
+
+### Finding unused skills
+
+`/skill-doctor` (v2.1.252+) reports each skill's context cost and invocation count, flags skills that have never been invoked, and says where to turn each one off. It skips bundled and enterprise skills. Interactive sessions open the report in the `/plugin` manager's **Stats** tab; `-p` prints it as text. Not available over Remote Control or in sessions that skip feature-flag fetching.
+
 ## Configuration Knobs
 
 | Setting / Env Var | Effect |
@@ -258,7 +266,7 @@ A skill absent from `skillOverrides` is treated as `"on"`. Plugin skills are not
 
 **Skill triggers too often:** Tighten the description, or set `disable-model-invocation: true`.
 
-**Descriptions cut short:** All names are always included, but descriptions are shortened to fit the character budget when many skills are loaded, dropping the least-invoked skills' descriptions first. Run `/doctor` for an estimate of the listing's context cost and its biggest contributors. Front-load key use cases, trim `description`/`when_to_use`, set low-priority skills to `"name-only"` in `skillOverrides`, or raise `skillListingBudgetFraction` / `SLASH_COMMAND_TOOL_CHAR_BUDGET`. Each entry is capped at 1,536 chars regardless of budget.
+**Descriptions cut short:** All names are always included, but descriptions are shortened to fit the character budget when many skills are loaded, dropping the least-invoked skills' descriptions first. Run `/doctor` for an estimate of the listing's context cost and its biggest contributors, and `/skill-doctor` to find skills worth turning off. Front-load key use cases, trim `description`/`when_to_use`, set low-priority skills to `"name-only"` in `skillOverrides`, or raise `skillListingBudgetFraction` / `SLASH_COMMAND_TOOL_CHAR_BUDGET`. Each entry is capped at 1,536 chars regardless of budget.
 
 ## Distribution
 

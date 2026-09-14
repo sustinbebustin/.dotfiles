@@ -3,7 +3,7 @@ name: create-agent-skills
 description: Author and improve Claude Code skills and slash commands — structure, frontmatter, invocation, and best practices.
 disable-model-invocation: true
 metadata:
-  last_reviewed_version: 2.1.251
+  last_reviewed_version: 2.1.270
 ---
 
 # Creating Skills & Commands
@@ -184,7 +184,9 @@ Priority order (higher wins on name conflicts): **enterprise > personal > projec
 
 **Live change detection:** edits under `~/.claude/skills/`, `.claude/skills/`, or `.claude/skills/` inside an `--add-dir` directory take effect mid-session. Creating a top-level skills directory that didn't exist at startup requires a restart. Detection covers `SKILL.md` text only — for a skill folder that is also a plugin, changes to `hooks/`, `.mcp.json`, `agents/`, or `output-styles/` need `/reload-plugins`.
 
-**Nested discovery:** when editing files in a subdirectory, Claude also picks up skills from nested `.claude/skills/` (e.g. `packages/frontend/.claude/skills/`) — useful for monorepos. On a name clash both stay available: the nested one gets a directory-qualified name (`/apps/web:deploy`), and invoking the unqualified name loads the root skill with a note listing the variants so Claude also invokes the one matching the files it's touching (v2.1.203+).
+**Nested discovery:** skills in a `.claude/skills/` below where the session started don't load at startup — they load the first time Claude reads or edits a file there, and until then can't be invoked by name. `/add-dir <subdirectory>` loads them immediately (v2.1.257+). On a name clash both stay available: the nested one gets a directory-qualified name (`/apps/web:deploy`), and invoking the unqualified name loads the root skill with a note listing the variants so Claude also invokes the one matching the files it's touching (v2.1.203+).
+
+**Skills synced from claude.ai:** these are named `/anthropic-skills:<name>` (v2.1.269+); the bare `/<name>` works only while no other command uses it. Name comparison ignores case, spacing, and invisible characters.
 
 ## Skill Content Lifecycle
 
@@ -198,7 +200,7 @@ Re-invoking a skill whose rendered content is identical adds only a short "alrea
 
 Control which skills Claude can invoke without editing each SKILL.md.
 
-**Permission rules** (`/permissions` or `settings.json`) — `Skill(name)` exact match, `Skill(name *)` prefix match. Use in `allow`/`deny` to grant or block specific skills. Deny the bare `Skill` tool to disable all skills at once.
+**Permission rules** (`/permissions` or `settings.json`) — `Skill(name)` exact match, `Skill(name *)` prefix match. Use in `allow`/`deny` to grant or block specific skills. Deny the bare `Skill` tool to disable all skills at once. A `deny` rule also matches an alias or an unqualified name — `Skill(review)` blocks the bundled `/code-review`, and `Skill(deploy)` blocks a nested `apps/web:deploy` (v2.1.260+). An `allow` rule matches only the skill's own name.
 
 **`skillOverrides` setting** — per-skill visibility states without touching the skill file (useful for shared/MCP-provided skills). The `/skills` menu writes this to `.claude/settings.local.json`; cycle with `Space`, save with `Esc`:
 
@@ -211,7 +213,11 @@ Control which skills Claude can invoke without editing each SKILL.md.
 
 As of v2.1.199, `"off"` also hides the skill from the command lists advertised to Remote Control clients and Agent SDK callers, not just the terminal `/` menu.
 
+In managed settings or a `--settings` file, an entry written under a bundled skill's alias applies to the skill behind it, but can only restrict it further; an entry under the skill's own name wins (v2.1.260+). In user, project, and local settings, entries match skill names only.
+
 Plugin skills are not affected by `skillOverrides` — manage those through `/plugin`.
+
+**Find unused skills:** `/skill-doctor` (v2.1.252+) reports each skill's context cost and how often it's been invoked, and flags never-invoked skills with where to turn them off. Terminal-only — it isn't available over Remote Control.
 
 ## Progressive Disclosure
 
@@ -323,7 +329,7 @@ For form filling guide, see [forms.md](forms.md).
 3. Check auto-triggering by asking something that matches the description
 4. Refine based on real behavior
 
-Measure invocation and output quality separately: run realistic prompts in a fresh session with the skill available and again with it disabled via `skillOverrides`, and compare. To automate that loop, install the `skill-creator` plugin (`/plugin install skill-creator@claude-plugins-official`), which stores test cases in `evals/evals.json`, runs each in an isolated subagent, and reports pass rate against token and time overhead.
+Measure invocation and output quality separately: run realistic prompts in a fresh session with the skill available and again with it disabled via `skillOverrides`, and compare. For a skill shipped in a plugin, `claude plugin eval` (v2.1.269+) runs each prompt with and without the plugin, grades it, and exits non-zero below a threshold so CI can gate on it. For iterating on a single skill in-conversation, install the `skill-creator` plugin (`/plugin install skill-creator@claude-plugins-official`), which stores test cases in `evals/evals.json`, runs each in an isolated subagent, and reports pass rate against token and time overhead.
 
 ## Audit Checklist
 
