@@ -18,7 +18,7 @@ Everything after the first `--` token is **notes**: free-form instructions to yo
 - A token that is exactly `haiku`, `sonnet`, `opus`, or `fable` is the **implementation model**. Default `opus` when absent.
 - Any other token is the **issues directory**. Default `.scratch/*/issues/` when absent.
 
-Every implementation subagent you spawn runs on the implementation model. Below, `<MODEL>` means that model name. It governs only the subagents you spawn -- the prompt you send them hardcodes opus for the subagents they spawn in turn, and you never rewrite that line.
+Every implementation subagent you spawn runs on the implementation model. Below, `<MODEL>` means that model name. It governs only the subagents you spawn; the agents they reach in turn pin their own model.
 
 Start now. Do no exploration, no planning, no reading of the tickets yourself.
 
@@ -34,8 +34,6 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
 
    ```
    Invoke the implement skill before doing anything. Then implement <TICKET-PATH> following the implement skill instructions.
-
-   When you spawn subagents of your own, use the Agent tool and pass model: "opus" on every call -- only invoke opus subagents.
 
    The implement skill names two skills. Invoke each with the Skill tool -- reading the file or working from memory does not count:
 
