@@ -10,8 +10,21 @@ readonly BREWFILE="${PACKAGES_DIR}/Brewfile"
 # The single stow package; its tree mirrors $HOME.
 readonly STOW_PACKAGE="home"
 
-# Config dir for the second Claude Code account (see stow_claude_work).
+# Config dirs for the primary and second Claude Code accounts (see
+# stow_claude_work).
+readonly CLAUDE_HOME_DIR="${HOME}/.claude"
 readonly CLAUDE_WORK_DIR="${HOME}/.claude-work"
+
+# Session state both accounts share, as "path:kind" relative to either config
+# dir. The data lives in $CLAUDE_HOME_DIR -- never in this repo -- and
+# $CLAUDE_WORK_DIR gets symlinks to it (see link_claude_shared_state).
+CLAUDE_SHARED_STATE=(
+    "projects:dir"
+    "plans:dir"
+    "file-history:dir"
+    "history.jsonl:file"
+)
+readonly CLAUDE_SHARED_STATE
 
 # Node toolchain. Must stay in step with PNPM_HOME in home/.config/zsh/.zshenv.
 readonly PNPM_HOME_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
@@ -333,11 +346,12 @@ stow_skills() {
 # --- Second Claude Code account ---
 
 # The `claude-work` alias (home/.config/zsh/.zshrc) points CLAUDE_CONFIG_DIR at
-# $CLAUDE_WORK_DIR so a second login keeps its own credentials, settings and
-# session history. Everything tracked here -- CLAUDE.md, agents, commands,
-# rules, hooks, statusline, skills -- is shared, so it gets linked into that
-# directory too. home/.claude is stowed as a package in its own right for
-# this, which is why it carries a second .stow-local-ignore.
+# $CLAUDE_WORK_DIR so a second login keeps its own credentials and state.
+# Everything tracked here -- CLAUDE.md, agents, commands, rules, hooks,
+# statusline, skills -- is shared, so it gets linked into that directory too.
+# home/.claude is stowed as a package in its own right for this, which is why
+# it carries a second .stow-local-ignore. Session state (CLAUDE_SHARED_STATE)
+# is shared as well, but by symlinking into ~/.claude rather than via stow.
 
 claude_pkg_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude"; }
 
@@ -358,12 +372,112 @@ backup_claude_work_conflicts() {
     return 0
 }
 
+# Move every file under $1 to the same relative path under $2. Byte-identical
+# duplicates are dropped; differing ones stay in $1 and are counted. Empty dirs
+# left behind in $1 (including $1 itself) are removed. Returns 1 when conflicts
+# remain.
+merge_claude_dir() {
+    local src="$1" dst="$2" file rel target moved=0 conflicts=0
+    while IFS= read -r -d '' file; do
+        rel="${file#"$src"/}"
+        target="${dst}/${rel}"
+        if [[ ! -e "$target" && ! -L "$target" ]]; then
+            mkdir -p "$(dirname "$target")"
+            mv "$file" "$target"
+            ((++moved))
+        elif cmp -s "$file" "$target"; then
+            rm -f "$file"
+        else
+            ((++conflicts))
+        fi
+    done < <(find "$src" ! -type d -print0)
+    find "$src" -depth -type d -empty -delete 2>/dev/null || true
+    [[ $moved -gt 0 ]] && info "Merged $moved file(s) into ${dst/#$HOME/\~}"
+    [[ $conflicts -eq 0 ]]
+}
+
+# Merge the history lines of $1 into $2: identical entries deduped, the rest
+# ordered by timestamp so up-arrow recall interleaves both accounts correctly.
+# $1 is removed only once $2 has been replaced with the merged result.
+merge_claude_history() {
+    local src="$1" dst="$2" tmp
+    if ! command_exists jq; then
+        warn "Can't merge ${src/#$HOME/\~} -- jq not installed ($(install_hint jq))"
+        return 1
+    fi
+    tmp="$(mktemp "${dst}.merge.XXXXXX")"
+    if ! jq -c -s 'group_by(tostring) | map(.[0]) | sort_by(.timestamp) | .[]' "$dst" "$src" > "$tmp"; then
+        rm -f "$tmp"
+        warn "Can't merge ${src/#$HOME/\~} -- jq failed to parse it or ${dst/#$HOME/\~} (see error above)"
+        return 1
+    fi
+    mv "$tmp" "$dst"
+    rm -f "$src"
+    info "Merged history into ${dst/#$HOME/\~}"
+}
+
+# Replace $CLAUDE_WORK_DIR/<path> with a symlink to $CLAUDE_HOME_DIR/<path> for
+# each CLAUDE_SHARED_STATE entry. Existing work-account data is renamed aside
+# first -- so a running session can't write into it mid-merge -- then merged
+# into ~/.claude. Anything that can't be merged is left in the aside path.
+# Idempotent; re-running also re-merges if Claude ever replaces a link with a
+# real file.
+link_claude_shared_state() {
+    local entry rel kind canonical work aside
+    for entry in "${CLAUDE_SHARED_STATE[@]}"; do
+        rel="${entry%%:*}"
+        kind="${entry##*:}"
+        canonical="${CLAUDE_HOME_DIR}/${rel}"
+        work="${CLAUDE_WORK_DIR}/${rel}"
+
+        if [[ "$kind" == "dir" ]]; then
+            mkdir -p "$canonical"
+        else
+            mkdir -p "$(dirname "$canonical")"
+            touch "$canonical"
+        fi
+
+        if [[ -L "$work" ]]; then
+            if [[ "$(readlink "$work")" != "$canonical" ]]; then
+                warn "${work/#$HOME/\~} is a symlink to $(readlink "$work"), not $canonical -- left unshared"
+                warn "  Remove it and re-run 'dot stow' to share it"
+            fi
+            continue
+        fi
+
+        aside=""
+        if [[ -e "$work" ]]; then
+            if [[ "$kind" == "dir" && ! -d "$work" ]] || [[ "$kind" == "file" && ! -f "$work" ]]; then
+                warn "${work/#$HOME/\~} should be a $kind but isn't -- left unshared"
+                warn "  Move it aside and re-run 'dot stow'"
+                continue
+            fi
+            aside="${work}.merging-$(date +%Y%m%d_%H%M%S)"
+            mv "$work" "$aside"
+        fi
+        ln -s "$canonical" "$work"
+
+        if [[ -n "$aside" ]]; then
+            if [[ "$kind" == "dir" ]]; then
+                if ! merge_claude_dir "$aside" "$canonical"; then
+                    warn "Some files in ${aside/#$HOME/\~} differ from ones already in ${canonical/#$HOME/\~} and were kept there"
+                    warn "  Diff them, move what you want to keep into ${canonical/#$HOME/\~}, then delete ${aside/#$HOME/\~}"
+                fi
+            elif ! merge_claude_history "$aside" "$canonical"; then
+                warn "  ${aside/#$HOME/\~} is kept unmerged; ${canonical/#$HOME/\~} is unchanged"
+            fi
+        fi
+        ok "Shared ${work/#$HOME/\~} -> ${canonical/#$HOME/\~}"
+    done
+}
+
 stow_claude_work() {
     info "Linking Claude config into ~/.claude-work..."
     mkdir -p "$CLAUDE_WORK_DIR"
     backup_claude_work_conflicts
     stow -R --no-folding --dir="${DOTFILES_DIR}/${STOW_PACKAGE}" --target="$CLAUDE_WORK_DIR" ".claude"
     stow_skills "${CLAUDE_WORK_DIR}/skills"
+    link_claude_shared_state
     ok "Second Claude account linked"
 }
 
@@ -842,6 +956,26 @@ cmd_doctor() {
         info "  -> dot stow"
         ((++issues))
     fi
+
+    # Session state shared with the second Claude account
+    local rel work
+    for entry in "${CLAUDE_SHARED_STATE[@]}"; do
+        rel="${entry%%:*}"
+        work="${CLAUDE_WORK_DIR}/${rel}"
+        if [[ -L "$work" && "$(readlink "$work")" == "${CLAUDE_HOME_DIR}/${rel}" ]]; then
+            ok "${work/#$HOME/\~} shared with ~/.claude"
+        else
+            warn "${work/#$HOME/\~} is not a symlink to ${CLAUDE_HOME_DIR}/${rel}"
+            info "  -> dot stow"
+            ((++issues))
+        fi
+    done
+    local leftover
+    while IFS= read -r -d '' leftover; do
+        warn "Unmerged Claude state left from an earlier 'dot stow': $leftover"
+        info "  -> diff it against ~/.claude, keep what you need, then delete it"
+        ((++issues))
+    done < <(find "$CLAUDE_WORK_DIR" -mindepth 1 -maxdepth 1 -name '*.merging-*' -print0 2>/dev/null)
 
     # SSH key
     if [[ -f "$HOME/.ssh/id_ed25519.pub" || -f "$HOME/.ssh/id_rsa.pub" ]]; then
