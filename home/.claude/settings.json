@@ -3,6 +3,7 @@
     "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "3",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_NO_FLICKER": "1",
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
     "IMPECCABLE_CONTEXT_DIR": ".impeccable"
   },
   "attribution": {
