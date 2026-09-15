@@ -139,6 +139,7 @@
       "effortLevel": "medium"
     }
   },
+  "autoCompactWindow": 300000,
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "skipDangerousModePermissionPrompt": true,
