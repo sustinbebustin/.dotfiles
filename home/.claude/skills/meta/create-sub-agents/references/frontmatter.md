@@ -6,7 +6,7 @@ Every field a subagent's YAML frontmatter accepts. Source: [code.claude.com/docs
 
 ### `name`
 
-Unique identifier. Lowercase letters and hyphens only. Should match the filename (without `.md`). Used in `@`-mentions, `tools: Agent(name)` allowlists, and `permissions.deny: Agent(name)` rules.
+Unique identifier. Lowercase letters and hyphens only. Identity comes from this field, not the filename; matching the filename (without `.md`) is a convention, not a requirement. Used in `@`-mentions, `tools: Agent(name)` allowlists, and `permissions.deny: Agent(name)` rules.
 
 A name can't start with `-` or contain `:` — the colon is reserved for plugin-scoped identifiers like `my-plugin:reviewer`, and since v2.1.218 Claude Code skips such files and logs an error to the debug log. Files are also skipped silently when there's no `name`, no `description`, the opening `---` isn't the first line, or the YAML doesn't parse. Run `claude plugin validate .claude/agents` (or `~/.claude/agents`) to find unparseable frontmatter (v2.1.233+); it won't flag a file that parses but has no `name`.
 
@@ -26,7 +26,7 @@ description: Expert code review specialist. Use proactively after writing or mod
 
 ### `tools`
 
-Allowlist of tools. If omitted, the subagent inherits ALL tools from the parent (including MCP tools). If set, only listed tools are available.
+Allowlist of tools. If omitted, the subagent inherits ALL tools from the parent (including MCP tools). If set, only listed tools are available. If no entry resolves to a tool (e.g. all misspelled), Claude Code usually refuses to launch the subagent and names the unresolved entries (v2.1.208+).
 
 Accepts a comma-separated string OR a YAML list:
 
@@ -59,6 +59,8 @@ disallowedTools: Edit, Write
 ```
 
 If both `tools` and `disallowedTools` are set: deny is applied first, then `tools` resolves against the remaining pool. A tool listed in both is removed.
+
+An entry with a specifier, such as `Bash(git push *)`, still removes the whole tool. To keep Bash and block specific commands, add the rule to `permissions.deny` in settings instead.
 
 ### `permissionMode`
 
@@ -102,7 +104,9 @@ Which AI model the subagent uses.
 | `opus` | Hard reasoning. Reserve for review/architecture/debugging tasks. |
 | `fable` | Fable model alias; resolves to Fable 5.1 as of v2.1.257. |
 | `claude-opus-4-8` (full ID) | Pin a specific model. |
-| `inherit` | Use the same model as the main conversation. Default. |
+| `inherit` | Use the same model as the main conversation. |
+
+Omitting `model` is not the same as `inherit`: it falls through to `CLAUDE_CODE_SUBAGENT_MODEL` before the main conversation's model.
 
 Resolution order when invoking:
 
@@ -185,6 +189,14 @@ When set, Read/Write/Edit are auto-enabled and `MEMORY.md` (first 200 lines or 2
 
 ```yaml
 memory: project
+```
+
+### `omitClaudeMd`
+
+`true` to launch without the user, project, and local `CLAUDE.md` files. Managed policy files still load, except for managed subagents. Use for subagents that take everything they need from the delegation prompt. Ignored when the agent runs as the main session via `--agent` or the `agent` setting. Requires v2.1.271+.
+
+```yaml
+omitClaudeMd: true
 ```
 
 ### `background`

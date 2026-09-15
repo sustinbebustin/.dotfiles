@@ -43,7 +43,7 @@ You are a senior code reviewer. When invoked:
 3. Provide feedback organized by severity
 ```
 
-Subagents receive ONLY this system prompt plus basic environment info (working directory). They inherit `CLAUDE.md` and git status from the parent, but NOT the parent's conversation history, NOT the parent's invoked skills, and NOT the default Claude Code system prompt. List skills explicitly with the `skills:` field if you need them.
+Subagents receive ONLY this system prompt plus basic environment info (working directory). They inherit `CLAUDE.md` (unless `omitClaudeMd: true`) and git status from the parent, but NOT the parent's conversation history, NOT the parent's invoked skills, and NOT the default Claude Code system prompt. List skills explicitly with the `skills:` field if you need them.
 
 ## Scope And Discovery
 
@@ -69,9 +69,9 @@ Only `name` and `description` are required. Full details in [frontmatter.md](ref
 | --- | --- |
 | `name` | Unique identifier. Lowercase letters and hyphens. Can't start with `-` or contain `:` (reserved for plugin scoping) — such files are skipped with a debug-log error (v2.1.218+). |
 | `description` | When Claude should delegate to this subagent. Front-load trigger phrases. |
-| `tools` | Allowlist of tools. If omitted, inherits all tools from parent. |
-| `disallowedTools` | Denylist. Applied before `tools` resolves. |
-| `model` | `sonnet`, `opus`, `haiku`, `fable`, a full model ID, or `inherit`. Defaults to `inherit`. |
+| `tools` | Allowlist of tools. If omitted, inherits all tools from parent. If no entry resolves to a tool, the subagent usually fails to launch. |
+| `disallowedTools` | Denylist. Applied before `tools` resolves. A specifier entry like `Bash(git push *)` still removes the whole tool. |
+| `model` | `sonnet`, `opus`, `haiku`, `fable`, a full model ID, or `inherit`. If omitted, resolves via `CLAUDE_CODE_SUBAGENT_MODEL`, then the main conversation's model. |
 | `permissionMode` | `default` (alias `manual`), `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, or `plan`. `bypassPermissions` applies only when the parent is already in it. |
 | `maxTurns` | Hard cap on agentic turns before the subagent stops. Output is returned marked partial and can be resumed (v2.1.246+). |
 | `skills` | Skills to fully preload into the subagent's context at startup. |
@@ -79,6 +79,7 @@ Only `name` and `description` are required. Full details in [frontmatter.md](ref
 | `hooks` | Lifecycle hooks scoped to this subagent's runtime. |
 | `memory` | `user`, `project`, or `local`. Enables cross-session persistent memory. |
 | `background` | `true` to always run in background, even when Claude needs the result right away. Redundant where fork mode is on — Claude Code backgrounds every spawned subagent there and Claude can't ask for the foreground. |
+| `omitClaudeMd` | `true` to launch without user, project, and local `CLAUDE.md` (managed policy files still load). Ignored when run as the main session via `--agent`. Requires v2.1.271+. |
 | `effort` | `low`, `medium`, `high`, `xhigh`, `max`. Available levels depend on the model. |
 | `isolation` | `worktree` to run in a temporary git worktree. |
 | `color` | UI color: red, blue, green, yellow, purple, orange, pink, cyan. |

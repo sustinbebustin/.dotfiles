@@ -13,9 +13,9 @@ Controls which AI model the subagent uses.
 | `opus` | Hard reasoning: architecture decisions, complex debugging, deep code review, planning major refactors. |
 | `fable` | Fable model alias; resolves to Fable 5.1 as of v2.1.257. |
 | `claude-opus-4-8` | Pin a specific model ID. Same values as `--model` flag. |
-| `inherit` | Use the same model as the main conversation. Default. |
+| `inherit` | Use the same model as the main conversation. |
 
-Omitting `model` defaults to `inherit`.
+Omitting `model` is not the same as `inherit`: it falls through to `CLAUDE_CODE_SUBAGENT_MODEL` before the main conversation's model (see below).
 
 ## Resolution Order
 
