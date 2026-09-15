@@ -2,7 +2,6 @@
 name: pti-fork
 argument-hint: [ticket path, issue number/URL, or task description]
 context: fork
-background: false
 ---
 
 Internal step of /plan-then-implement. Invoke it only when that skill's instructions name it.
@@ -12,6 +11,8 @@ This run changes nothing except the plan on the ticket. Make no other edits, run
 Task: $ARGUMENTS
 
 You have no conversation history; the task above is all you get. If it names a ticket file, issue number, or URL, fetch it and read the full body and comments. That is the ticket the plan goes on. With no ticket, the plan lives only in your final message.
+
+Agents you dispatch run in the background. After dispatching, end your turn: you are re-invoked as their reports land, so your next turn starts with the findings in hand. Move to the next step only once every agent you dispatched has reported. Take each result from the agent's report, never from its output file, which holds its full transcript.
 
 ## 1. Understand
 
@@ -76,7 +77,7 @@ Each task is one small verifiable increment. Mark `[TDD]` where the task has a t
 
 ## 5. Resolve open questions
 
-With Open questions on the plan, send "pti-fork: open questions pending" to `main` with SendMessage; the message carries your agent ID, so the answers resume this run. Then end with the questions as your final message.
+With Open questions on the plan, end with the questions as your final message. The answers arrive as a message that resumes this run.
 
 When the answers arrive, fold each into the plan: update the sections it changes, and remove Open questions once all are resolved. Rewrite the plan on the ticket. Done when the ticket's plan has no Open questions.
 
