@@ -12,6 +12,7 @@
 # - "<scopes> -- <note text>"             -> scopes + note
 # - "--all" anywhere before " -- "        -> commit every change in the worktree
 # - "--yours" anywhere before " -- "      -> commit only this session's own changes
+# - "--skip-ci" anywhere before " -- "    -> tag every commit message with [skip ci]
 #
 # Subdir names with spaces are not supported in the multi-scope form;
 # use the single-scope form for those.
@@ -40,6 +41,7 @@ fi
 # Split scopes on whitespace, pulling out selection flags wherever they appear.
 selection=""
 selection_conflict=0
+skip_ci=0
 scopes=()
 read -r -a raw_scopes <<< "$scopes_raw"
 for tok in ${raw_scopes[@]+"${raw_scopes[@]}"}; do
@@ -50,6 +52,9 @@ for tok in ${raw_scopes[@]+"${raw_scopes[@]}"}; do
         selection_conflict=1
       fi
       selection="$mode"
+      ;;
+    --skip-ci)
+      skip_ci=1
       ;;
     *)
       scopes+=("$tok")
@@ -91,6 +96,12 @@ elif [ "$selection" = "all" ]; then
 elif [ "$selection" = "yours" ]; then
   echo "### Selection mode: yours"
   echo "Commit only the files this session changed. Leave every other change in place."
+  echo ""
+fi
+
+if [ "$skip_ci" = "1" ]; then
+  echo "### Skip CI"
+  echo "End every commit subject in this invocation with [skip ci]."
   echo ""
 fi
 

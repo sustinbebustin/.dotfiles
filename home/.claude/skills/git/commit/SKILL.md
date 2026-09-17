@@ -2,7 +2,7 @@
 name: commit
 description: Git commit workflow combining atomic scope with conventional message format.
 allowed-tools: Bash
-argument_hint: [subdir...] [--all|--yours] [-- note]
+argument_hint: [subdir...] [--all|--yours] [--skip-ci] [-- note]
 disable-model-invocation: true
 ---
 
@@ -24,10 +24,13 @@ Accepts zero or more subdir scopes, an optional selection flag, and/or a free-fo
 - `/commit --all` -> commit everything in the worktree
 - `/commit --yours` -> commit only what this session changed
 - `/commit frontend --yours -- keep the lockfile out` -> scope + selection + note
+- `/commit frontend --skip-ci` -> tag every commit with `[skip ci]`
 
 Subdir names with spaces aren't supported in the multi-scope form -- use the single-scope form for those.
 
 `--all` and `--yours` may appear anywhere before the ` -- ` note separator and apply to every scope in the invocation. When one is present the gathered state below starts with a `### Selection mode:` block. See [Selection modes](#selection-modes).
+
+`--skip-ci` may also appear anywhere before ` -- ` and adds a `### Skip CI` block. See [Skip CI](#skip-ci).
 
 When multiple scopes are given, treat each repo independently: assess atomicity, stage, and commit per repo. Don't blend changes across repos into one commit.
 
@@ -145,6 +148,10 @@ Optional, indicates the area affected: `feat(auth)`, `fix(api)`, `docs(readme)`
 
 - `BREAKING CHANGE: <description>` for breaking changes
 - `Closes #123` or `Fixes #456` for issue references
+
+### Skip CI
+
+When the gathered state has a `### Skip CI` block, end the subject of **every** commit in the invocation with ` [skip ci]`, e.g. `docs(readme): fix install steps [skip ci]`. GitHub Actions only checks the pushed head commit, so tagging only some commits can still trigger a run. The tag doesn't count toward the 50-character description limit.
 
 ## Examples
 
