@@ -1,6 +1,7 @@
 ---
 name: pti-fork
 argument-hint: [ticket path, issue number/URL, or task description]
+model: inherit
 context: fork
 ---
 
