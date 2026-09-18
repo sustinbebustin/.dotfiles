@@ -17,6 +17,7 @@ import (
 	"claude-hooks/internal/rules/dangerousgit"
 	"claude-hooks/internal/rules/dangerousrm"
 	"claude-hooks/internal/rules/rootcd"
+	"claude-hooks/internal/rules/supabaseremote"
 )
 
 // Rule is one guard. Check is pure: it reads the Request, returns a Verdict,
@@ -42,6 +43,7 @@ type Rule struct {
 var all = []Rule{
 	{Name: credfiles.Name, Tools: []string{"Read", "Edit", "Write", "Bash", "Grep"}, Nested: true, Check: credfiles.Check},
 	{Name: awscli.Name, Tools: []string{"Bash"}, Nested: true, Check: awscli.Check},
+	{Name: supabaseremote.Name, Tools: []string{"Bash"}, Nested: true, Check: supabaseremote.Check},
 	{Name: dangerousgit.Name, Tools: []string{"Bash"}, Nested: true, Check: dangerousgit.Check},
 	{Name: dangerousrm.Name, Tools: []string{"Bash"}, Nested: true, Check: dangerousrm.Check},
 	{Name: rootcd.Name, Tools: []string{"Bash"}, Check: rootcd.Check},

@@ -206,6 +206,40 @@
     "decision": "allow"
   },
   {
+    "name": "supabase-reset-local",
+    "stdin": "{\"tool_input\":{\"command\":\"(cd frontend \\u0026\\u0026 supabase db reset --no-seed)\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "supabase-reset-project-ref",
+    "stdin": "{\"tool_input\":{\"command\":\"supabase db reset --project-ref abcdefghijklmnopqrst\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] `supabase db reset` would run against project abcdefghijklmnopqrst, a remote database: it wipes all of its data and replays the local migrations over it. Nothing was run. Only the local stack may be changed this way from Claude Code -- drop the remote flag to target local. If the remote change is really intended, the user has to run it themselves."
+  },
+  {
+    "name": "supabase-reset-pnpm-exec-linked",
+    "stdin": "{\"tool_input\":{\"command\":\"pnpm -C frontend exec supabase db reset --linked\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] `supabase db reset` would run against the linked project, a remote database: it wipes all of its data and replays the local migrations over it. Nothing was run. Only the local stack may be changed this way from Claude Code -- drop the remote flag to target local. If the remote change is really intended, the user has to run it themselves."
+  },
+  {
+    "name": "supabase-reset-nested-shell",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c 'supabase db reset --linked'\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Inside a script passed to a nested shell: [BLOCKED] `supabase db reset` would run against the linked project, a remote database: it wipes all of its data and replays the local migrations over it. Nothing was run. Only the local stack may be changed this way from Claude Code -- drop the remote flag to target local. If the remote change is really intended, the user has to run it themselves."
+  },
+  {
+    "name": "supabase-push-default-remote",
+    "stdin": "{\"tool_input\":{\"command\":\"supabase db push\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "`supabase db push` would run against the linked project (this command's default without --local), a remote database: it applies the local migrations to its schema. Pass --local to target the local stack instead. Allow?"
+  },
+  {
+    "name": "supabase-remote-dump",
+    "stdin": "{\"tool_input\":{\"command\":\"supabase db dump --project-ref abcdefghijklmnopqrst --data-only --use-copy -f out.sql\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
     "name": "git-status",
     "stdin": "{\"tool_input\":{\"command\":\"git status\"},\"tool_name\":\"Bash\"}",
     "decision": "allow"

@@ -2,7 +2,6 @@
 name: rebase
 description: Rebase onto the latest trunk safely, including the semantic conflicts git merges cleanly and never flags. Use for "rebase", "gsync", "sync with main", "update my branch", "catch me up with main", "get up to date with trunk", or after a rebase left the tree broken.
 argument-hint: [repo...] [base-branch] [-- note]
-disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(bash *), Bash(just *), Read, Edit, Grep, Glob
 ---
 
