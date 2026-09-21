@@ -2,7 +2,7 @@
 
 ## Overview
 
-GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow package, `home/`, mirrors `$HOME`. No templating, no custom scripts.
+GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow package, `home/`, mirrors `$HOME`. No templating; `dot` adds custom linking only where stow cannot express it (skills, the second Claude account).
 
 ## Components
 
@@ -12,13 +12,16 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow packa
 ├── packages/
 │   └── Brewfile                 # Homebrew deps
 ├── home/                        # stow package -> $HOME
-│   ├── .zshenv                  # sets ZDOTDIR, XDG dirs
+│   ├── .zshenv                  # sets ZDOTDIR, delegates to it
+│   ├── .npmrc                   # registry settings (auth in ~/.npmrc.local)
 │   ├── .claude/                 # Claude Code framework
 │   └── .config/
 │       ├── zsh/                 # shell config (ZDOTDIR)
+│       ├── starship.toml        # prompt
 │       ├── git/                 # git config + aliases
 │       ├── ghostty/             # terminal emulator
 │       ├── tmux/                # tmux + TPM
+│       ├── pnpm/                # pnpm settings
 │       ├── ripgrep/             # rg defaults
 │       └── karabiner/           # key remapping (macOS)
 └── docs/                        # documentation
@@ -26,7 +29,7 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow packa
 
 ## Bootstrap: `dot`
 
-Single script: Homebrew -> brew bundle -> Node toolchain -> CLI tools -> stow `home` -> set zsh default.
+Single script: Homebrew -> brew bundle -> Node toolchain -> CLI tools -> back up conflicting files -> stow `home` -> set zsh default.
 
 The Node toolchain and CLI tool steps are non-fatal: a network failure there warns and continues, so `dot init` always reaches the stow step.
 
@@ -44,13 +47,17 @@ Stow is run with `--no-folding` to create per-file symlinks rather than director
 
 Skills are the exception. `home/.claude/skills/` is stow-ignored, since stow can express neither the category flattening nor the folder-level symlink each skill is published as. `dot stow` publishes it to `~/.claude/skills` instead. An optional one-level category dir is flattened away when linking, since Claude Code only reads `~/.claude/skills/<name>/SKILL.md`.
 
+### Second Claude account
+
+`dot stow` also links the Claude config into `~/.claude-work`, a second account's config dir. `home/.claude` is stowed there as a package in its own right, which is why it carries its own `.stow-local-ignore` -- keep it in step with the `.claude` entries of `home/.stow-local-ignore`. Session state (`projects/`, `plans/`, `file-history/`, `history.jsonl`, listed in `CLAUDE_SHARED_STATE` in `dot`) is shared by symlinking `~/.claude-work/<path>` to `~/.claude/<path>`; existing work-account data is merged into `~/.claude` first.
+
 ## Shell Config
 
-XDG-compliant. `.zshenv` sets `ZDOTDIR=$HOME/.config/zsh`, redirecting all zsh config there.
+XDG-compliant. `~/.zshenv` sets `ZDOTDIR=$HOME/.config/zsh` and sources `$ZDOTDIR/.zshenv`, redirecting all zsh config there.
 
-| File | Scope | Purpose |
+| File (in `$ZDOTDIR`) | Scope | Purpose |
 |------|-------|---------|
-| `.zshenv` | All shells | `LANG`, `EDITOR`, XDG dirs, `ZDOTDIR`, Homebrew, Node/pnpm/bun env |
+| `.zshenv` | All shells | `LANG`, `EDITOR`, XDG dirs, Homebrew, Node/pnpm/bun env |
 | `.zprofile` | Login | libpq |
 | `.zshrc` | Interactive | Completions, PATH extensions, aliases, plugins, starship prompt |
 
@@ -68,15 +75,7 @@ Registry config is split: `~/.npmrc` is tracked and holds settings, while auth t
 
 ## Packages
 
-`packages/Brewfile` is the source of truth for system deps:
-
-| Category | Packages |
-|----------|----------|
-| Core | gawk, git, go, just, shellcheck, stow, zsh |
-| Shell | starship, zsh-autosuggestions, zsh-syntax-highlighting |
-| Terminal | tmux |
-| CLI | ast-grep, direnv, eza, gh, jq, ripgrep |
-| Personal | sustinbebustin/tap/mws |
+`packages/Brewfile` is the source of truth for system deps, grouped by category; manage it with `dot package add|remove|list`.
 
 Go is a build dependency, not a runtime one: `dot stow` compiles the hooks in `home/.claude/hooks` before linking them, and `build_hooks` warns and skips when go is absent -- so an undeclared go means a machine silently runs without the hook safety gates. `make` is not declared, since it ships with the Xcode command line tools that Homebrew already requires on macOS and with the base install on Linux.
 
@@ -91,10 +90,12 @@ Everything else (pnpm, node, bun, cargo) managed outside Homebrew.
 ```
 .claude/
 ├── CLAUDE.md                    # global instructions
-├── settings.json                # model, permissions, hooks
-├── mcp.json.example             # MCP server template
-├── hooks/                       # Go safety gates + statusline
-├── commands/                    # slash command workflows
+├── settings.json                # model, permissions, hooks, statusline
+├── keybindings.json             # keyboard shortcuts
+├── statusline.sh                # statusLine command
+├── hooks/                       # Go safety gates
+├── scripts/                     # helper scripts
+├── commands/                    # slash commands
 ├── skills/                      # skill definitions (SKILL.md)
 ├── agents/                      # subagent definitions
 └── rules/                       # always-loaded rules
@@ -137,37 +138,25 @@ the `gofumpt`/`gci` formatters `make fmt` applies.
 |------|-----------|---------|
 | `block-credential-files` | Read, Edit, Write, Bash, Grep | Deny access to credential files |
 | `block-aws-cli` | Bash | Ask before any `aws` CLI invocation |
+| `block-supabase-remote` | Bash | Deny Supabase CLI commands that wipe a remote database or delete a project; ask before other remote writes |
 | `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands; deny outward-facing gh operations (`pr close`, `repo delete`, writing `gh api`) |
 | `block-dangerous-rm` | Bash | Ask before a recursive `rm` |
 | `enforce-root` | Bash | Deny a top-level `cd`, which silently desyncs later commands |
 
 `statusline.sh` is separate, registered as the `statusLine` command.
 
-### Workflows (slash commands)
+### Skills, agents, commands
 
-| Command | Purpose |
-|---------|---------|
-| `/lfg` | Full autonomous: plan -> deepen -> work -> review -> resolve -> test |
-| `/slfg` | Simplified LFG |
-| `/workflows:plan` | Feature planning with research + SpecFlow |
-| `/workflows:work` | Implementation |
-| `/workflows:review` | Multi-agent code review |
-| `/workflows:brainstorm` | Exploratory brainstorming |
+Workflows live in skills, not slash commands. Skills are grouped by category under `skills/` (`dev-tools`, `engineering`, `frontend`, `git`, `meta`, `misc`, `productivity`, `workflow`); the category layer is flattened on publish (see Stow Strategy), so names are unique across categories.
 
-### Agents (organized by domain)
+Subagents are grouped by domain under `agents/`: `design/` (the Impeccable build pipeline), `explore/` (scoutmaster and the scouts it dispatches), and `review/` (code-review axes and stack-specific reviewers).
 
-| Domain | Agents |
-|--------|--------|
-| `design/` | design-implementation-reviewer, design-iterator |
-| `meta/` | agent-generator |
-| `research/` | best-practices, framework-docs, git-history, learnings, repo-research |
-| `review/` | architecture-strategist, code-simplicity, data-integrity, performance-oracle, security-sentinel, typescript-reviewer |
-| `workflow/` | bug-reproduction-validator, pr-comment-resolver, spec-flow-analyzer |
+`commands/` holds the few remaining standalone slash commands.
 
 ## Key Patterns
 
-1. **Stow over everything** -- no custom symlink logic, no templating
+1. **Stow over everything** -- custom linking only where stow cannot express it, no templating
 2. **XDG-compliant** -- all config under `~/.config/`, `.zshenv` bootstraps `ZDOTDIR`
 3. **Single bootstrap** -- `dot` handles Homebrew, packages, stow, shell in one pass
-4. **Hook-enforced quality** -- TS errors block agent completion; skill activation routes on every prompt
-5. **Secrets excluded** -- `mcp.json`, `.env*`, `.continuity/` all gitignored
+4. **Hook-enforced safety** -- the Go guards deny or ask before destructive or outward-facing tool calls
+5. **Secrets excluded** -- `mcp.json`, `.env*`, hook `config.json`, `~/.npmrc.local` all untracked
