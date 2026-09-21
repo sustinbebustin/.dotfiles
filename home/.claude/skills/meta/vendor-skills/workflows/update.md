@@ -24,7 +24,8 @@ Input: skill names, or nothing for every skill in the catalog with `status.state
    7. **Resolve conflicts.** Every `conflict` entry gets the same treatment, hunk by hunk.
       - Remove every marker. The step is done when `rg -n '^(<<<<<<<|=======|>>>>>>>)( |$)' <tmp>` prints nothing.
       - A `conflict` whose detail says one side deleted the file needs an explicit keep-or-drop decision.
-   8. **Apply.** Run `vendor.ts install <tmp> <local> --replace --author <author>`.
-   9. **Record.** Run `vendor.ts catalog upsert <name> --fetch <new.out> --local <localPath>` with one `--note` per surviving change, or `--clear-notes` when none survive.
-   10. **Clean up** `new.out`, `base.out` and `<tmp>`.
+   8. **Adapt.** Rewrite any npm, npx or yarn commands still in `<tmp>` per [package-manager.md](../references/package-manager.md). Add the note from that file if the entry doesn't already have it.
+   9. **Apply.** Run `vendor.ts install <tmp> <local> --replace --author <author>`.
+   10. **Record.** Run `vendor.ts catalog upsert <name> --fetch <new.out> --local <localPath>` with one `--note` per surviving change, or `--clear-notes` when none survive.
+   11. **Clean up** `new.out`, `base.out` and `<tmp>`.
 3. **Report** a table with columns skill | result | decisions. Results: up to date, updated, updated with decisions, removed upstream, skipped, failed. The user reviews the file changes with `git diff` in the skills repo.

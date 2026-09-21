@@ -45,7 +45,7 @@ Route on the first word of the arguments:
   - The scanner still runs, and a scanner block still stops the install.
 - No mode given -> ask which mode.
 
-Add and update both gate on [references/security-review.md](references/security-review.md).
+Add and update both gate on [references/security-review.md](references/security-review.md). Both also adapt npm, npx and yarn commands to pnpm per [references/package-manager.md](references/package-manager.md).
 
 ## Publishing
 

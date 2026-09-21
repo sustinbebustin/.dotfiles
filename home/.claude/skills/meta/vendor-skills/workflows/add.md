@@ -16,10 +16,11 @@ Input:
      - If `categories` is non-empty, pick one with AskUserQuestion. Put the best fit first, judged from the skill's description and the skills already in each category. The destination is `<root>/<category>/<name>`.
 3. **Gate.** Run the full review in [security-review.md](../references/security-review.md) on `skillDir`. Continue only when the gate passes.
 4. **Install.** Run `vendor.ts install <skillDir> <dest> --author <owner>`.
-5. **Record.** Global only: run `vendor.ts catalog upsert <name> --fetch <out> --local <dest relative to root>`.
-6. **Publish.** When `needsPublish` is true, run the publish step from SKILL.md. The skill is done when `~/.claude/skills/<name>/SKILL.md` resolves.
-7. **Clean up.** Remove `<out>`.
-8. **Report** the destination, the short commit, the scan summary, and the gate outcome.
+5. **Adapt.** Rewrite npm, npx and yarn commands in `<dest>` per [package-manager.md](../references/package-manager.md).
+6. **Record.** Global only: run `vendor.ts catalog upsert <name> --fetch <out> --local <dest relative to root>`, with a `--note` for step 5 if it changed anything.
+7. **Publish.** When `needsPublish` is true, run the publish step from SKILL.md. The skill is done when `~/.claude/skills/<name>/SKILL.md` resolves.
+8. **Clean up.** Remove `<out>`.
+9. **Report** the destination, the short commit, the scan summary, the gate outcome, and any package-manager rewrites.
 
 ## Adopt
 
