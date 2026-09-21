@@ -1,7 +1,7 @@
 ---
 name: update-meta-skills
-description: Refresh the meta skills (create-agent-skills, create-sub-agents, create-codemode-mcp) against their upstream docs and packages.
-argument-hint: "[skills] [agents] [codemode]"
+description: Refresh the meta skills (create-agent-skills, create-sub-agents, create-claude-plugin, create-codemode-mcp) against their upstream docs and packages.
+argument-hint: "[skills] [agents] [plugins] [codemode]"
 disable-model-invocation: true
 allowed-tools: Read, Edit, Skill, Bash(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel), Bash(claude --version), Bash(curl *), Bash(*/docs/vendor/codemode/scrape.sh)
 ---
@@ -20,11 +20,12 @@ Every path below is relative to that repo; prefix it to get the absolute path, w
 |--------|-------|----------------|-------------|
 | `skills` | `home/.claude/skills/meta/create-agent-skills/` | `claude --version` | `claude-code-docs` skill |
 | `agents` | `home/.claude/skills/meta/create-sub-agents/` | `claude --version` | `claude-code-docs` skill |
+| `plugins` | `home/.claude/skills/meta/create-claude-plugin/` | `claude --version` | `claude-code-docs` skill |
 | `codemode` | `home/.claude/skills/meta/create-codemode-mcp/` | `@cloudflare/codemode` on npm | package tarball, upstream changelog, `docs/vendor/codemode/docs/` |
 
 Arguments: $ARGUMENTS
 
-Run the targets named in the arguments; with no arguments, run all three. If an argument matches no target, stop and list the valid targets.
+Run the targets named in the arguments; with no arguments, run all four. If an argument matches no target, stop and list the valid targets.
 
 ## Steps
 
@@ -34,10 +35,10 @@ Run the targets named in the arguments; with no arguments, run all three. If an 
    curl -fsSL https://registry.npmjs.org/@cloudflare/codemode/latest | jq -r .version
    ```
 
-   The cutoff is the recorded version — only changes released after it matter. `skills` and `agents` share a source, so when both run, use the lower of their two versions as one cutoff. A skill whose version already equals upstream is current; review it only if asked.
+   The cutoff is the recorded version — only changes released after it matter. `skills`, `agents`, and `plugins` share a source, so when more than one runs, use the lowest of their versions as one cutoff. A skill whose version already equals upstream is current; review it only if asked.
 
 2. **Pull fresh sources.**
-   - `skills` / `agents`: invoke the `claude-code-docs` skill for current information on agent skills, subagents, slash commands, and everything else these skills cover (frontmatter fields, invocation control, scopes, permissions, lifecycle). That skill refreshes its own cache when the Claude Code version changes — let it own fetching.
+   - `skills` / `agents` / `plugins`: invoke the `claude-code-docs` skill for current information on agent skills, subagents, slash commands, plugins, and everything else these skills cover (frontmatter fields, invocation control, scopes, permissions, lifecycle). That skill refreshes its own cache when the Claude Code version changes — let it own fetching. For `plugins`, cover `plugins.md`, `plugins-reference.md`, `plugin-marketplaces.md`, `plugin-dependencies.md`, `plugin-evals.md`, `plugin-hints.md`, `plugin-relevance.md`, `discover-plugins.md`, plus the plugin sections of `settings-reference.md`, `mcp.md`, `hooks.md`, `sub-agents.md`, `output-styles.md`, and `errors.md`.
    - `codemode`: gather three sources, in authority order. The package ships ahead of Cloudflare's docs, so where they disagree the package wins.
      1. **Package** — download the latest tarball into the scratchpad and read `package/dist/*.d.ts`, `package/README.md`, and `package/docs/`:
         ```bash
@@ -48,6 +49,7 @@ Run the targets named in the arguments; with no arguments, run all three. If an 
 
 3. **Diff against the skills.** Compare the sources against each skill's `SKILL.md` and its `references/`, `templates/`, and `workflows/`. Focus on what changed since the cutoff:
    - `skills` / `agents`: new or renamed frontmatter fields, changed defaults, new invocation/permission behavior, new built-in subagents, deprecations.
+   - `plugins`: `plugin.json` and `marketplace.json` fields, component types and their default paths, source types, `userConfig` and path-variable rules, `experimental.*` promotions, `claude plugin` subcommands and flags, `validate`/`eval` behavior, reserved marketplace names, and every `vX.Y.Z+` gate in the skill's text.
    - `codemode`: `Executor` and `codeMcpServer` signatures, exports and entry points, peer dependency ranges, and every version pin or `0.x` claim in the skill's text — each must still hold for the new version.
 
 4. **Apply needed changes.** Edit the skills to reflect additions and corrections, surgically, matching existing structure and tone. If nothing changed, leave content untouched.
