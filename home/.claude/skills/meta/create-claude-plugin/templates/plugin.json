@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "my-plugin",
+  "displayName": "My Plugin",
+  "description": "One sentence on what the plugin adds",
+  "author": {
+    "name": "Author Name",
+    "url": "https://github.com/author"
+  },
+  "repository": "https://github.com/author/my-plugin",
+  "license": "MIT",
+  "keywords": ["keyword"]
+}

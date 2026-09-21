@@ -1,0 +1,14 @@
+{
+  "name": "my-marketplace",
+  "owner": {
+    "name": "Owner Name"
+  },
+  "description": "One sentence on what this catalog offers",
+  "plugins": [
+    {
+      "name": "my-plugin",
+      "source": "./plugins/my-plugin",
+      "description": "One sentence on what the plugin adds"
+    }
+  ]
+}
