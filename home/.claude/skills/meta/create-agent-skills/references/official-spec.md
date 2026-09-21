@@ -142,6 +142,8 @@ Commands execute immediately and their output replaces the placeholder. Claude o
 
 For multi-line commands, open a fenced markdown code block whose opening fence ends with an exclamation mark (no space between the triple-backtick and the `!`), list commands on subsequent lines, then close with a normal fence.
 
+**Permission checks:** injected commands never prompt. Each is checked against permission rules first; a deny match aborts the invocation with `Shell command permission check failed for pattern "..."`. Outside auto mode, anything short of allow (including an ask rule) aborts the same way — pre-approve the command with `allowed-tools` (deny and ask rules still win). In auto mode (v2.1.271+), an unapproved command instead loads the skill with an instruction for Claude to run it first, and that call goes through auto mode's normal checks; it still aborts in a forked skill that sets `agent`, or when Claude lacks the shell tool.
+
 **Disabling:** Set `"disableSkillShellExecution": true` in settings to replace every command with `[shell command execution disabled by policy]`. Most useful in managed settings. Does not affect bundled/managed skills.
 
 **Extended thinking:** Include the word `ultrathink` anywhere in skill content to enable thinking mode.

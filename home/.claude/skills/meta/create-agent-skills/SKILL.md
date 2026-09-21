@@ -3,7 +3,7 @@ name: create-agent-skills
 description: Author and improve Claude Code skills and slash commands — structure, frontmatter, invocation, and best practices.
 disable-model-invocation: true
 metadata:
-  last_reviewed_version: 2.1.270
+  last_reviewed_version: 2.1.278
 ---
 
 # Creating Skills & Commands
@@ -186,7 +186,7 @@ Priority order (higher wins on name conflicts): **enterprise > personal > projec
 
 **Nested discovery:** skills in a `.claude/skills/` below where the session started don't load at startup — they load the first time Claude reads or edits a file there, and until then can't be invoked by name. `/add-dir <subdirectory>` loads them immediately (v2.1.257+). On a name clash both stay available: the nested one gets a directory-qualified name (`/apps/web:deploy`), and invoking the unqualified name loads the root skill with a note listing the variants so Claude also invokes the one matching the files it's touching (v2.1.203+).
 
-**Skills synced from claude.ai:** these are named `/anthropic-skills:<name>` (v2.1.269+); the bare `/<name>` works only while no other command uses it. Name comparison ignores case, spacing, and invisible characters.
+**Skills synced from claude.ai:** these are named `/anthropic-skills:<name>` (v2.1.269+); the bare `/<name>` works only while no other command uses it. Name comparison ignores case, spacing, and invisible characters. In local sessions their `!` commands, `@` references, and `${CLAUDE_PROJECT_DIR}`/`${CLAUDE_SESSION_ID}` reach Claude as literal text. Opt out per machine with `syncClaudeAiSkills: false` in user settings (v2.1.275+); already-synced skills move to `~/.claude/skills/.trash/`.
 
 ## Skill Content Lifecycle
 
