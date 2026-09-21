@@ -26,7 +26,8 @@
         "state": "tracked"
       },
       "localChanges": [
-        "Removed the 'npm i -g agent-browser && agent-browser install' line: installing the CLI is the user's call, not the agent's (user decision)."
+        "Removed the 'npm i -g agent-browser && agent-browser install' line: installing the CLI is the user's call, not the agent's (user decision).",
+        "Dropped the Bash(npx agent-browser:*) allowed-tools entry: npx is not installed here; agent-browser is a pnpm global."
       ]
     },
     "code-review": {
@@ -108,7 +109,9 @@
       "status": {
         "state": "tracked"
       },
-      "localChanges": []
+      "localChanges": [
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
+      ]
     },
     "domain-modeling": {
       "author": "mattpocock",
@@ -236,7 +239,8 @@
       },
       "localChanges": [
         "allowed-tools pre-approves Bash(${CLAUDE_SKILL_DIR}/scripts/impeccable *) and all launcher paths use ${CLAUDE_SKILL_DIR}, because the skill is installed user-level, not per project.",
-        "PRODUCT.md and DESIGN.md live in PROJECT_ROOT/.impeccable/ (IMPECCABLE_CONTEXT_DIR=.impeccable in user settings) to keep project roots clean; document.md and init.md write there."
+        "PRODUCT.md and DESIGN.md live in PROJECT_ROOT/.impeccable/ (IMPECCABLE_CONTEXT_DIR=.impeccable in user settings) to keep project roots clean; document.md and init.md write there.",
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "implement": {
@@ -321,7 +325,8 @@
         "state": "tracked"
       },
       "localChanges": [
-        "disable-model-invocation: one-off migration, user-invoked only."
+        "disable-model-invocation: one-off migration, user-invoked only.",
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "migrate-oxlint": {
@@ -341,7 +346,8 @@
         "state": "tracked"
       },
       "localChanges": [
-        "disable-model-invocation: one-off migration, user-invoked only."
+        "disable-model-invocation: one-off migration, user-invoked only.",
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "migrate-radix-to-base": {
@@ -398,7 +404,9 @@
       "status": {
         "state": "tracked"
       },
-      "localChanges": []
+      "localChanges": [
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
+      ]
     },
     "prototype": {
       "author": "mattpocock",
@@ -440,7 +448,8 @@
         "Renamed to react-best-practices with a shorter trigger-focused description.",
         "Added an 'Effect Correctness' section and the local rules/you-might-not-need-effect.md, checked before any useEffect.",
         "Condensed the intro and dropped 'When to Apply' (the description covers it).",
-        "Dropped README.md, metadata.json, rules/_sections.md and rules/_template.md: upstream build/authoring files, not agent content."
+        "Dropped README.md, metadata.json, rules/_sections.md and rules/_template.md: upstream build/authoring files, not agent content.",
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "research": {
@@ -479,7 +488,9 @@
       "status": {
         "state": "tracked"
       },
-      "localChanges": []
+      "localChanges": [
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
+      ]
     },
     "setup-matt-pocock-skills": {
       "author": "mattpocock",
@@ -521,7 +532,8 @@
         "Short description plus disable-model-invocation (user-invoked only); removed user-invocable: false.",
         "Workflow step 9 Overwrite/Merge options say when each fits (uncustomized vs customized components).",
         "cli.md preset-switching text defers to SKILL.md Workflow step 9 to avoid duplicated guidance.",
-        "Dropped agents/openai.yaml, assets/*.png and evals/evals.json: Codex UI metadata and eval fixtures, unused at runtime."
+        "Dropped agents/openai.yaml, assets/*.png and evals/evals.json: Codex UI metadata and eval fixtures, unused at runtime.",
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "stack": {
@@ -666,7 +678,8 @@
         "Single-line description and disable-model-invocation (user-invoked only).",
         "Added a Workflow section (Steps 1-4 using $ARGUMENTS, reference table, verify list, summary block).",
         "Removed the 'Using turbo Shorthand in Code' and 'Root Scripts Bypassing Turbo' anti-pattern sections; the Workflow points to the two core rules that already state them.",
-        "Added scripts/fetch-docs.sh (local helper); dropped command/turborepo.md (slash-command duplicate of the skill)."
+        "Added scripts/fetch-docs.sh (local helper); dropped command/turborepo.md (slash-command duplicate of the skill).",
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "wayfinder": {

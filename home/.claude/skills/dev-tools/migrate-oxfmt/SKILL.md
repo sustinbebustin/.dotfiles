@@ -25,7 +25,7 @@ First, decide whether the automated tool fits:
 ### From Prettier
 
 ```bash
-npx oxfmt@latest --migrate prettier
+pnpm dlx oxfmt@latest --migrate prettier
 ```
 
 This will:
@@ -40,7 +40,7 @@ This will:
 ### From Biome
 
 ```bash
-npx oxfmt@latest --migrate biome
+pnpm dlx oxfmt@latest --migrate biome
 ```
 
 This will:
@@ -185,16 +185,16 @@ Replace formatter commands with oxfmt:
 
 ```bash
 # Before (Prettier)
-npx prettier --write .
-npx prettier --check .
+pnpm exec prettier --write .
+pnpm exec prettier --check .
 
 # Before (Biome)
-npx biome format --write .
-npx biome check .
+pnpm exec biome format --write .
+pnpm exec biome check .
 
 # After
-npx oxfmt@latest
-npx oxfmt@latest --check
+pnpm dlx oxfmt@latest
+pnpm dlx oxfmt@latest --check
 ```
 
 ### Common CLI Options
@@ -212,16 +212,16 @@ npx oxfmt@latest --check
 
 - JS/TS, JSON/JSONC/JSON5, CSS/SCSS/Less, GraphQL: Formatted natively by oxfmt
 - TOML: Formatted natively (via taplo)
-- HTML, YAML, Markdown, Vue, Svelte, etc.: Delegated to Prettier internally (when using `npx oxfmt`)
+- HTML, YAML, Markdown, Vue, Svelte, etc.: Delegated to Prettier internally (when using `pnpm dlx oxfmt`)
 
 ## Tips
 
 - Config file: `.oxfmtrc.jsonc` and `oxfmt.config.ts` are also supported as auto-discovered config file names, in addition to `.oxfmtrc.json`. `--migrate` and `--init` only generate `.oxfmtrc.json`; keep it as-is unless the user explicitly asks for another format or the source config had logic to preserve (see Step 1).
 - EditorConfig: Oxfmt reads `.editorconfig` automatically for `useTabs`, `tabWidth`, `endOfLine`, `insertFinalNewline`, `printWidth`, and `singleQuote`. Options in `.oxfmtrc.json` take precedence.
-- CI: Use `npx oxfmt@latest --check` to enforce formatting in CI.
+- CI: Use `pnpm dlx oxfmt@latest --check` to enforce formatting in CI.
 - LSP: Run `oxfmt --lsp` for editor integration via Language Server Protocol.
 - Schema support: Add `"$schema": "./node_modules/oxfmt/configuration_schema.json"` to `.oxfmtrc.json` for editor autocompletion.
-- Init: Run `npx oxfmt@latest --init` to create a default `.oxfmtrc.json` without migration.
+- Init: Run `pnpm dlx oxfmt@latest --init` to create a default `.oxfmtrc.json` without migration.
 
 ## References
 

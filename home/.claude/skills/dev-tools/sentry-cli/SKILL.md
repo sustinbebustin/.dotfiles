@@ -137,11 +137,11 @@ sentry log list --query "severity:error"
 # No DSN needed — with no DSN, events go ONLY to the local server (nothing
 # reaches the user's Sentry org, no production quota). With a DSN set, the
 # SDK sends to both.
-sentry local run -- npm run dev          # or: python manage.py runserver, etc.
+sentry local run -- pnpm run dev         # or: python manage.py runserver, etc.
 
 # From a CLI source checkout, run the Local UI in a second terminal, then open it.
 pnpm --filter local dev
-sentry local run --open -- npm run dev
+sentry local run --open -- pnpm run dev
 
 # Watch only AI/agent (gen_ai, mcp) spans while iterating on an agent.
 sentry local -f ai
@@ -357,7 +357,7 @@ curl https://cli.sentry.dev/install -fsS | bash
 curl https://cli.sentry.dev/install -fsS | bash -s -- --version nightly
 
 # Or install via npm/pnpm/bun
-npm install -g sentry
+pnpm add -g sentry
 ```
 
 ### Authentication

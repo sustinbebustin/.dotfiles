@@ -55,7 +55,7 @@ SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0 \
   sentry monitor run nightly-job -- python manage.py cron
 
 # The -- separator is optional when the command has no flags
-sentry monitor run nightly-job npm run task
+sentry monitor run nightly-job pnpm run task
 
 # Create/update the monitor on the first check-in via --schedule (crontab)
 sentry monitor run nightly-job -s "0 0 * * *" --max-runtime 30 --timezone UTC -- ./backup.sh

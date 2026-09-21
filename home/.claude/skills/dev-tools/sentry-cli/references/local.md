@@ -45,7 +45,7 @@ Run a command with the local dev server enabled
 sentry local
 
 # Run your app with the local server auto-enabled
-sentry local run -- npm run dev
+sentry local run -- pnpm run dev
 sentry local run -- python manage.py runserver
 
 # Use a custom port
@@ -61,7 +61,7 @@ sentry local --quiet
 sentry local --open
 
 # Run your app with the UI
-sentry local run --open -- npm run dev
+sentry local run --open -- pnpm run dev
 
 sentry local -f error -f log    # only errors and logs
 
@@ -72,7 +72,7 @@ sentry local --format json
 
 sentry local run --format json \
   --filter error --filter transaction --filter log --filter ai \
-  -- npm run dev
+  -- pnpm run dev
 
 sentry local serve --format json --attributes
 

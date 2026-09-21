@@ -19,7 +19,7 @@ An official migration tool is available, and will be used by this skill: [`@oxli
 Run the migration tool in the project root:
 
 ```bash
-npx @oxlint/migrate
+pnpm dlx @oxlint/migrate
 ```
 
 This reads your ESLint flat config (`eslint.config.js` for example) and generates a `.oxlintrc.json` file from it. It will find your ESLint config file automatically in most cases.
@@ -40,7 +40,7 @@ See options below for more info.
 If your ESLint config is not at the default location, pass the path explicitly:
 
 ```bash
-npx @oxlint/migrate ./path/to/eslint.config.js
+pnpm dlx @oxlint/migrate ./path/to/eslint.config.js
 ```
 
 ## Step 2: Review Generated Config
@@ -96,7 +96,7 @@ Individual rule settings in `rules` override category settings.
 Run with `--details` to see which ESLint rules could not be migrated:
 
 ```bash
-npx @oxlint/migrate --details
+pnpm dlx @oxlint/migrate --details
 ```
 
 Review the output and decide whether to keep ESLint for those rules or not. Some rules may be mentioned in the output from `--details` as having equivalents in oxlint that were not automatically mapped by the migration tool. In those cases, consider enabling the equivalent oxlint rule manually after migration.
@@ -106,13 +106,13 @@ Review the output and decide whether to keep ESLint for those rules or not. Some
 Install the core oxlint package (use `yarn install`, `pnpm install`, `vp install`, `bun install`, etc. depending on your package manager):
 
 ```bash
-npm install -D oxlint
+pnpm add -D oxlint
 ```
 
 If you want to add the `oxlint-tsgolint` package, if you intend to use type-aware rules that require TypeScript type information:
 
 ```bash
-npm install -D oxlint-tsgolint
+pnpm add -D oxlint-tsgolint
 ```
 
 No other packages besides the above are needed by default, though you will need to keep/install any additional ESLint plugins that were migrated into `jsPlugins`. Do not add `@oxlint/migrate` to the package.json, it is meant for one-off usage.
@@ -158,12 +158,12 @@ Replace ESLint commands with oxlint. Path arguments are optional; oxlint default
 
 ```bash
 # Before
-npx eslint src/
-npx eslint --fix src/
+pnpm exec eslint src/
+pnpm exec eslint --fix src/
 
 # After
-npx oxlint src/
-npx oxlint --fix src/
+pnpm exec oxlint src/
+pnpm exec oxlint --fix src/
 ```
 
 ### Common CLI Options
@@ -184,7 +184,7 @@ Additional oxlint options:
 
 - You can run alongside ESLint if necessary: Oxlint is designed to complement ESLint during migration, but with JS Plugins many projects can switch over fully without losing many rules.
 - Disable comments work: `// eslint-disable` and `// eslint-disable-next-line` comments are supported by oxlint. Use `--replace-eslint-comments` when running @oxlint/migrate to convert them to `// oxlint-disable` equivalents if desired.
-- List available rules: Run `npx oxlint --rules` to see all supported rules, or refer to the [rule documentation](https://oxc.rs/docs/guide/usage/linter/rules.html).
+- List available rules: Run `pnpm exec oxlint --rules` to see all supported rules, or refer to the [rule documentation](https://oxc.rs/docs/guide/usage/linter/rules.html).
 - Schema support: Add `"$schema": "./node_modules/oxlint/configuration_schema.json"` to `.oxlintrc.json` for editor autocompletion if the migration tool didn't do it automatically.
 - Output formats: `default`, `stylish`, `json`, `github`, `gitlab`, `junit`, `checkstyle`, `unix`
 - Ignore files: `.eslintignore` is supported by oxlint if you have it, but it's recommended to move any ignore patterns into the `ignorePatterns` field in `.oxlintrc.json` for consistency and simplicity. All files and paths ignored via a `.gitignore` file will be ignored by oxlint by default as well.
