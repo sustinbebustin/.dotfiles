@@ -5,7 +5,8 @@
     "kitlangton",
     "mattpocock",
     "mitsuhiko",
-    "oxc-project"
+    "oxc-project",
+    "shadcn-ui"
   ],
   "skills": {
     "agent-browser": {
@@ -341,6 +342,26 @@
       },
       "localChanges": [
         "disable-model-invocation: one-off migration, user-invoked only."
+      ]
+    },
+    "migrate-radix-to-base": {
+      "author": "shadcn-ui",
+      "source": {
+        "repo": "shadcn-ui/ui",
+        "ref": "main",
+        "path": "skills/migrate-radix-to-base"
+      },
+      "localPath": "dev-tools/migrate-radix-to-base",
+      "sync": {
+        "commit": "98a1fe67b439324ddc857f47fbdce056600a4329",
+        "tree": "2d364edf4ed674902835157a698a7ac20780fa0f",
+        "at": "2026-09-21"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "pdf": {
