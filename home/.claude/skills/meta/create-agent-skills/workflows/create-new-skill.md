@@ -5,7 +5,6 @@
 1. references/recommended-structure.md
 2. references/skill-structure.md
 3. references/core-principles.md
-4. references/use-xml-tags.md
 </required_reading>
 
 <process>
@@ -89,83 +88,47 @@ See references/recommended-structure.md for templates.
 
 ## Step 4: Create Directory
 
-```bash
-mkdir -p ~/.claude/skills/{skill-name}
-# If complex:
-mkdir -p ~/.claude/skills/{skill-name}/workflows
-mkdir -p ~/.claude/skills/{skill-name}/references
-# If needed:
-mkdir -p ~/.claude/skills/{skill-name}/templates  # for output structures
-mkdir -p ~/.claude/skills/{skill-name}/scripts    # for reusable code
-```
+Personal skills go in `~/.claude/skills/{skill-name}/`, project skills in `<repo>/.claude/skills/{skill-name}/`. If the personal skills root holds symlinks into a dotfiles repo, create the skill in that source tree instead and run the repo's link step, or the new skill won't load.
 
-## Step 5: Write SKILL.md
+Add `workflows/`, `references/`, `templates/` or `scripts/` only as the chosen structure needs them.
 
-**Simple skill:** Write complete skill file with:
-- YAML frontmatter (name, description)
-- `<objective>`
-- `<quick_start>`
-- Content sections with pure XML
-- `<success_criteria>`
+## Step 5: Resolve the Author
 
-**Complex skill:** Write router with:
-- YAML frontmatter
-- `<essential_principles>` (inline, unavoidable)
-- `<intake>` (question to ask user)
-- `<routing>` (maps answers to workflows)
-- `<reference_index>` and `<workflows_index>`
+Run `gh api user --jq .login` for `metadata.author`. If it fails, ask the user for their GitHub login. Never hardcode it or take git `user.name`.
 
-## Step 6: Write Workflows (if complex)
+## Step 6: Write SKILL.md
 
-For each workflow:
-```xml
-<required_reading>
-Which references to load for this workflow
-</required_reading>
+Use the standard markdown format from SKILL.md, starting from a template:
 
-<process>
-Step-by-step procedure
-</process>
+- **Simple skill:** [templates/simple-skill.md](../templates/simple-skill.md)
+- **Complex skill:** [templates/router-skill.md](../templates/router-skill.md). Keep essential principles inline; intake and routing map the user's answer to a workflow.
 
-<success_criteria>
-How to know this workflow is done
-</success_criteria>
-```
+## Step 7: Write Workflows (if complex)
 
-## Step 7: Write References (if needed)
+Each workflow names the references it needs, gives the step-by-step procedure, and ends with success criteria that say when it is done.
+
+## Step 8: Write References (if needed)
 
 Domain knowledge that:
 - Multiple workflows might need
 - Doesn't change based on workflow
 - Contains patterns, examples, technical details
 
-## Step 8: Validate Structure
+## Step 9: Validate Structure
 
 Check:
-- [ ] YAML frontmatter valid
+- [ ] YAML frontmatter valid (`claude plugin validate <skills-root>`)
 - [ ] Name matches directory (lowercase-with-hyphens)
 - [ ] Description says what it does AND when to use it (third person)
-- [ ] No markdown headings (#) in body - use XML tags
-- [ ] Required tags present: objective, quick_start, success_criteria
+- [ ] `metadata.author` set to the resolved GitHub login
+- [ ] Body uses standard markdown headings
 - [ ] All referenced files exist
 - [ ] SKILL.md under 500 lines
-- [ ] XML tags properly closed
-
-## Step 9: Create Slash Command
-
-```bash
-cat > ~/.claude/commands/{skill-name}.md << 'EOF'
----
-description: {Brief description}
-argument-hint: [{argument hint}]
-allowed-tools: Skill({skill-name})
----
-
-Invoke the {skill-name} skill for: $ARGUMENTS
-EOF
-```
 
 ## Step 10: Test
+
+The skill is its own slash command (`/{skill-name}`); no separate command file is needed.
+
 
 Invoke the skill and observe:
 - Does it ask the right intake question?
@@ -181,11 +144,10 @@ Skill is complete when:
 - [ ] Requirements gathered with appropriate questions
 - [ ] API research done if external service involved
 - [ ] Directory structure correct
-- [ ] SKILL.md has valid frontmatter
+- [ ] SKILL.md has valid frontmatter, including `metadata.author`
 - [ ] Essential principles inline (if complex skill)
 - [ ] Intake question routes to correct workflow
-- [ ] All workflows have required_reading + process + success_criteria
+- [ ] All workflows name their references, steps and success criteria
 - [ ] References contain reusable domain knowledge
-- [ ] Slash command exists and works
-- [ ] Tested with real invocation
+- [ ] Tested with real invocation via `/{skill-name}`
 </success_criteria>

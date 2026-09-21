@@ -4,7 +4,6 @@
 **Read these reference files NOW:**
 1. references/recommended-structure.md
 2. references/skill-structure.md
-3. references/use-xml-tags.md
 </required_reading>
 
 <process>
@@ -51,13 +50,13 @@ Evaluate against each criterion:
 - [ ] Has `description:` field
 - [ ] Description says what it does AND when to use it
 - [ ] Description is third person ("Use when...")
+- [ ] `metadata.author` set to a GitHub login
 
 ### Structure
 - [ ] SKILL.md under 500 lines
-- [ ] Pure XML structure (no markdown headings # in body)
-- [ ] All XML tags properly closed
-- [ ] Has required tags: objective OR essential_principles
-- [ ] Has success_criteria
+- [ ] Standard markdown headings in body (no XML section tags)
+- [ ] States its objective or essential principles up front
+- [ ] Has success criteria
 
 ### Router Pattern (if complex skill)
 - [ ] Essential principles inline in SKILL.md (not in separate file)
@@ -67,10 +66,9 @@ Evaluate against each criterion:
 - [ ] All referenced reference files exist
 
 ### Workflows (if present)
-- [ ] Each has required_reading section
-- [ ] Each has process section
-- [ ] Each has success_criteria section
-- [ ] Required reading references exist
+- [ ] Each names the references it needs, and they exist
+- [ ] Each has a step-by-step procedure
+- [ ] Each has success criteria
 
 ### Content Quality
 - [ ] Principles are actionable (not vague platitudes)
@@ -85,17 +83,17 @@ Present findings as:
 ```
 ## Audit Report: {skill-name}
 
-### ✅ Passing
+### Passing
 - [list passing items]
 
-### ⚠️ Issues Found
+### Issues Found
 1. **[Issue name]**: [Description]
-   → Fix: [Specific action]
+   -> Fix: [Specific action]
 
 2. **[Issue name]**: [Description]
-   → Fix: [Specific action]
+   -> Fix: [Specific action]
 
-### 📊 Score: X/Y criteria passing
+### Score: X/Y criteria passing
 ```
 
 ## Step 5: Offer Fixes
@@ -122,7 +120,8 @@ If fixing:
 **Mixed concerns**: Procedures and knowledge in same file
 **Vague steps**: "Handle the error appropriately"
 **Untestable criteria**: "User is satisfied"
-**Markdown headings in body**: Using # instead of XML tags
+**XML section tags in body**: Using `<tags>` instead of markdown headings
+**Missing author**: No `metadata.author`
 **Missing routing**: Complex skill without intake/routing
 **Broken references**: Files mentioned but don't exist
 **Redundant content**: Same information in multiple places

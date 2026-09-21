@@ -2,6 +2,7 @@
 name: create-agent-skills
 description: Author and improve Claude Code skills and slash commands — structure, frontmatter, invocation, and best practices. Use when creating, editing, or auditing a SKILL.md or command file.
 metadata:
+  author: sustinbebustin
   last_reviewed_version: 2.1.278
 ---
 
@@ -277,6 +278,8 @@ description: What this command does
 argument-hint: [expected arguments]
 disable-model-invocation: true
 allowed-tools: Bash(gh *), Read
+metadata:
+  author: <github-login>
 ---
 
 # Command Title
@@ -299,6 +302,8 @@ allowed-tools: Bash(gh *), Read
 ---
 name: my-skill
 description: What it does. Use when [trigger conditions].
+metadata:
+  author: <github-login>
 ---
 
 # Skill Title
@@ -312,6 +317,8 @@ description: What it does. Use when [trigger conditions].
 ## Examples
 [Concrete input/output pairs]
 ```
+
+**Author:** `metadata.author` is the GitHub login of whoever creates the skill, resolved at creation time with `gh api user --jq .login`. If that fails, ask the user. Never hardcode a login or use git `user.name`: these files are shared, and whoever clones them gets their own login. A third-party skill gets its repo owner instead; `/vendor-skills` sets that.
 
 ### Step 3: Add Reference Files (If Needed)
 
@@ -333,6 +340,7 @@ Measure invocation and output quality separately: run realistic prompts in a fre
 ## Audit Checklist
 
 - [ ] Valid YAML frontmatter (name + description)
+- [ ] `metadata.author` set to a GitHub login
 - [ ] Description includes trigger keywords and is specific
 - [ ] Uses standard markdown headings (not XML tags)
 - [ ] SKILL.md under 500 lines

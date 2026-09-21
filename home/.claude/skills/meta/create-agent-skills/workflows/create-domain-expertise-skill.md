@@ -26,7 +26,6 @@ Domain expertise skills:
 **Read these reference files NOW:**
 1. references/recommended-structure.md
 2. references/core-principles.md
-3. references/use-xml-tags.md
 </required_reading>
 
 <process>
