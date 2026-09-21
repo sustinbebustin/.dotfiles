@@ -3,11 +3,13 @@ name: claude-code-docs
 description: Answer Claude Code questions (CLI, Agent SDK, plugins, hooks, skills, slash commands, MCP, settings) from a locally cached copy of the official docs.
 argument-hint: [question]
 allowed-tools: Bash(bash:*), Read, Grep, Glob
+context: fork
+background: true
 ---
 
 # Claude Code Docs
 
-Answer the user's question about Claude Code using the cached docs at `~/.claude/context/`.
+Answer the question below using the cached docs at `~/.claude/context/`.
 
 ## Cache status
 
@@ -26,4 +28,4 @@ Question: `$ARGUMENTS`
 3. After reading, decide which content actually bears on the question and synthesize an answer grounded in the sources. Cite the file names you drew from.
 4. If the docs don't cover it, say so — do not speculate.
 
-Do not invoke the general-purpose `claude-code-guide` subagent; answer in this conversation.
+Research the docs yourself rather than delegating to another agent. Your final message is the answer returned to the caller: self-contained, with citations.
