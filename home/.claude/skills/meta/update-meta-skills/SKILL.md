@@ -4,6 +4,8 @@ description: Refresh the meta skills (create-agent-skills, create-sub-agents, cr
 argument-hint: "[skills] [agents] [plugins] [codemode]"
 disable-model-invocation: true
 allowed-tools: Read, Edit, Skill, Bash(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel), Bash(claude --version), Bash(curl *), Bash(*/docs/vendor/codemode/scrape.sh)
+metadata:
+  author: sustinbebustin
 ---
 
 # Update Meta Skills

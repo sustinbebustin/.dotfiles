@@ -2,6 +2,8 @@
 name: html-effectiveness
 description: Produce polished standalone single-file HTML artifacts in the warm-paper Anthropic editorial visual language.
 disable-model-invocation: true
+metadata:
+  author: sustinbebustin
 ---
 
 # HTML Effectiveness

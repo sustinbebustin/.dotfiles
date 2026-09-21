@@ -3,6 +3,8 @@ name: plan-then-implement
 description: Plan a ticket in a forked agent that writes the plan onto the ticket, then implement the plan task by task.
 argument-hint: [ticket path, issue number/URL, or task description]
 disable-model-invocation: true
+metadata:
+  author: sustinbebustin
 ---
 
 1. Call the Skill tool for "pti-fork" with $ARGUMENTS, plus any decisions from this conversation the ticket doesn't record. The fork sees nothing else. It runs in the background: wait for its final report before continuing, and leave the planning to it. Reports from agents the fork dispatched may reach you first; they are not its final report.

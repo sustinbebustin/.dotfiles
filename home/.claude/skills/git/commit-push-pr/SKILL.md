@@ -4,6 +4,8 @@ allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(g
 description: Commit, push, and open a GitHub PR in one flow; optionally watch CI and merge.
 argument_hint: [repo...] [--merge|--bypass] [--all|--yours] [-- note]
 disable-model-invocation: true
+metadata:
+  author: sustinbebustin
 ---
 
 ## Scope

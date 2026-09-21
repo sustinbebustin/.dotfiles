@@ -2,6 +2,8 @@
 name: github-actions-docs
 description: Answer GitHub Actions questions from a bundled topic map of official docs links, not from memory.
 disable-model-invocation: true
+metadata:
+  author: sustinbebustin
 ---
 
 GitHub Actions questions are easy to answer from stale memory. Ground every answer in the bundled `references/topic-map.md`: return the closest authoritative page instead of generic CI/CD advice.

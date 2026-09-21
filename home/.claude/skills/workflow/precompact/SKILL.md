@@ -3,6 +3,8 @@ name: precompact
 description: Write a handoff to yourself before compacting, so the current work survives the summary.
 disable-model-invocation: true
 argument-hint: "What are we about to do next? (optional)"
+metadata:
+  author: sustinbebustin
 ---
 
 The user is about to run `/compact` and then keep working with you in this same session. Compaction replaces the conversation with a summary: early instructions, tool output, and reasoning you have not written down are gone afterwards. Write the handoff that carries this work across that boundary.

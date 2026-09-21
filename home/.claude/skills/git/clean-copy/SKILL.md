@@ -4,6 +4,8 @@ description: Rebuild the current branch on a sibling branch as a narrative seque
 argument-hint: [repo...] [base-branch] [-- note]
 disable-model-invocation: true
 allowed-tools: Bash(git *), Bash(bash *), Bash(just *), Read, Edit, Grep, Glob, AskUserQuestion, Skill(commit)
+metadata:
+  author: sustinbebustin
 ---
 
 # Clean copy

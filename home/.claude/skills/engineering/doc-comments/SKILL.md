@@ -1,6 +1,8 @@
 ---
 name: doc-comments
 description: Best practices for code comments and doc comments -- explain WHY, not WHAT; never leave session/task-scoped commentary in the code. Use when writing, reviewing, or auditing comments in any source file; covers Go (godoc), TypeScript (TSDoc), Python (docstrings), PHP (PHPDoc), Rust (rustdoc), Java (Javadoc), and C# (XML doc comments) conventions for public APIs.
+metadata:
+  author: sustinbebustin
 ---
 
 # Doc Comments

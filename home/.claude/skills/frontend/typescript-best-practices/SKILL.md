@@ -6,6 +6,8 @@ paths:
   - "**/*.tsx"
   - "**/*.mts"
   - "**/*.cts"
+metadata:
+  author: sustinbebustin
 ---
 
 # TypeScript best practices

@@ -1,6 +1,8 @@
 ---
 name: doc-generator
 description: Generate or update technical documentation files (README.md, api.md, auth.md, architecture.md, database.md) by analyzing the codebase. Use ONLY when the user explicitly asks to create, update, or audit documentation. Do NOT use for general writing tasks, code comments, or inline documentation.
+metadata:
+  author: sustinbebustin
 ---
 
 # Doc Generator

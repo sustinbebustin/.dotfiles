@@ -3,6 +3,8 @@ name: lgcy-design
 description: Design canvas built on the OFFICIAL LGCY Design System, then polished. Use for any LGCY Power mockup, screen flow, landing page, or print piece.
 disable-model-invocation: true
 argument-hint: [what to design]
+metadata:
+  author: sustinbebustin
 ---
 
 Call the Skill tool twice, for "design" and "impeccable".

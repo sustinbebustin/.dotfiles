@@ -3,6 +3,8 @@ name: go-best-practices
 description: Go idioms for production code -- project layout, error wrapping, context rules, concurrency, clean architecture, sqlc, golangci-lint. Use when working with Go.
 paths:
   - "**/*.go"
+metadata:
+  author: sustinbebustin
 ---
 
 # Go Best Practices

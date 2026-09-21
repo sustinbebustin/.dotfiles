@@ -1,6 +1,8 @@
 ---
 name: better-error-messages
 description: Standards for writing user-facing error messages (UI toasts, alerts, validation copy, error pages, API responses a user might see). Covers tone, jargon, blame, and the generic-vs-unclear distinction. Use when writing or reviewing any error string a user will read.
+metadata:
+  author: sustinbebustin
 ---
 
 # Better Error Messages

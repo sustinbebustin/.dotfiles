@@ -3,6 +3,8 @@ name: summarize
 description: Convert a URL or document (PDF, DOCX, PPTX, HTML) to Markdown with markitdown, and optionally summarize it with a Haiku subagent. Use when reading a web page or binary document, or condensing a long one before deeper work.
 argument-hint: <url-or-path> [focus]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/to-markdown.mjs *)
+metadata:
+  author: sustinbebustin
 ---
 
 # Summarize

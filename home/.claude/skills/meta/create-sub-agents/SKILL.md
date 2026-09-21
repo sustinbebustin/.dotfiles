@@ -2,6 +2,7 @@
 name: create-sub-agents
 description: Designing, authoring, and auditing Claude Code subagents — frontmatter, tool scoping, model choice, and memory. Use when creating, editing, or auditing an agent file in `.claude/agents/`.
 metadata:
+  author: sustinbebustin
   last_reviewed_version: 2.1.278
 ---
 

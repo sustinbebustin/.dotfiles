@@ -3,6 +3,8 @@ name: implement-with-subagents
 description: Dispatch one subagent per ticket, in dependency order, until every ticket in an issues directory is implemented.
 argument-hint: "[issues-dir] [haiku|sonnet|opus|fable] [plan] [-- notes]"
 disable-model-invocation: true
+metadata:
+  author: sustinbebustin
 ---
 
 # Implement With Team

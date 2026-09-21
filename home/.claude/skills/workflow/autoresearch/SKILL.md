@@ -14,6 +14,8 @@ hooks:
       hooks:
         - type: command
           command: "bash ${CLAUDE_SKILL_DIR}/hooks/pre-compact.sh"
+metadata:
+  author: sustinbebustin
 ---
 
 # Autoresearch

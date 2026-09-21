@@ -4,6 +4,8 @@ description: Generate and run a script that mirrors a documentation site (from a
 argument-hint: "<llms.txt-or-sitemap-url> <destination-dir>"
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Edit, WebFetch
+metadata:
+  author: sustinbebustin
 ---
 
 # Scrape Docs

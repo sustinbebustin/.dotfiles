@@ -4,6 +4,8 @@ description: Git commit workflow combining atomic scope with conventional messag
 allowed-tools: Bash
 argument_hint: [subdir...] [--all|--yours] [--skip-ci] [-- note]
 disable-model-invocation: true
+metadata:
+  author: sustinbebustin
 ---
 
 # Git Commit Skill

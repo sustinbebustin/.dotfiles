@@ -3,6 +3,8 @@ name: pti-fork
 argument-hint: [ticket path, issue number/URL, or task description]
 model: inherit
 context: fork
+metadata:
+  author: sustinbebustin
 ---
 
 Internal step of /plan-then-implement. Invoke it only when that skill's instructions name it.

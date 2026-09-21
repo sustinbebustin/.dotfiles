@@ -2,6 +2,8 @@
 name: resume-subagents
 description: Resume subagents (and their nested subagents) that stopped mid-task when session credits or rate limits ran out, instead of spawning fresh ones.
 disable-model-invocation: true
+metadata:
+  author: sustinbebustin
 ---
 
 # Resume Subagents

@@ -2,6 +2,8 @@
 name: fix-merge-conflicts
 description: Resolve merge conflicts non-interactively to a buildable, tested state. Use when a merge, rebase, cherry-pick, or pull leaves conflict markers.
 disable-model-invocation: true
+metadata:
+  author: sustinbebustin
 ---
 
 # Fix merge conflicts

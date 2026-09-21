@@ -5,6 +5,8 @@ argument-hint: [question]
 allowed-tools: Bash(bash:*), Read, Grep, Glob
 context: fork
 background: true
+metadata:
+  author: sustinbebustin
 ---
 
 # Claude Code Docs
