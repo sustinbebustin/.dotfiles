@@ -163,6 +163,17 @@ parse_repo() {
     return 1
   fi
 
+  # Keep the checkout inside the cache root and out of git's option parser.
+  local segment
+  for segment in "$host" "${parts[@]}"; do
+    case "$segment" in
+      ''|.|..|-*)
+        echo "error: invalid path segment '$segment' in repository: $input" >&2
+        return 1
+        ;;
+    esac
+  done
+
   printf '%s\n%s\n%s\n' "$host" "$org" "$repo"
 }
 
@@ -178,6 +189,12 @@ while IFS= read -r line; do
   esac
   parsed_index=$((parsed_index + 1))
 done < <(parse_repo "$repo_input")
+
+# parse_repo runs in a process substitution, so its failure does not trip
+# set -e; it prints nothing on error, which is what this catches.
+if [[ "$parsed_index" -ne 3 ]]; then
+  exit 1
+fi
 
 host="$parsed_host"
 org="$parsed_org"
