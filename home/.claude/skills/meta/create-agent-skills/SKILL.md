@@ -1,7 +1,6 @@
 ---
 name: create-agent-skills
-description: Author and improve Claude Code skills and slash commands — structure, frontmatter, invocation, and best practices.
-disable-model-invocation: true
+description: Author and improve Claude Code skills and slash commands — structure, frontmatter, invocation, and best practices. Use when creating, editing, or auditing a SKILL.md or command file.
 metadata:
   last_reviewed_version: 2.1.278
 ---
