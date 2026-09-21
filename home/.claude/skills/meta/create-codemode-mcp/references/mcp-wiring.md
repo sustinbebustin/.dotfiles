@@ -33,7 +33,7 @@ claude mcp add --scope user codemode-local -- node /abs/path/to/dist/server.js
 For dev loops, point at `tsx` instead of compiled JS:
 
 ```bash
-claude mcp add --scope user codemode-local-dev -- npx tsx /abs/path/to/src/server.ts
+claude mcp add --scope user codemode-local-dev -- pnpm dlx tsx /abs/path/to/src/server.ts
 ```
 
 ### Option B: Checked-in `.mcp.json`
@@ -61,9 +61,9 @@ Project scope is right when the tool is repo-specific (e.g. it talks to the repo
 
 ## Development loop
 
-1. `npm install @cloudflare/codemode @modelcontextprotocol/sdk @cfworker/json-schema zod`
+1. `pnpm add @cloudflare/codemode @modelcontextprotocol/sdk @cfworker/json-schema zod`
 2. Add `tsx`, `typescript`, and `@types/node` as dev deps
-3. Register the dev entry once: `claude mcp add --scope user codemode-local-dev -- npx tsx /abs/path/src/server.ts`
+3. Register the dev entry once: `claude mcp add --scope user codemode-local-dev -- pnpm dlx tsx /abs/path/src/server.ts`
 4. Edit `src/server.ts`; restart Claude Code to pick up changes (MCP servers are not hot-reloaded — the process is long-lived)
 5. When ready to freeze: `tsc`, then swap the Claude Code entry to `node dist/server.js`
 

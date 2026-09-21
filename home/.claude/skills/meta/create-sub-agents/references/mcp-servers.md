@@ -11,8 +11,8 @@ mcpServers:
   # Inline: scoped to this subagent only
   - playwright:
       type: stdio
-      command: npx
-      args: ["-y", "@playwright/mcp@latest"]
+      command: pnpm
+      args: ["dlx", "@playwright/mcp@latest"]
   # Reference: reuses an existing connection
   - github
 ```
@@ -45,8 +45,8 @@ description: Tests features in a real browser using Playwright
 mcpServers:
   - playwright:
       type: stdio
-      command: npx
-      args: ["-y", "@playwright/mcp@latest"]
+      command: pnpm
+      args: ["dlx", "@playwright/mcp@latest"]
 ---
 
 Use the Playwright tools to navigate, screenshot, and interact with pages.

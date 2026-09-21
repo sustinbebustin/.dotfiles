@@ -149,8 +149,8 @@ MCP servers available to this subagent. Each entry is a string (referencing an a
 mcpServers:
   - playwright:
       type: stdio
-      command: npx
-      args: ["-y", "@playwright/mcp@latest"]
+      command: pnpm
+      args: ["dlx", "@playwright/mcp@latest"]
   - github
 ```
 

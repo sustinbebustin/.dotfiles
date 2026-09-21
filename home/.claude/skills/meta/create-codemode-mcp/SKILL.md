@@ -32,10 +32,10 @@ The `Executor` contract is deliberately minimal so Node VM, subprocess, and cont
 
 ```bash
 mkdir my-codemode-tool && cd my-codemode-tool
-npm init -y
-npm pkg set type=module
-npm install @cloudflare/codemode @modelcontextprotocol/sdk @cfworker/json-schema zod
-npm install -D typescript tsx @types/node
+pnpm init
+pnpm pkg set type=module
+pnpm add @cloudflare/codemode @modelcontextprotocol/sdk @cfworker/json-schema zod
+pnpm add -D typescript tsx @types/node
 mkdir src
 cp ${CLAUDE_SKILL_DIR}/templates/server.ts src/server.ts
 ```
@@ -45,7 +45,7 @@ cp ${CLAUDE_SKILL_DIR}/templates/server.ts src/server.ts
 The copied file is [templates/server.ts](templates/server.ts). Edit its `createUpstream()` function to add your own tools, then register with Claude Code:
 
 ```bash
-claude mcp add --scope user codemode-local-dev -- npx tsx "$(pwd)/src/server.ts"
+claude mcp add --scope user codemode-local-dev -- pnpm dlx tsx "$(pwd)/src/server.ts"
 ```
 
 Restart Claude Code. Your server now advertises one `code` tool whose description contains the typed signatures of every tool in `createUpstream()`. See [references/mcp-wiring.md](references/mcp-wiring.md) for the production (compiled) registration and scope choice.
