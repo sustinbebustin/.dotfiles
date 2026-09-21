@@ -3,7 +3,7 @@ name: create-sub-agents
 description: Designing, authoring, and auditing Claude Code subagents — frontmatter, tool scoping, model choice, and memory.
 disable-model-invocation: true
 metadata:
-  last_reviewed_version: 2.1.270
+  last_reviewed_version: 2.1.278
 ---
 
 # Creating Subagents
@@ -43,7 +43,7 @@ You are a senior code reviewer. When invoked:
 3. Provide feedback organized by severity
 ```
 
-Subagents receive ONLY this system prompt plus basic environment info (working directory). They inherit `CLAUDE.md` (unless `omitClaudeMd: true`) and git status from the parent, but NOT the parent's conversation history, NOT the parent's invoked skills, and NOT the default Claude Code system prompt. List skills explicitly with the `skills:` field if you need them.
+Subagents receive ONLY this system prompt plus basic environment info (working directory). They inherit `CLAUDE.md` (or `AGENTS.md` when it loads as project instructions, v2.1.277+; skipped with `omitClaudeMd: true`) and git status from the parent, but NOT the parent's conversation history, NOT the parent's invoked skills, and NOT the default Claude Code system prompt. List skills explicitly with the `skills:` field if you need them.
 
 ## Scope And Discovery
 

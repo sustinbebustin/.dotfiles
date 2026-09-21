@@ -17,7 +17,7 @@ mcpServers:
   - github
 ```
 
-Inline definitions use the same schema as `.mcp.json` server entries (`stdio`, `http`, `sse`, `ws`), keyed by server name. They CONNECT when the subagent starts and DISCONNECT when it finishes.
+Inline definitions use the same schema as `.mcp.json` server entries (`stdio`, `http`, `sse`, `ws`), keyed by server name. They CONNECT when the subagent starts and DISCONNECT when it finishes. A `type: sdk` entry is skipped with a warning (v2.1.274+) — only an SDK host application can register in-process servers.
 
 String references share the parent session's connection.
 

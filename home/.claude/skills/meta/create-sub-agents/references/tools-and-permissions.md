@@ -111,7 +111,7 @@ Some parent modes CANNOT be overridden by the subagent's frontmatter:
 
 - Parent `bypassPermissions` -> subagent runs in `bypassPermissions` regardless of its own setting
 - Parent `acceptEdits` -> same
-- Parent `auto` -> subagent inherits auto mode; its `permissionMode` is ignored. The classifier evaluates the subagent's tool calls with the same block/allow rules as the parent.
+- Parent `auto` -> subagent inherits auto mode; its `permissionMode` is ignored. The classifier evaluates the subagent's tool calls with the same block/allow rules as the parent. On finish, the subagent hands back through a dedicated call the classifier reviews — its work and final report — before the report is delivered (v2.1.271+).
 
 Escalation is blocked in the other direction too: under a parent in `default`, `dontAsk`, or `plan`, a subagent's `permissionMode` applies except `bypassPermissions`, which is dropped in favor of the parent's mode (v2.1.267+).
 
