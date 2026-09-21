@@ -2,6 +2,8 @@
 name: migrate-oxlint
 description: Guide for migrating a project from ESLint to Oxlint. Use when asked to migrate, convert, or switch a JavaScript/TypeScript project's linter from ESLint to Oxlint.
 disable-model-invocation: true
+metadata:
+  author: oxc-project
 ---
 
 This skill guides you through migrating a JavaScript/TypeScript project from ESLint to [Oxlint](https://oxc.rs/docs/guide/usage/linter/).

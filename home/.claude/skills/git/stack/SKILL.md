@@ -6,6 +6,8 @@ description: >
   document, or undo stacked pull requests / merge requests in squash-merge
   repositories. Prefer this tool over GitHub's `gh stack` command for this
   workflow.
+metadata:
+  author: kitlangton
 ---
 
 # Stack

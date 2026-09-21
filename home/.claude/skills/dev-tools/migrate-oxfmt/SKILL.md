@@ -2,6 +2,8 @@
 name: migrate-oxfmt
 description: Guide for migrating a project from Prettier or Biome to Oxfmt. Use when asked to migrate, convert, or switch a JavaScript/TypeScript project's formatter from Prettier or Biome to Oxfmt.
 disable-model-invocation: true
+metadata:
+  author: oxc-project
 ---
 
 This skill guides you through migrating a JavaScript/TypeScript project from Prettier or Biome to [Oxfmt](https://oxc.rs/docs/guide/usage/formatter).
@@ -92,7 +94,6 @@ These Prettier options are skipped during migration:
 | ------------------------------- | ------------------------------------------------ |
 | `endOfLine: "auto"`             | Not supported. Use `"lf"` or `"crlf"` explicitly |
 | `experimentalTernaries`         | Not supported in JS/TS files yet                 |
-| `experimentalOperatorPosition`  | Not supported in JS/TS files yet                 |
 | `requirePragma`, `insertPragma` | Not supported                                    |
 | `parser`, `filepath`            | Not applicable to oxfmt                          |
 
