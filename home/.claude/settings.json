@@ -109,7 +109,6 @@
     ],
     "defaultMode": "auto"
   },
-  "model": "opus",
   "hooks": {
     "PreToolUse": [
       {
@@ -140,7 +139,6 @@
       "effortLevel": "medium"
     }
   },
-  "autoCompactWindow": 400000,
   "awaySummaryEnabled": false,
   "showClearContextOnPlanAccept": true,
   "skipDangerousModePermissionPrompt": true,
