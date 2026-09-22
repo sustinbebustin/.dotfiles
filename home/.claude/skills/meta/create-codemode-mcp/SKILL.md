@@ -1,7 +1,6 @@
 ---
-name: codemode
+name: create-codemode-mcp
 description: Author Code Mode MCP servers that wrap multiple host functions behind one code-generating tool, replacing per-call JSON tool dispatch with a single executed JavaScript function.
-disable-model-invocation: true
 metadata:
   author: sustinbebustin
   last_reviewed_version: 0.5.2
