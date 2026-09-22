@@ -60,6 +60,7 @@ A marketplace install with a `package.json` plus an npm or bun lockfile gets `no
 - Path variables resolve in stdio `command`/`args`/`env`, and in remote `url`/`headers`/`headersHelper`.
 - `/reload-plugins` keeps live connections whose config is unchanged.
 - In a project-scope skills-dir plugin, each server needs the same per-server approval as a project `.mcp.json`.
+- Authoring a Code Mode server (one `code` tool over many host functions): `create-codemode-mcp`.
 
 ## LSP Servers
 
