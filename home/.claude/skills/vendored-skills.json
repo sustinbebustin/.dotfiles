@@ -116,29 +116,6 @@
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
     },
-    "gh-fix-ci": {
-      "author": "openai",
-      "source": {
-        "repo": "openai/skills",
-        "ref": "main",
-        "path": "skills/.curated/gh-fix-ci"
-      },
-      "localPath": "git/gh-fix-ci",
-      "sync": {
-        "commit": "49f948faa9258a0c61caceaf225e179651397431",
-        "tree": "3f99938c9464393f27cc4cc00e4ba17387517803",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": [
-        "Plan mode instead of the create-plan skill; Overview, Inputs and Quick start folded into a one-line intro and the Workflow.",
-        "Short description plus disable-model-invocation (user-invoked only); script usage condensed to a flags line.",
-        "inspect_pr_checks.py file mode 644 (run via python, not executed directly).",
-        "Dropped agents/openai.yaml and assets/ icons: Codex UI metadata, unused by Claude Code."
-      ]
-    },
     "grill-with-docs": {
       "author": "mattpocock",
       "source": {
@@ -166,7 +143,7 @@
         "ref": "main",
         "path": "skills/productivity/grilling"
       },
-      "localPath": "workflow/grilling",
+      "localPath": "workflows/grilling",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "f0732035b8b1b60ae39454e4191caef32fa91903",
@@ -187,7 +164,7 @@
         "ref": "main",
         "path": "skills/productivity/handoff"
       },
-      "localPath": "workflow/handoff",
+      "localPath": "workflows/handoff",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "2242e8f05424b8c2ae94194a90d97b88d16108ec",
@@ -273,7 +250,7 @@
         "ref": "main",
         "path": "skills/librarian"
       },
-      "localPath": "workflow/librarian",
+      "localPath": "workflows/librarian",
       "sync": {
         "commit": "122e2994adddb113c04764c5697217dae120fcc6",
         "tree": "d9c9e4f484d7aed8b71f0e9dda7b0abddbdf6b13",
@@ -461,7 +438,7 @@
         "ref": "main",
         "path": "skills/productivity/teach"
       },
-      "localPath": "workflow/teach",
+      "localPath": "workflows/teach",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "2ab11f2f51f3c29771edb5d4258d807a49462491",
