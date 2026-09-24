@@ -116,6 +116,29 @@
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
     },
+    "gh-fix-ci": {
+      "author": "openai",
+      "source": {
+        "repo": "openai/skills",
+        "ref": "main",
+        "path": "skills/.curated/gh-fix-ci"
+      },
+      "localPath": "git/gh-fix-ci",
+      "sync": {
+        "commit": "49f948faa9258a0c61caceaf225e179651397431",
+        "tree": "3f99938c9464393f27cc4cc00e4ba17387517803",
+        "at": "2026-09-21"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Plan mode instead of the create-plan skill; Overview, Inputs and Quick start folded into a one-line intro and the Workflow.",
+        "Short description plus disable-model-invocation (user-invoked only); script usage condensed to a flags line.",
+        "inspect_pr_checks.py file mode 644 (run via python, not executed directly).",
+        "Dropped agents/openai.yaml and assets/ icons: Codex UI metadata, unused by Claude Code."
+      ]
+    },
     "grill-with-docs": {
       "author": "mattpocock",
       "source": {
