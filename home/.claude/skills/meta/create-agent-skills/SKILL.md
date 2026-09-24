@@ -8,51 +8,11 @@ metadata:
 
 # Creating Skills & Commands
 
-First, call the Skill tool for "writing-for-agents". It governs how the skill body is written; this skill covers the structure, frontmatter, and invocation mechanics around it.
+First, call the Skill tool for "writing-for-agents". It governs how the skill body is written, including description wording and progressive disclosure; this skill covers the structure, frontmatter, and invocation mechanics around it.
 
-This skill teaches how to create effective Claude Code skills following the official specification from [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills).
+## Commands and Skills Are the Same Thing
 
-## Commands and Skills Are Now The Same Thing
-
-Custom slash commands have been merged into skills. A file at `.claude/commands/review.md` and a skill at `.claude/skills/review/SKILL.md` both create `/review` and work the same way. Existing `.claude/commands/` files keep working. Skills add optional features: a directory for supporting files, frontmatter to control invocation, and automatic context loading.
-
-**If a skill and a command share the same name, the skill takes precedence.**
-
-## When To Create What
-
-**Use a command file** (`commands/name.md`) when:
-- Simple, single-file workflow
-- No supporting files needed
-- Task-oriented action (deploy, commit, triage)
-
-**Use a skill directory** (`skills/name/SKILL.md`) when:
-- Need supporting reference files, scripts, or templates
-- Background knowledge Claude should auto-load
-- Complex enough to benefit from progressive disclosure
-
-Both use identical YAML frontmatter and markdown content format.
-
-## Standard Markdown Format
-
-Use YAML frontmatter + markdown body with **standard markdown headings**. Keep it clean and direct.
-
-```markdown
----
-name: my-skill-name
-description: What it does and when to use it
----
-
-# My Skill Name
-
-## Quick Start
-Immediate actionable guidance...
-
-## Instructions
-Step-by-step procedures...
-
-## Examples
-Concrete usage examples...
-```
+Custom slash commands have been merged into skills. A file at `.claude/commands/review.md` and a skill at `.claude/skills/review/SKILL.md` both create `/review` and work the same way; if both exist, the skill takes precedence. A command file suits a single-file workflow; a skill directory adds supporting files (references, scripts, templates). Both use the same frontmatter and a markdown body with standard headings.
 
 ## Frontmatter Reference
 
@@ -219,54 +179,15 @@ Plugin skills are not affected by `skillOverrides` — manage those through `/pl
 
 **Find unused skills:** `/skill-doctor` (v2.1.252+) reports each skill's context cost and how often it's been invoked, and flags never-invoked skills with where to turn them off. Terminal-only — it isn't available over Remote Control.
 
-## Progressive Disclosure
+## Supporting Files
 
-Keep SKILL.md under 500 lines. Split detailed content into reference files:
-
-```
-my-skill/
-├── SKILL.md           # Entry point (required, overview + navigation)
-├── reference.md       # Detailed docs (loaded when needed)
-├── examples.md        # Usage examples (loaded when needed)
-└── scripts/
-    └── helper.py      # Utility script (executed, not loaded)
-```
-
-Link from SKILL.md: `For API details, see [reference.md](reference.md).`
-
-Keep references **one level deep** from SKILL.md. Avoid nested chains.
-
-## Effective Descriptions
-
-The description enables skill discovery. Include both **what** it does and **when** to use it.
-
-**Good:**
-```yaml
-description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
-```
-
-**Bad:**
-```yaml
-description: Helps with documents
-```
-
-## What Would You Like To Do?
-
-1. **Create new skill** - Build from scratch
-2. **Create new command** - Build a slash command
-3. **Audit existing skill** - Check against best practices
-4. **Add component** - Add workflow/reference/example
-5. **Get guidance** - Understand skill design
+Keep SKILL.md under 500 lines. Link each supporting file from SKILL.md (`For API details, see [reference.md](reference.md).`) and keep links one level deep: a file reached only through another supporting file, or not linked at all, is effectively invisible. Scripts in `scripts/` are executed, not loaded.
 
 ## Creating a New Skill or Command
 
-### Step 1: Choose Type
+### Step 1: Choose Invocation
 
-Ask: Is this a manual workflow (deploy, commit, triage) or background knowledge (conventions, patterns)?
-
-- **Manual workflow** → command with `disable-model-invocation: true`
-- **Background knowledge** → skill without `disable-model-invocation`
-- **Complex with supporting files** → skill directory
+Pick model- or user-invocation per writing-for-agents' `SKILL-MECHANICS.md`. A workflow with side effects is user-invoked (`disable-model-invocation: true`) regardless.
 
 ### Step 2: Create the File
 
@@ -320,45 +241,22 @@ metadata:
 
 **Author:** `metadata.author` is the GitHub login of whoever creates the skill, resolved at creation time with `gh api user --jq .login`. If that fails, ask the user. Never hardcode a login or use git `user.name`: these files are shared, and whoever clones them gets their own login. A third-party skill gets its repo owner instead; `/vendor-skills` sets that.
 
-### Step 3: Add Reference Files (If Needed)
+### Step 3: Test With Real Usage
 
-Link from SKILL.md to detailed content:
-```markdown
-For API reference, see [reference.md](reference.md).
-For form filling guide, see [forms.md](forms.md).
-```
-
-### Step 4: Test With Real Usage
-
-1. Test with actual tasks, not test scenarios
-2. Invoke directly with `/skill-name` to verify
-3. Check auto-triggering by asking something that matches the description
-4. Refine based on real behavior
-
-Measure invocation and output quality separately: run realistic prompts in a fresh session with the skill available and again with it disabled via `skillOverrides`, and compare. For a skill shipped in a plugin, `claude plugin eval` (v2.1.269+) runs each prompt with and without the plugin, grades it, and exits non-zero below a threshold so CI can gate on it. For iterating on a single skill in-conversation, install the `skill-creator` plugin (`/plugin install skill-creator@claude-plugins-official`), which stores test cases in `evals/evals.json`, runs each in an isolated subagent, and reports pass rate against token and time overhead.
+Invoke it directly with `/skill-name`, then check auto-triggering with a request phrased the way the user would phrase it. Measure invocation and output quality separately: run realistic prompts in a fresh session with the skill available and again with it disabled via `skillOverrides`, and compare. For a skill shipped in a plugin, `claude plugin eval` (v2.1.269+) runs each prompt with and without the plugin, grades it, and exits non-zero below a threshold so CI can gate on it. For iterating on a single skill in-conversation, install the `skill-creator` plugin (`/plugin install skill-creator@claude-plugins-official`), which stores test cases in `evals/evals.json`, runs each in an isolated subagent, and reports pass rate against token and time overhead.
 
 ## Audit Checklist
 
-- [ ] Valid YAML frontmatter (name + description)
+- [ ] Frontmatter parses; `name` matches the directory
 - [ ] `metadata.author` set to a GitHub login
-- [ ] Description includes trigger keywords and is specific
-- [ ] Uses standard markdown headings (not XML tags)
-- [ ] SKILL.md under 500 lines
+- [ ] Description follows writing-for-agents' pointer rules (user-invoked: a one-line human summary)
+- [ ] Body uses standard markdown headings, not XML tags
+- [ ] SKILL.md under 500 lines; every supporting file linked from it, one level deep
 - [ ] `disable-model-invocation: true` if it has side effects
-- [ ] `allowed-tools` set if specific tools needed
-- [ ] References one level deep, properly linked
-- [ ] Examples are concrete, not abstract
-- [ ] Tested with real usage
-
-## Anti-Patterns to Avoid
-
-- **XML tags in body** - Use standard markdown headings
-- **Vague descriptions** - Be specific with trigger keywords
-- **Deep nesting** - Keep references one level from SKILL.md
-- **Missing invocation control** - Side-effect workflows need `disable-model-invocation: true`
-- **Too many options** - Provide a default with escape hatch
-- **Punting to Claude** - Scripts should handle errors explicitly
-- **`context: fork` on reference-only skills** - Subagent gets no task and returns nothing
+- [ ] `allowed-tools` set for the tools it runs without prompting
+- [ ] A default given where there are options, with an escape hatch
+- [ ] Scripts handle their own errors and say how to recover
+- [ ] No `context: fork` on a reference-only skill (the fork gets no task and returns nothing)
 
 ## Troubleshooting
 
