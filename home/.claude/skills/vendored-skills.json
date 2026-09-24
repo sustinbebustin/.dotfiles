@@ -682,6 +682,24 @@
         "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
+    "uv": {
+      "author": "mitsuhiko",
+      "source": {
+        "repo": "mitsuhiko/agent-stuff",
+        "ref": "main",
+        "path": "skills/uv"
+      },
+      "localPath": "dev-tools/uv",
+      "sync": {
+        "commit": "122e2994adddb113c04764c5697217dae120fcc6",
+        "tree": "6d73099efb1a59e824fe2b63102a669bbf338bfe",
+        "at": "2026-09-24"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
     "wayfinder": {
       "author": "mattpocock",
       "source": {
