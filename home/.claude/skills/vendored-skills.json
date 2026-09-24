@@ -93,26 +93,6 @@
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
     },
-    "docx": {
-      "author": "anthropics",
-      "source": {
-        "repo": "anthropics/skills",
-        "ref": "main",
-        "path": "skills/docx"
-      },
-      "localPath": "productivity/docx",
-      "sync": {
-        "commit": "fa0fa64bdc967915dc8399e803be67759e1e62b8",
-        "tree": "6e6f5b95c1de6e803cc07b214f5059b074d64e0c",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": [
-        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
-      ]
-    },
     "domain-modeling": {
       "author": "mattpocock",
       "source": {
@@ -306,44 +286,6 @@
         "checkout.sh quotes the inner expansions in trim_repo_input (shellcheck SC2295) so glob characters in the input match literally.",
         "checkout.sh rejects '.', '..', empty and leading-'-' segments in host/org/repo, keeping checkouts inside the cache root and out of git's option parser (upstream let 'github.com/../../x/y' escape and ff-merge an existing repo).",
         "checkout.sh exits when parse_repo fails; upstream runs it in a process substitution, so set -e never fired and the script went on with an empty path."
-      ]
-    },
-    "pdf": {
-      "author": "anthropics",
-      "source": {
-        "repo": "anthropics/skills",
-        "ref": "main",
-        "path": "skills/pdf"
-      },
-      "localPath": "productivity/pdf",
-      "sync": {
-        "commit": "34040c9c568585f6929bedeaad110ad08f079624",
-        "tree": "6369f4649de69bd6857c9bc3b058a77206009238",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": []
-    },
-    "pptx": {
-      "author": "anthropics",
-      "source": {
-        "repo": "anthropics/skills",
-        "ref": "main",
-        "path": "skills/pptx"
-      },
-      "localPath": "productivity/pptx",
-      "sync": {
-        "commit": "34040c9c568585f6929bedeaad110ad08f079624",
-        "tree": "64529c8b3f35fe632b7256bd2f6d46e4b40160ce",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": [
-        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "prototype": {
@@ -697,24 +639,6 @@
       "localChanges": [
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
-    },
-    "xlsx": {
-      "author": "anthropics",
-      "source": {
-        "repo": "anthropics/skills",
-        "ref": "main",
-        "path": "skills/xlsx"
-      },
-      "localPath": "productivity/xlsx",
-      "sync": {
-        "commit": "34040c9c568585f6929bedeaad110ad08f079624",
-        "tree": "fe6471cc9b5b97aae0b576ccb92ffd9b0207589d",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": []
     }
   }
 }

@@ -147,7 +147,7 @@ the `gofumpt`/`gci` formatters `make fmt` applies.
 
 ### Skills, agents, commands
 
-Workflows live in skills, not slash commands. Skills are grouped by category under `skills/` (`dev-tools`, `engineering`, `frontend`, `git`, `meta`, `misc`, `productivity`, `workflow`); the category layer is flattened on publish (see Stow Strategy), so names are unique across categories.
+Workflows live in skills, not slash commands. Skills are grouped by category under `skills/` (`dev-tools`, `engineering`, `frontend`, `git`, `meta`, `misc`, `workflow`); the category layer is flattened on publish (see Stow Strategy), so names are unique across categories.
 
 Subagents are grouped by domain under `agents/`: `design/` (the Impeccable build pipeline), `explore/` (scoutmaster and the scouts it dispatches), and `review/` (code-review axes and stack-specific reviewers).
 
