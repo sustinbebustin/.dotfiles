@@ -66,6 +66,17 @@ def read_jsonl(path):
                 continue
 
 
+def subagent_transcripts(main_path):
+    """A session's own subagent transcripts.
+
+    Claude Code symlinks a subagent transcript into every session that shares
+    it; following the links double-counts the run and crashes on dangling
+    ones, so only the session that owns the real file counts it.
+    """
+    subdir = main_path.parent / main_path.stem / "subagents"
+    return [p for p in sorted(subdir.glob("agent-*.jsonl")) if not p.is_symlink()]
+
+
 def scan_file(path, prices, acc, kind):
     """Accumulate one transcript into acc; kind is 'main' or a subagent type."""
     seen_requests = set()
@@ -150,7 +161,7 @@ def main():
         session_turns.append(len(requests))
         first = requests[0]
         first_prefix.append(first["in"] + first["w5m"] + first["w1h"] + first["read"])
-        for sub in sorted((main_path.parent / main_path.stem / "subagents").glob("agent-*.jsonl")):
+        for sub in subagent_transcripts(main_path):
             meta = sub.with_suffix(".meta.json")
             kind = "subagent:?"
             if meta.exists():

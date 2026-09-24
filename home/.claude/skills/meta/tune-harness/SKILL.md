@@ -46,19 +46,25 @@ The user runs the most capable models available (currently Opus 5.5 and Fable 5.
 
 Find:
 
-- Every always-loaded source: each `CLAUDE.md` and its imports, rules files, the skill listing, the subagent listing, output style, MCP tool names and server instructions, and hook-injected context. You are running inside the rendered request: the system prompt, system reminders, and listings in your own context right now are what every turn pays for. Read them as rendered, and run `/context` for the per-source breakdown.
+- Every always-loaded source: each `CLAUDE.md` and its imports, rules files, the skill listing, the subagent listing, output style, MCP tool names and server instructions, and hook-injected context. You are running inside the rendered request: the system prompt, system reminders, and listings in your own context right now are what every turn pays for. Read them as rendered.
 - How tool results are formatted and sized, including the user's own scripts, task runners, MCP servers, and hook output.
 - How subagents are defined and spawned, and which rules or skills push delegation.
 - Which models and effort levels run where (settings, skill and agent frontmatter). From Anthropic's docs, get the prompt caching behavior (TTL, minimum cacheable length, what invalidates the cache) and current prices for output, uncached input, cache writes, and cache reads.
-- Existing token accounting: transcripts under `~/.claude/projects/`, `/cost`, `/skill-doctor`, `/doctor`, and OpenTelemetry if configured.
+- Existing token accounting: the transcripts under `~/.claude/projects/`, and OpenTelemetry if configured. `/context`, `/cost`, `/skill-doctor`, and `/doctor` are interactive commands only the user can run; ask for their output when a number matters and the scripts below can't produce it.
 
-Claude Code already records per-request usage by billing type in its transcripts. Run the baseline script over a representative window:
+Claude Code already records per-request usage by billing type in its transcripts. Two scripts read them; `--help` covers the flags of each:
 
 ```bash
 uv run ${CLAUDE_SKILL_DIR}/scripts/usage.py --days 14 [--project <slug-substring>]
+uv run ${CLAUDE_SKILL_DIR}/scripts/skills.py --days 60 [skill ...]
 ```
 
-It reports cost per session (the task unit), cost share by billing type, model, main thread vs subagent type, and active skill, the first-request prefix (static context proxy), cache hit rate, turns per session, and per tool: share of sessions calling it, calls, error rate, user-rejected rate, and result tokens. `--help` covers the flags. Extend the script when the audit needs a cut it lacks; don't hand-sum transcripts.
+- `usage.py` is the whole-harness baseline: cost per session (the task unit), cost share by billing type, model, main thread vs subagent type, and active skill, the first-request prefix (static context proxy), cache hit rate, turns per session, and per tool: share of sessions calling it, calls, error rate, user-rejected rate, and result tokens.
+- `skills.py` isolates skills: listing tokens and cost, body tokens, loads split into model and slash invocations, distinct sessions, median requests after load, the body's own carrying cost, skills loaded together, reads of supporting files, and files `SKILL.md` never links. `usage.py`'s per-skill figure spreads whole-turn cost over the active skill; `skills.py`'s is what the skill's own text costs.
+
+Extend the scripts when the audit needs a cut they lack; don't hand-sum transcripts or write a throwaway parser.
+
+**Scoped runs.** When the scope names part of the harness (one skill, the meta skills, one `CLAUDE.md`), the whole-harness cost map is context, not the deliverable. Measure the scoped items' own cost (for skills: listing cost plus body tokens x requests after load, from `skills.py`), report it as a share of total spend so the ranking stays honest, and spend the audit on those items. Still read the rendered context for what the scoped items duplicate or contradict elsewhere.
 
 Produce:
 
@@ -87,12 +93,13 @@ Skip checklists for open-ended work. The model optimizes the listed items and de
 
 Tool schemas ride along on every request. Most tools beyond the core set were each needed in under 20% of conversations, and moving them out of static context cut tool-description tokens 60%. Doing the same for integration tools (such as MCP servers), with names in context and full schemas in one folder per server that the agent can search with grep or jq, cut total tokens 46.9% in sessions that used them.
 
-In Claude Code the tool-definition layer you control is: MCP servers (enabled per project or globally, and their tool counts and schema sizes), skill descriptions, subagent descriptions, and permission rules that remove tools. Claude Code defers many schemas behind tool search already; check what still loads eagerly in `/context`.
+In Claude Code the tool-definition layer you control is: MCP servers (enabled per project or globally, and their tool counts and schema sizes), skill descriptions, subagent descriptions, and permission rules that remove tools. Claude Code defers many schemas behind tool search already; check what still loads eagerly in your own rendered context (the tool list and deferred-tool reminders).
 
 - Keep in static context: high-frequency tools (for a coding agent: read, search, edit, shell), tools the model tries to call even when they're absent, and tools a mode depends on. For skills: model-invoked descriptions only for skills the agent must reach on its own.
 - Offload the rest: leave a name or one-line pointer and make the full schema discoverable on demand. For skills: `disable-model-invocation: true` for manual workflows, `skillOverrides` `name-only` or `off` for rarely used ones, and a router skill when manual skills pile up. For MCP: disable servers a project never uses; a server the user built can expose one code-execution tool over a searchable SDK instead of many schemas. Group related tools so they load together, and put status (such as "needs re-authentication") where the agent will see it.
 - Tighten what remains: descriptions state what it is and the branches that should trigger it, and drop usage lectures. Merge near-duplicate agents and skills (two reviewers covering the same ground are two descriptions every turn and a coin-flip on which fires).
-- Pick the split by testing a few configurations and tracking tokens, cost, latency, tool-call errors, and task success. `/skill-doctor` gives invocation frequency per skill; the baseline script gives per-tool session share.
+- Orphaned supporting files: every file under a skill is reachable by links from its `SKILL.md`, or it goes. The agent still finds unlinked files with `ls` and reads them, and nothing keeps them in step with the body, so they drift into contradicting it. `skills.py` lists them; its supporting-file reads show whether the agent is actually loading them.
+- Pick the split by testing a few configurations and tracking tokens, cost, latency, tool-call errors, and task success. `skills.py` gives invocation frequency per skill; `usage.py` gives per-tool session share.
 
 ## 4. Cache layout
 
@@ -145,6 +152,8 @@ Tie each added instruction to the transcript behavior it fixes. Re-audit when mo
 
 Changes land in the user's config files, most of them in a git-tracked dotfiles repo. Keep each change a separate, revertible edit so it can be committed and reverted on its own; commit only when the user asks.
 
+Before removing a line or changing a skill's or agent's invocation, model, or effort, read the file's history (`git log -p -- <file>`, `git log -S '<line>'`). A choice that looks wasteful in the numbers may be deliberate: a skill made model-invocable so other skills can reach it has a reason its own invocation count doesn't show. When the history gives a reason, the change becomes a proposal that answers it.
+
 - Change directly: running and extending the baseline script, removing volatile content from always-loaded files, making user-owned scripts and servers write large outputs to files instead of truncating or flooding, fixes for recurring tool errors, and removing exact duplicates of a rule that lives elsewhere.
 - Change behind a toggle so it can be tested: `CLAUDE.md`, rules, and output-style edits; skill and agent description or invocation changes; MCP enablement; output format changes; compaction and handoff changes; and subagent prompting. A toggle is anything the user can flip back without re-deriving the old text: `skillOverrides`, a settings entry, a separate branch or commit, or the old version kept next to the new one for the test period.
 - Propose only: changes to which models run, routing, reasoning-effort defaults, or how work is split across agents.
@@ -166,6 +175,6 @@ Changes land in the user's config files, most of them in a git-tracked dotfiles 
 
 1. The harness map and baseline: cost by source x billing type, with the biggest sources called out.
 2. A ranked list of changes: layer, what changes, estimated savings and how you estimated them, quality risk, how to validate, and how to roll back.
-3. The changes you made, including a diff of every always-loaded file you touched with a keep, rewrite, delete, or move reason for each line.
+3. The changes you made, including a diff of every always-loaded file you touched (`CLAUDE.md`, rules, output style, skill and agent descriptions) with a keep, rewrite, delete, or move reason for each line. Skip the diff when no always-loaded file changed.
 4. A test plan for the toggled changes.
 5. Gaps: anything you couldn't find or measure, and findings in the Anthropic-owned layer for the user to pass on.

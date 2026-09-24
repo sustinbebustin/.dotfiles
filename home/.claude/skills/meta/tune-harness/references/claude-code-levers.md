@@ -27,9 +27,15 @@ Anything appended mid-session lands after the cached prefix and stays in history
 
 ## Inspecting
 
-- `/context`: current context by source. The primary tool for the static-token map.
+What you can read yourself:
+
 - Your own context: the rendered system prompt, system reminders, listings, and injected files are visible to you while running this skill. Read them for duplication, contradictions, and volatile values.
-- `/skill-doctor`: per-skill context cost and invocation counts; flags never-invoked skills.
+- The transcripts, through `scripts/usage.py` and `scripts/skills.py`.
+
+Interactive commands only the user can run (ask for the output when you need it):
+
+- `/context`: current context by source; the exact static-token map for one session.
+- `/skill-doctor`: per-skill context cost and invocation counts; flags never-invoked skills. `skills.py` covers the same ground from transcripts.
 - `/doctor`: skill listing cost and its largest contributors.
 - `/cost`: current session spend.
 - `/mcp`: servers, status, and tools.
@@ -43,7 +49,7 @@ Anything appended mid-session lands after the cached prefix and stays in history
 - `type: "attachment"` entries record injected context (hook output, reminders, deferred-tool deltas, file attachments) by `attachment.type`.
 - `~/.claude/history.jsonl` holds the user's typed prompts across projects: the source for realistic eval tasks.
 
-`scripts/usage.py` implements the dedupe and the cuts in SKILL.md step 1.
+A subagent transcript shared by several sessions appears in each as a symlink to one real file, sometimes dangling; count only the real file. A typed `/name` is a `<command-name>/name</command-name>` tag in a user entry, and built-in commands use the same tag, so match names against the skill directory. `scripts/usage.py` and `scripts/skills.py` implement all of this.
 
 ## Pricing and caching facts to verify
 
