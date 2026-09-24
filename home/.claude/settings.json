@@ -132,6 +132,7 @@
   },
   "extraKnownMarketplaces": {},
   "outputStyle": "Concise",
+  "feedbackDrafts": "off",
   "spinnerTipsEnabled": false,
   "effortLevel": "medium",
   "modelSettings": {
