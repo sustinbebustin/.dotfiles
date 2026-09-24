@@ -120,6 +120,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/claude-quality-bin",
+            "timeout": 120
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

@@ -17,7 +17,7 @@ Everything under `home/` maps 1:1 to `$HOME` -- `home/.config/zsh/` becomes `~/.
 
 Claude Code skills are the exception. The tree at `home/.claude/skills/` is skipped by stow and published to `~/.claude/skills` by `dot stow` itself, one folder symlink per skill. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since Claude Code only reads `~/.claude/skills/<name>/SKILL.md`.
 
-The Go guard hooks in `home/.claude/hooks/` are stowed as built `*-bin` binaries only -- `dot stow` builds them first, since they are per-platform and gitignored -- and registered in `home/.claude/settings.json`.
+The Go hooks in `home/.claude/hooks/` (PreToolUse guards, PostToolUse format/lint) are stowed as built `*-bin` binaries only -- `dot stow` builds them first, since they are per-platform and gitignored -- and registered in `home/.claude/settings.json`.
 
 ## Structure
 

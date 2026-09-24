@@ -1,9 +1,10 @@
-# Build and check the Go hook binary. Stow symlinks claude-hooks-bin into
+# Build and check the Go hook binaries: claude-hooks-bin (PreToolUse guards)
+# and claude-quality-bin (PostToolUse format/lint). Stow symlinks both into
 # ~/.claude/hooks/; the sources and build tooling are held back via
 # .stow-local-ignore at the package root.
 #
 # Usage:
-#   make            # build the binary
+#   make            # build the binaries
 #   make check      # the pre-commit gate: formatting, linters, tests
 #   make fmt        # rewrite files with gofumpt + gci
 #   make lint       # golangci-lint run (includes go vet)
@@ -14,14 +15,14 @@
 #   make golden     # regenerate the decision corpus (review the diff!)
 #   make tidy       # go mod tidy
 #   make list       # print the registered rules and the settings.json matcher
-#   make clean      # remove the built binary and coverage output
+#   make clean      # remove the built binaries and coverage output
 
 BIN := claude-hooks-bin
-PKG := ./cmd/claude-hooks
+QUALITY_BIN := claude-quality-bin
 COVER := coverage.out
 GOLANGCI ?= golangci-lint
 
-# Every rule is compiled into this one binary, so any source change rebuilds it.
+# Both binaries share internal/, so any source change rebuilds both.
 SRC := go.mod go.sum $(shell find cmd internal -name '*.go' -not -name '*_test.go')
 
 .PHONY: all build check fmt fmt-check lint lint-fix test test-race cover golden \
@@ -29,11 +30,15 @@ SRC := go.mod go.sum $(shell find cmd internal -name '*.go' -not -name '*_test.g
 
 all: build
 
-build: $(BIN)
+build: $(BIN) $(QUALITY_BIN)
 
 $(BIN): $(SRC)
 	@echo "==> building $@"
-	go build -o $@ $(PKG)
+	go build -o $@ ./cmd/claude-hooks
+
+$(QUALITY_BIN): $(SRC)
+	@echo "==> building $@"
+	go build -o $@ ./cmd/claude-quality
 
 # The gate to clear before committing. fmt-check rather than fmt, so an
 # unformatted tree is reported instead of being silently rewritten underfoot.
@@ -95,10 +100,10 @@ tidy:
 list: $(BIN)
 	@./$(BIN) list
 
-# The binary this removes is the live one: ~/.claude/hooks/ holds a stow symlink
-# to it, so the guards are unregistered until the next `make build`.
+# The binaries this removes are the live ones: ~/.claude/hooks/ holds stow
+# symlinks to them, so the hooks are unregistered until the next `make build`.
 clean:
-	@rm -f $(BIN) $(COVER)
+	@rm -f $(BIN) $(QUALITY_BIN) $(COVER)
 	@echo "==> cleaned -- run \`make build\` to restore the guards"
 
 # golangci-lint supplies both the linters and the formatters. Without this

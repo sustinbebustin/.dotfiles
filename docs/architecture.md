@@ -127,8 +127,22 @@ half-applied allowlist would be worse than none. A broken file is reported on
 stderr and the guards run with no exemptions rather than blocking the session.
 `$CLAUDE_HOOKS_CONFIG` overrides the location.
 
-`hooks/Makefile` builds it. The binary is gitignored and built per-machine; only
-the built binary is stowed into `~/.claude/hooks/`, never the source tree.
+The same module builds a second binary, `claude-quality-bin`, registered as a
+PostToolUse hook on `Write|Edit`. It formats and lints the edited file with the
+tools its project uses, detected rather than configured
+(`internal/quality`): the extension picks an ecosystem (node, go), and each
+tool runs only when its config file (`oxlint.config.ts`, `.oxfmtrc.json`,
+`.golangci.yml`, ...) sits above the file within the file's git repo, from the
+directory holding that config. What the tools cannot fix is reported to Claude
+as additional context; it never blocks. A project overrides detection in
+`.claude/hooks.json` -- the nearest one above the file, looked for up to the
+session's project dir -- as `{"quality": {"<ecosystem>": {"<lint|format>":
+false | [argv...]}}}`, with `{file}` and `{pkg}` filled in. An invalid file is
+reported and ignored whole. Adding a language is adding an ecosystem to
+`internal/quality/catalog.go`.
+
+`hooks/Makefile` builds both. The binaries are gitignored and built per-machine;
+only the built binaries are stowed into `~/.claude/hooks/`, never the source tree.
 `make list` prints the registered rules and the `matcher` settings.json needs.
 `make check` is the gate before committing -- formatting, linters, tests -- and
 needs `golangci-lint` (in the Brewfile); `.golangci.yml` configures both it and

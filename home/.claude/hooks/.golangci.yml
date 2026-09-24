@@ -61,6 +61,14 @@ linters:
           - gosec
         text: "G(304|703)"
 
+      # Running the command a project's .claude/hooks.json names is what the
+      # quality hook is for. It runs as the user, over a repo the user is
+      # already editing with Claude, which can run the same command anyway.
+      - path: internal/quality/run\.go
+        linters:
+          - gosec
+        text: G204
+
 formatters:
   enable:
     - gofumpt
