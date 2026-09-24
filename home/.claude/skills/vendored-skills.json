@@ -308,68 +308,6 @@
         "checkout.sh exits when parse_repo fails; upstream runs it in a process substitution, so set -e never fired and the script went on with an empty path."
       ]
     },
-    "migrate-oxfmt": {
-      "author": "oxc-project",
-      "source": {
-        "repo": "oxc-project/oxc",
-        "ref": "main",
-        "path": ".agents/skills/migrate-oxfmt"
-      },
-      "localPath": "dev-tools/migrate-oxfmt",
-      "sync": {
-        "commit": "011c504d1911b7e36039b41b8434fe8516ba2810",
-        "tree": "555c27dbc9fdb700f05394f722a59dc96e58d760",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": [
-        "disable-model-invocation: one-off migration, user-invoked only.",
-        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
-      ]
-    },
-    "migrate-oxlint": {
-      "author": "oxc-project",
-      "source": {
-        "repo": "oxc-project/oxc",
-        "ref": "main",
-        "path": ".agents/skills/migrate-oxlint"
-      },
-      "localPath": "dev-tools/migrate-oxlint",
-      "sync": {
-        "commit": "de82b59feb766d6fa5d724e42d4473303088b22f",
-        "tree": "a21257269149e85f2613d93f20258dc5cc921cda",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": [
-        "disable-model-invocation: one-off migration, user-invoked only.",
-        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
-      ]
-    },
-    "migrate-radix-to-base": {
-      "author": "shadcn-ui",
-      "source": {
-        "repo": "shadcn-ui/ui",
-        "ref": "main",
-        "path": "skills/migrate-radix-to-base"
-      },
-      "localPath": "dev-tools/migrate-radix-to-base",
-      "sync": {
-        "commit": "98a1fe67b439324ddc857f47fbdce056600a4329",
-        "tree": "2d364edf4ed674902835157a698a7ac20780fa0f",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": [
-        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
-      ]
-    },
     "pdf": {
       "author": "anthropics",
       "source": {
