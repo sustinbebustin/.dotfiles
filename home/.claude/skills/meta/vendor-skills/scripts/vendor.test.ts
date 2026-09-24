@@ -253,6 +253,17 @@ describe("resolveRoot", () => {
     assert.deepEqual(root.skills, { a: "meta/a", b: "git/b", flat: "flat" });
   });
 
+  it("ignores a dangling link left by a deleted skill until the next publish", () => {
+    const source = tree({ "meta/a/SKILL.md": SKILL, "git/b/SKILL.md": SKILL });
+    const published = tree({});
+    fs.symlinkSync(path.join(source, "meta/a"), path.join(published, "a"));
+    fs.symlinkSync(path.join(source, "git/b"), path.join(published, "b"));
+    fs.symlinkSync(path.join(source, "meta/gone"), path.join(published, "gone"));
+    const root = unwrap(resolveRoot(published));
+    assert.equal(root.root, fs.realpathSync(source));
+    assert.deepEqual(root.skills, { a: "meta/a", b: "git/b" });
+  });
+
   it("uses the published dir itself when it holds real skill folders", () => {
     const published = tree({ "a/SKILL.md": SKILL });
     const root = unwrap(resolveRoot(published));

@@ -767,7 +767,10 @@ export function resolveRoot(published: string): Result<SkillsRoot> {
   const targets = fs
     .readdirSync(published, { withFileTypes: true })
     .filter((d) => d.isSymbolicLink())
-    .map((d) => fs.realpathSync(path.join(published, d.name)))
+    .map((d) => path.join(published, d.name))
+    // A deleted skill leaves a dangling link until the next publish prunes it.
+    .filter((link) => fs.existsSync(link))
+    .map((link) => fs.realpathSync(link))
     .filter((t) => fs.existsSync(path.join(t, "SKILL.md")));
   const root = targets.length === 0 ? fs.realpathSync(published) : commonDir(targets.map((t) => path.dirname(t)));
   const categories: string[] = [];
