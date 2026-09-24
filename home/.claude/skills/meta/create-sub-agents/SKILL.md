@@ -43,7 +43,7 @@ You are a senior code reviewer. When invoked:
 3. Provide feedback organized by severity
 ```
 
-Subagents receive ONLY this system prompt plus basic environment info (working directory). They inherit `CLAUDE.md` (or `AGENTS.md` when it loads as project instructions, v2.1.277+; skipped with `omitClaudeMd: true`) and git status from the parent, but NOT the parent's conversation history, NOT the parent's invoked skills, and NOT the default Claude Code system prompt. List skills explicitly with the `skills:` field if you need them.
+Subagents receive only this system prompt plus basic environment info (working directory). They inherit `CLAUDE.md` (or `AGENTS.md` when it loads as project instructions, v2.1.277+; skipped with `omitClaudeMd: true`) and git status from the parent, but not the parent's conversation history, its invoked skills, or the default Claude Code system prompt. List skills explicitly with the `skills:` field if you need them.
 
 ## Scope And Discovery
 
@@ -86,7 +86,7 @@ Only `name` and `description` are required. Full details in [frontmatter.md](ref
 | `initialPrompt` | Auto-submitted first user turn when this agent runs as the main session via `--agent`. |
 | `experimental` | Map of experimental options. Its `cacheTtl` key (`5m` or `1h`) picks the prompt-cache lifetime for this subagent's requests. Read only from subagent files. Requires v2.1.248+. |
 
-Plugin subagents IGNORE `hooks`, `mcpServers`, and `permissionMode`. Copy the file into `.claude/agents/` if you need those.
+Plugin subagents ignore `hooks`, `mcpServers`, and `permissionMode`. Copy the file into `.claude/agents/` if you need those.
 
 ## Tool And Permission Control
 
@@ -147,26 +147,23 @@ Then drop the file in `<project>/.claude/agents/<name>.md` (project) or `~/.clau
 
 ## Anti-Patterns To Avoid
 
-- **Vague descriptions** ("helps with code") -> Claude won't know when to delegate.
-- **Inheriting all tools by default** when the work is read-only -> tighten with `tools:` or `disallowedTools:`.
 - **Picking Opus for everything** -> use Haiku for high-volume read tasks; reserve Opus for hard reasoning.
 - **Using `bypassPermissions` to silence prompts** -> writes to `.git`, `.claude`, `.vscode` skip approval. Use `acceptEdits` or pre-approve in `permissions.allow` instead.
 - **Putting reusable workflow content in a subagent** when it should be a [skill](https://code.claude.com/docs/en/skills) Claude can load in the main convo.
 - **Unbounded nested spawning** -> a subagent *can* spawn its own subagents, capped at three layers below the main conversation by default (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` changes it; `1` turns nesting off). To stop a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. For workers that must message each other, use [agent teams](https://code.claude.com/docs/en/agent-teams).
-- **Expecting parent skills to carry over** -> they don't. List required skills in `skills:`.
 - **Overusing `context: fork` skills** for reference-only content -> the fork gets no task and returns nothing.
 - **Editing memory's `MEMORY.md` by hand mid-session** -> the subagent owns curation. Read [memory.md](references/memory.md) for proper usage.
 
 ## Audit Checklist
 
 - [ ] Valid YAML frontmatter, `name` matches filename
-- [ ] Description includes both what it does AND when to use it, with trigger keywords
-- [ ] Tools restricted to minimum needed (allowlist OR denylist, not random)
+- [ ] Description says what it does and when to delegate, front-loading trigger phrases
+- [ ] Tools restricted to the minimum needed, read-only work included (allowlist or denylist)
 - [ ] Model choice justified (Haiku/Sonnet/Opus)
 - [ ] `permissionMode` set if subagent runs autonomously
 - [ ] System prompt specifies role + when invoked + output format
 - [ ] No reliance on parent conversation history
-- [ ] `skills:` lists every skill the subagent needs (parent skills DON'T inherit)
+- [ ] `skills:` lists every skill the subagent needs (parent skills don't carry over)
 - [ ] `memory:` set with right scope if cross-session learning is needed
 - [ ] Plugin subagents avoid `hooks`/`mcpServers`/`permissionMode` (silently ignored)
 - [ ] Nested spawning is intentional — `Agent` is in `tools` only if the subagent should spawn its own subagents (depth capped at 3 by default)
