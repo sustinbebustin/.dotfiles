@@ -16,7 +16,7 @@
         "ref": "main",
         "path": "skills/agent-browser"
       },
-      "localPath": "dev-tools/agent-browser",
+      "localPath": "tools/agent-browser",
       "sync": {
         "commit": "021d9255e543d2f1ab66b87f338d85c3d7a910be",
         "tree": "82def67855a0d2aad7794207951820fa5422fdb0",
@@ -123,7 +123,7 @@
         "ref": "main",
         "path": "skills/engineering/grill-with-docs"
       },
-      "localPath": "engineering/grill-with-docs",
+      "localPath": "workflows/grill-with-docs",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "eedaf2562c83155115e9c649fa3ecaac2e10e81d",
@@ -143,7 +143,7 @@
         "ref": "main",
         "path": "skills/productivity/grilling"
       },
-      "localPath": "workflows/grilling",
+      "localPath": "productivity/grilling",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "f0732035b8b1b60ae39454e4191caef32fa91903",
@@ -164,7 +164,7 @@
         "ref": "main",
         "path": "skills/productivity/handoff"
       },
-      "localPath": "workflows/handoff",
+      "localPath": "productivity/handoff",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "2242e8f05424b8c2ae94194a90d97b88d16108ec",
@@ -185,7 +185,7 @@
         "ref": "main",
         "path": ".claude/skills/impeccable"
       },
-      "localPath": "frontend/impeccable",
+      "localPath": "engineering/impeccable",
       "sync": {
         "commit": "cd12f8660e2dde57b9615c8a6b8ea674101f9cfc",
         "tree": "399949a89d77c0791a363eff08615d7ee8cc8cff",
@@ -230,7 +230,7 @@
         "ref": "main",
         "path": "skills/engineering/improve-codebase-architecture"
       },
-      "localPath": "engineering/improve-codebase-architecture",
+      "localPath": "workflows/improve-codebase-architecture",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "3d35cd438f4067b03c8b3792e038960e4ac11526",
@@ -250,7 +250,7 @@
         "ref": "main",
         "path": "skills/librarian"
       },
-      "localPath": "workflows/librarian",
+      "localPath": "tools/librarian",
       "sync": {
         "commit": "122e2994adddb113c04764c5697217dae120fcc6",
         "tree": "d9c9e4f484d7aed8b71f0e9dda7b0abddbdf6b13",
@@ -292,7 +292,7 @@
         "ref": "main",
         "path": "skills/react-best-practices"
       },
-      "localPath": "frontend/react-best-practices",
+      "localPath": "engineering/react-best-practices",
       "sync": {
         "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
         "tree": "343db72180d05814949fef7d46be96b5c6ee86b3",
@@ -336,7 +336,7 @@
         "ref": "main",
         "path": "packages/cli/plugins/sentry-cli/skills/sentry-cli"
       },
-      "localPath": "dev-tools/sentry-cli",
+      "localPath": "tools/sentry-cli",
       "sync": {
         "commit": "40a89bdefec6b4f4e03d61bdec708ef3fc1f4096",
         "tree": "100173c89c4b096013c4a03b01dc94e3ee31cab0",
@@ -356,7 +356,7 @@
         "ref": "main",
         "path": "skills/engineering/setup-matt-pocock-skills"
       },
-      "localPath": "misc/setup-matt-pocock-skills",
+      "localPath": "workflows/setup-matt-pocock-skills",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "ec07f82df54064d01aa1648670e81da41e2cbdc2",
@@ -376,7 +376,7 @@
         "ref": "main",
         "path": "skills/shadcn"
       },
-      "localPath": "frontend/shadcn",
+      "localPath": "tools/shadcn",
       "sync": {
         "commit": "98a1fe67b439324ddc857f47fbdce056600a4329",
         "tree": "b5791523e07794a4deb201e78eab3f3adbd022c0",
@@ -438,7 +438,7 @@
         "ref": "main",
         "path": "skills/productivity/teach"
       },
-      "localPath": "workflows/teach",
+      "localPath": "productivity/teach",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "2ab11f2f51f3c29771edb5d4258d807a49462491",
@@ -458,7 +458,7 @@
         "ref": "main",
         "path": "skills/engineering/to-spec"
       },
-      "localPath": "engineering/to-spec",
+      "localPath": "workflows/to-spec",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "136b9651747cfccbfbb7c50a6b0dfb757e7547d2",
@@ -479,7 +479,7 @@
         "ref": "main",
         "path": "skills/engineering/to-tickets"
       },
-      "localPath": "engineering/to-tickets",
+      "localPath": "workflows/to-tickets",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "b32c94e5a51c24ee9c41fcb7fe9ea9fff9af6369",
@@ -500,7 +500,7 @@
         "ref": "main",
         "path": "skills/engineering/triage"
       },
-      "localPath": "engineering/triage",
+      "localPath": "workflows/triage",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "95fa21bf236993cd9af25bd3670476c17fdb95a4",
@@ -522,7 +522,7 @@
         "ref": "main",
         "path": "skills/turborepo"
       },
-      "localPath": "dev-tools/turborepo",
+      "localPath": "tools/turborepo",
       "sync": {
         "commit": "d7e061b6db6647b2f006bc2a2ee396a9b441e5d6",
         "tree": "91ddb42a80a1ff5f4da07085c59e5005772b28a5",
@@ -546,7 +546,7 @@
         "ref": "main",
         "path": "skills/uv"
       },
-      "localPath": "dev-tools/uv",
+      "localPath": "tools/uv",
       "sync": {
         "commit": "122e2994adddb113c04764c5697217dae120fcc6",
         "tree": "6d73099efb1a59e824fe2b63102a669bbf338bfe",
@@ -564,7 +564,7 @@
         "ref": "main",
         "path": "skills/engineering/wayfinder"
       },
-      "localPath": "engineering/wayfinder",
+      "localPath": "workflows/wayfinder",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "8ec0462658381bd1606d3f9db14ffc67df6a2a43",
