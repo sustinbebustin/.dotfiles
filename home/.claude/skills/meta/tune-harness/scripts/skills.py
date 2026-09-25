@@ -9,7 +9,8 @@ For each skill in ~/.claude/skills (or the names given), reports from the
 transcripts: listing tokens and their cost, body tokens, loads split into
 model (Skill tool) and slash (typed /name), distinct sessions, median
 requests after load (how long the body rides in context), the body's
-carrying cost, skills loaded together, and reads of supporting files.
+carrying cost, skills loaded together, and reads of supporting files with
+how many of those calls errored.
 Then, from the skill directories, files SKILL.md never links (orphans).
 
 Carrying cost per load = body tokens x (cache write + requests after x cache
@@ -85,7 +86,7 @@ def skill_from_path(match, known):
 
 def scan(path, known, prices, acc):
     """One transcript: returns (loads, requests, write_price)."""
-    seen, loads, w = set(), [], Counter()
+    seen, loads, w, pending = set(), [], Counter(), {}
     for entry in read_jsonl(path):
         msg = entry.get("message") or {}
         if entry.get("type") == "assistant":
@@ -107,8 +108,13 @@ def scan(path, known, prices, acc):
                     hit = skill_from_path(m, known)
                     if hit and hit[1] != "SKILL.md":
                         acc["files"][hit] += 1
+                        pending.setdefault(block.get("id"), set()).add(hit)
         elif entry.get("type") == "user":
             content = msg.get("content")
+            for block in content if isinstance(content, list) else []:
+                if isinstance(block, dict) and block.get("type") == "tool_result" and block.get("is_error"):
+                    for hit in pending.get(block.get("tool_use_id"), ()):
+                        acc["file_errors"][hit] += 1
             texts = [content] if isinstance(content, str) else [
                 b.get("text", "") for b in content or [] if isinstance(b, dict) and b.get("type") == "text"
             ]
@@ -164,7 +170,7 @@ def main():
     overrides = json.loads(settings.read_text()).get("skillOverrides", {}) if settings.exists() else {}
     known = load_skills(Path(args.skills_dir), overrides)
 
-    acc = {"cost": 0.0, "requests": 0, "files": Counter()}
+    acc = {"cost": 0.0, "requests": 0, "files": Counter(), "file_errors": Counter()}
     stats = defaultdict(lambda: {"model": 0, "slash": 0, "sessions": set(), "after": [], "carry": 0.0})
     pairs = Counter()
     sessions = 0
@@ -214,10 +220,11 @@ def main():
     for (a, b), count in [(p, c) for p, c in pairs.most_common() if in_scope & set(p)][: args.top]:
         print(f"  {count:4}  {a} + {b}")
 
-    print("\n## Supporting-file reads (tool inputs naming skills/<name>/<file>)")
+    print("\n## Supporting-file reads (tool inputs naming skills/<name>/<file>; err = calls whose result is_error)")
     for (name, file), count in sorted(acc["files"].items(), key=lambda kv: -kv[1]):
         if name in in_scope:
-            print(f"  {count:4}  {name}/{file}")
+            errors = acc["file_errors"][(name, file)]
+            print(f"  {count:4}  err {errors:3}  {name}/{file}")
 
     print("\n## Unlinked files (not reachable from SKILL.md)")
     for n in scope:
