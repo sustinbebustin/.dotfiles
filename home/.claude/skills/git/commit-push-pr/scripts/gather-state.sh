@@ -13,8 +13,10 @@
 # - "--merge" anywhere before " -- "    -> merge mode (watch CI, merge, sync main)
 # - "--bypass" / "--merge-bypass"       -> merge mode without waiting for CI
 #                                          (implies --merge)
-# - "--all" anywhere before " -- "      -> commit every change in the worktree
-# - "--yours" anywhere before " -- "    -> commit only this session's own changes
+# - "--all" / "--yours" anywhere before " -- "
+#                                       -> selection flags, echoed for the agent
+#                                          to forward to the commit skill, which
+#                                          owns their meaning and conflicts
 #
 # Subdir names with spaces are not supported in the multi-scope form;
 # use the single-scope form for those.
@@ -49,21 +51,14 @@ fi
 # wherever they appear.
 merge=0
 bypass=0
-selection=""
-selection_conflict=0
+selection_flags=()
 scopes=()
 read -r -a raw_scopes <<< "$args_raw"
 for tok in ${raw_scopes[@]+"${raw_scopes[@]}"}; do
   case "$tok" in
     --merge) merge=1 ;;
     --bypass|--merge-bypass) merge=1; bypass=1 ;;
-    --all|--yours)
-      mode="${tok#--}"
-      if [ -n "$selection" ] && [ "$selection" != "$mode" ]; then
-        selection_conflict=1
-      fi
-      selection="$mode"
-      ;;
+    --all|--yours) selection_flags+=("$tok") ;;
     *) scopes+=("$tok") ;;
   esac
 done
@@ -74,23 +69,15 @@ if [ -n "$note" ]; then
   echo ""
 fi
 
-if [ "$selection_conflict" = "1" ]; then
-  echo "### Selection mode: CONFLICT"
-  echo "Both --all and --yours were passed. Stop and ask which one the user meant."
-  echo ""
-elif [ "$selection" = "all" ]; then
-  echo "### Selection mode: all"
-  echo "Commit every change in the worktree, tracked and untracked, leaving it clean."
-  echo ""
-elif [ "$selection" = "yours" ]; then
-  echo "### Selection mode: yours"
-  echo "Commit only the files this session changed. Leave every other change in place."
+if [ "${#selection_flags[@]}" -gt 0 ]; then
+  echo "### Selection flags: ${selection_flags[*]}"
+  echo "Pass these through to the commit skill in step 2."
   echo ""
 fi
 
 if [ "$merge" = "1" ]; then
   echo "### Merge mode: ON"
-  echo "After the PR is created, run the merge flow (step 8) for that target."
+  echo "After the PR is created, run the merge flow (step 6) for that target."
   if [ "$bypass" = "1" ]; then
     echo "**Bypass CI:** yes -- skip the CI watch and merge immediately."
   else
@@ -205,20 +192,6 @@ report_repo() {
   echo "**Default branch:** $default_branch"
   echo ""
 
-  # Only relevant in merge mode: knowing up front whether the repo has any
-  # workflow files distinguishes "CI hasn't reported yet" from "no CI at all".
-  if [ "$merge" = "1" ] && [ "$bypass" = "0" ]; then
-    local wf found_wf=0
-    echo "**CI workflow files:**"
-    shopt -s nullglob
-    for wf in "$dir"/.github/workflows/*.yml "$dir"/.github/workflows/*.yaml; do
-      found_wf=1
-      echo "- ${wf#"$dir"/}"
-    done
-    shopt -u nullglob
-    [ "$found_wf" = "0" ] && echo "(none)"
-    echo ""
-  fi
   echo "**Branch commits ahead of origin/$default_branch (these will all be in the PR):**"
   if [ -n "$base" ]; then
     ahead=$(git -C "$dir" log --format='%h %s%n%b' "$base"..HEAD 2>/dev/null)
@@ -249,12 +222,8 @@ report_repo() {
   fi
   echo ""
 
-  echo "**Staged diff:**"
-  git -C "$dir" diff --staged
-  echo ""
-  echo "**Unstaged diff:**"
-  git -C "$dir" diff
-  echo ""
+  # Staged and unstaged diffs are left to the commit skill's own gathered
+  # state, which step 2 loads; printing them here would double them.
 
   # Decide release-notes action. The agent MUST act on this verdict without
   # running additional ls/cat/grep to re-detect tooling.

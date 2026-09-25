@@ -1,8 +1,8 @@
 ---
 name: release
-allowed-tools: Bash(git switch:*), Bash(git checkout:*), Bash(git pull:*), Bash(git fetch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(git commit:*), Bash(git push:*), Bash(git tag:*), Bash(gh release create:*), Bash(gh release view:*), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run watch:*), Bash(bash:*), Bash(mktemp:*), Bash(rm:*), Monitor, Read, Write, Edit, AskUserQuestion, Skill(gh-fix-ci)
+allowed-tools: Bash(git switch:*), Bash(git checkout:*), Bash(git pull:*), Bash(git fetch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(git commit:*), Bash(git push:*), Bash(git tag:*), Bash(gh release create:*), Bash(gh release view:*), Bash(bash:*), Bash(mktemp:*), Bash(rm:*), Read, Write, Edit, AskUserQuestion, Skill(watch-ci), Skill(gh-fix-ci)
 description: Cut a release for a repo with a self-managed CHANGELOG -- finalize the changelog, tag, and publish a GitHub release from the [Unreleased] notes. Publishes to production; invoke only when the user explicitly asks for a release or the deploy skill directs it -- never on your own initiative.
-argument_hint: [repo...] [version] [-- note]
+argument-hint: [repo...] [version] [-- note]
 metadata:
   author: sustinbebustin
 ---
@@ -54,19 +54,10 @@ Run steps 3-11 independently for each `### Target:` block. Once the target is kn
    `gh release create <tag> --target "$(git -C <root> rev-parse HEAD)" --title "<tag>" --notes-file <tmp>`
    Add `--prerelease` when the version carries a pre-release suffix (`-rc.1`, `-alpha`, etc.). `--target` must be the full 40-char SHA (`git rev-parse HEAD`) -- a short SHA returns `422 target_commitish is invalid`. `gh` creates the tag at that exact commit and prints the release URL. `rm` the temp file after. See [references/cut-release.md](references/cut-release.md) for details.
 10. **Report** the release URL, and tell the user to `git pull --tags` to fetch the new tag locally.
-11. **Watch the release CI.** Publishing the release triggers a workflow (on the `release` event or the tag `push`). Watch it to completion with the **Monitor tool** so the turn isn't held open. First resolve the run from the cut commit's SHA, retrying until it registers (it can lag a few seconds after publish):
-    ```sh
-    sha="$(git -C <root> rev-parse HEAD)"
-    gh run list -R <owner/repo> --commit "$sha" -L1 --json databaseId,workflowName,status,conclusion
-    ```
-    Then start a Monitor watching `gh run watch <run-id> -R <owner/repo> --exit-status` (exits non-zero on failure). Report the result the moment it resolves: green with the run URL on success, or red with the failing job's log (`gh run view <run-id> -R <owner/repo> --log-failed`) on failure.
+11. **Watch the release CI.** Publishing the release triggers a workflow (on the `release` event or the tag `push`), and both run against the cut commit. Call the Skill tool for `watch-ci` with that commit's full SHA (`git -C <root> rev-parse HEAD`) and `<root>`, and report its result the moment it resolves.
 
-    **If no run ever registers** (none within ~90s): distinguish a genuine no-Actions repo from a silently skipped build. If **Release fires on** was **tag push** and the cut commit carried `[skip ci]`, the build was skipped, not absent -- GitHub creates no run for a tag push on a `[skip ci]` commit. Report this explicitly and recover: move the tag onto a skip-free commit (e.g. `git -C <root> commit --allow-empty -m "chore(release): <tag>"`, push the default branch, `git -C <root> tag -fa <tag> <new-sha> -m "<tag>"`, `git -C <root> push --force origin refs/tags/<tag>`) so the tag push fires. Otherwise, if the repo truly has no Actions for this event, say so and skip.
+    **If it reports `NO CI` with workflows present**: distinguish a genuine no-Actions repo from a silently skipped build. If **Release fires on** was **tag push** and the cut commit carried `[skip ci]`, the build was skipped, not absent -- GitHub creates no run for a tag push on a `[skip ci]` commit. Report this explicitly and recover: move the tag onto a skip-free commit (e.g. `git -C <root> commit --allow-empty -m "chore(release): <tag>"`, push the default branch, `git -C <root> tag -fa <tag> <new-sha> -m "<tag>"`, `git -C <root> push --force origin refs/tags/<tag>`) so the tag push fires. Otherwise, if the repo truly has no Actions for this event, say so and skip.
 
 Steps 1-11 only finalize the changelog, publish, and watch -- never edit code or other files in this flow, and never add AI attribution to the commit.
 
-If the release CI fails (or the deployment otherwise has issues), invoke the Skill tool to load the `gh-fix-ci` skill and work the failure:
-
-```
-skill({ name: 'gh-fix-ci' })
-```
+If the release CI fails (or the deployment otherwise has issues), call the Skill tool for `gh-fix-ci` with the failing run's id and work the failure.

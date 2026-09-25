@@ -1,7 +1,6 @@
 ---
 name: gh-fix-ci
-description: Use when a user asks to debug or fix failing GitHub PR checks running in GitHub Actions.
-disable-model-invocation: true
+description: Debug and fix failing GitHub Actions checks on a PR or a single run, planning the fix for approval. Use when PR checks or a CI run fail, or when another workflow hands off a CI failure.
 metadata:
   author: openai
 ---
@@ -16,6 +15,7 @@ Locate failing PR checks with `gh`, fetch the GitHub Actions logs, summarize the
 2. Resolve the PR.
    - Prefer the current branch PR: `gh pr view --json number,url`.
    - If the user provides a PR number or URL, use that directly.
+   - Given a run id with no PR (a release or push build), skip the PR and inspect that run with the manual fallback's `gh run view` steps.
 3. Inspect failing checks (GitHub Actions only).
    - Preferred: run the bundled script (handles gh field drift and job-log fallbacks):
      - `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`

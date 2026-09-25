@@ -1,16 +1,15 @@
 ---
 name: commit
-description: Git commit workflow combining atomic scope with conventional message format.
+description: Commit working-tree changes as atomic, conventional commits, optionally scoped to subdir repos or to this session's own changes. Use when asked to commit, or when a workflow reaches its commit step.
 allowed-tools: Bash
-argument_hint: [subdir...] [--all|--yours] [--skip-ci] [-- note]
-disable-model-invocation: true
+argument-hint: [subdir...] [--all|--yours] [--skip-ci] [-- note]
 metadata:
   author: sustinbebustin
 ---
 
 # Git Commit Skill
 
-Create clean, meaningful commits by combining **atomic commits** (one logical change per commit) with **conventional commits** (standardized message format).
+Create clean, meaningful commits: one logical change per commit, each with a conventional message.
 
 ## Scope
 
@@ -50,9 +49,11 @@ __SKILL_ARGUMENTS__
 
 ## Commit Workflow
 
+Every step applies the [Git Conventions](#git-conventions) at the end of this skill.
+
 1. **Assess atomicity** -- can this be split into independent logical changes?
 2. **Stage selectively** -- use `git add -p` or specific files to isolate changes, restricted to the file set that [Selection modes](#selection-modes) allows
-3. **Write message** -- follow conventional format below
+3. **Write message** -- conventional format
 4. **Verify** -- run `git diff --staged` before committing
 5. **Commit** -- create the commit
 
@@ -81,115 +82,10 @@ Some of your files may carry the user's edits on top of yours. That is still you
 
 If this session changed nothing, stop and say so rather than falling back to the default mode.
 
-## Atomic Commit Principles
-
-Each commit should:
-- Contain **exactly one logical change**
-- Be **independently revertable** without breaking other functionality
-- Leave the codebase in a **working state**
-- Be as **small as possible** while remaining complete
-
-### When to Split Commits
-
-| Situation | Action |
-|-----------|--------|
-| New utility + feature using it | Two commits: utility first, then feature |
-| Bug fix discovered while working on feature | Separate commit for the fix |
-| Refactor + behavior change | Refactor first, behavior change second |
-| Multiple unrelated file changes | One commit per logical change |
-| Formatting/linting + code changes | Formatting commit first |
-
-### When NOT to Split
-
-- Changes that only make sense together (e.g., function + its tests)
-- Rename/move that touches many files but is one logical operation
-- Config changes required by the code change
-
-## Conventional Commit Format
-
-```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-### Types
-
-| Type | When to Use |
-|------|-------------|
-| `feat` | New feature or capability |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
-| `style` | Formatting, whitespace (no code change) |
-| `refactor` | Code change that neither fixes nor adds |
-| `perf` | Performance improvement |
-| `test` | Adding or correcting tests |
-| `build` | Build system or dependencies |
-| `ci` | CI configuration |
-| `chore` | Maintenance tasks |
-
-### Scope
-
-Optional, indicates the area affected: `feat(auth)`, `fix(api)`, `docs(readme)`
-
-### Description
-
-- Imperative mood: "add" not "added" or "adds"
-- Lowercase, no period
-- Under 50 characters
-
-### Body
-
-- Wrap at 72 characters
-- Explain **what** and **why**, not how
-- Separate from subject with blank line
-
-### Footer
-
-- `BREAKING CHANGE: <description>` for breaking changes
-- `Closes #123` or `Fixes #456` for issue references
-
-### Skip CI
+## Skip CI
 
 When the gathered state has a `### Skip CI` block, end the subject of **every** commit in the invocation with ` [skip ci]`, e.g. `docs(readme): fix install steps [skip ci]`. GitHub Actions only checks the pushed head commit, so tagging only some commits can still trigger a run. The tag doesn't count toward the 50-character description limit.
 
-## Examples
-
-**Simple feature:**
+```!
+cat ${CLAUDE_SKILL_DIR}/references/conventions.md
 ```
-feat(contracts): add SignWell webhook handler
-```
-
-**With body:**
-```
-fix(api): handle null response from Aurora endpoint
-
-The Aurora API occasionally returns null for panel calculations
-when the roof area is below minimum threshold. Added fallback
-to default values.
-
-Fixes #892
-```
-
-**Breaking change:**
-```
-feat(auth)!: require API key for all endpoints
-
-BREAKING CHANGE: Anonymous access removed. All requests now
-require X-API-Key header.
-```
-
-**Refactor before feature:**
-```
-# Commit 1
-refactor(utils): extract date formatting helpers
-
-# Commit 2
-feat(reports): add monthly summary export
-```
-
-## Authorship
-
-Never add AI attribution or "Co-Authored-By" trailers. Write commit messages as if the user authored them.

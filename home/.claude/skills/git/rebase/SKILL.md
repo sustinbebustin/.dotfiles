@@ -2,7 +2,7 @@
 name: rebase
 description: Rebase onto the latest trunk safely, including the semantic conflicts git merges cleanly and never flags. Use for "rebase", "gsync", "sync with main", "update my branch", "catch me up with main", "get up to date with trunk", or after a rebase left the tree broken.
 argument-hint: [repo...] [base-branch] [-- note]
-allowed-tools: Bash(git *), Bash(bash *), Bash(just *), Read, Edit, Grep, Glob
+allowed-tools: Bash(git *), Bash(bash *), Bash(just *), Read, Edit, Grep, Glob, Skill(fix-merge-conflicts)
 metadata:
   author: sustinbebustin
 ---
@@ -118,7 +118,10 @@ git -C <repo> rebase "$T"
 
 ### 4. Resolve conflicts -- neither side is presumed right
 
-Standard resolution mechanics: see the `fix-merge-conflicts` skill. Beyond those:
+Call the Skill tool for `fix-merge-conflicts` at the first stop: it carries the standard
+resolution mechanics. Its build-and-test step waits for step 6 here -- mid-rebase commits
+are replayed one at a time and only the finished branch is expected to be green. After
+staging each round, `git -C <repo> rebase --continue`. Beyond those mechanics:
 
 - **Do not reflexively pick a side.** Conflict markers tell you *where* to look, not what
   is correct. Frequently the answer is a combination that appears on neither side --
@@ -126,7 +129,6 @@ Standard resolution mechanics: see the `fix-merge-conflicts` skill. Beyond those
 - Read *both* sides' intent before writing the resolution. If trunk changed a behavior and
   you rewrote the same code, your resolution must carry trunk's change forward or you have
   silently reverted it, with a clean diff and a passing build.
-- Lockfiles: regenerate with the package manager, never hand-merge.
 - Generated files (schema types, API clients, snapshots): regenerate from source after the
   rebase rather than merging the generated text.
 

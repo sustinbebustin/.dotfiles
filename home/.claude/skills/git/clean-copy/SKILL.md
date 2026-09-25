@@ -3,7 +3,7 @@ name: clean-copy
 description: Rebuild the current branch on a sibling branch as a narrative sequence of reviewable commits, with the final tree proven byte-identical to the original. Copies several repos in one pass for a poly-repo change, slicing their histories to match. Use for "clean copy", "clean up my history", "make this branch reviewable", "split this into proper commits", "this needs to be one commit per idea", or when a branch's history is too tangled to review.
 argument-hint: [repo...] [base-branch] [-- note]
 disable-model-invocation: true
-allowed-tools: Bash(git *), Bash(bash *), Bash(just *), Read, Edit, Grep, Glob, AskUserQuestion, Skill(commit)
+allowed-tools: Bash(git *), Bash(bash *), Bash(just *), Read, Edit, Grep, Glob, AskUserQuestion, Bash(awk *)
 metadata:
   author: sustinbebustin
 ---
@@ -293,8 +293,12 @@ Two rules that matter more than the ordering:
 - **Generated files ride with the change that necessitated them** -- lockfiles with the
   dependency bump, generated clients with the schema change. Never a "regenerate" commit.
 
-Commit message format follows the `commit` skill; do not restate it here. Write messages as if
-the user authored them: no AI attribution, no `Co-Authored-By` trailers.
+Every subject in the storyline follows this message format, and every commit this authorship
+rule (the storyline above replaces the `commit` skill's split rules here):
+
+```!
+awk '/^### /{p=($0=="### Conventional Commit Format" || $0=="### Authorship")} p' "$HOME/.claude/skills/commit/references/conventions.md"
+```
 
 ### Across repos
 

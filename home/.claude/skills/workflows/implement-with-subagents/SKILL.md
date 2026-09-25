@@ -3,6 +3,7 @@ name: implement-with-subagents
 description: Dispatch one subagent per ticket, in dependency order, until every ticket in an issues directory is implemented.
 argument-hint: "[issues-dir] [haiku|sonnet|opus|fable] [plan] [-- notes]"
 disable-model-invocation: true
+allowed-tools: Bash(awk *)
 metadata:
   author: sustinbebustin
 ---
@@ -28,9 +29,7 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
 ## Process
 
 1. List the ticket files in the issues directory. They are numbered in dependency order.
-2. **Create the implementation branch before dispatching anything.** Run `git branch --show-current`. If it reports the default branch (`main`/`master`), create and switch to a new branch with `git checkout -b <type>/<short-description>`, named per the `commit-push-pr` convention:
-   - `<type>` is one of `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, matching the dominant change across the tickets.
-   - `<short-description>` is kebab-case, imperative, 2-4 words, derived from the issues directory's subject. Never `wip`, `patch-1`, `my-branch`, or similar.
+2. **Create the implementation branch before dispatching anything.** Run `git branch --show-current`. If it reports the default branch (`main`/`master`), create and switch to a new branch with `git checkout -b <type>/<short-description>`, named per [Branch Naming](#branch-naming) below: the type matches the dominant change across the tickets, and the description comes from the issues directory's subject.
 
    If already on a non-default branch, stay on it. Every subagent commits onto this one branch.
 3. Take the lowest-numbered ticket not yet implemented. With `plan`, hydrate it first: call the Skill tool for "pti-fork" with that ticket's path. The fork runs in the background, so wait for its final report before going on, and leave the planning to it. While its report holds Open questions, ask them with AskUserQuestion, send the answers to `pti-fork` with SendMessage, and wait for its next report. The plan lands on the ticket itself, which is what the subagent reads.
@@ -55,3 +54,7 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
 7. Repeat from step 3 until every ticket file has been implemented.
 
 Report each ticket as it completes: its number, title, the skills the subagent invoked, and the code-review outcome.
+
+```!
+awk '/^### /{p=($0=="### Branch Naming")} p' "$HOME/.claude/skills/commit/references/conventions.md"
+```

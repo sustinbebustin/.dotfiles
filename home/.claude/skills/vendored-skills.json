@@ -134,7 +134,8 @@
       },
       "localChanges": [
         "Plan mode instead of the create-plan skill; Overview, Inputs and Quick start folded into a one-line intro and the Workflow.",
-        "Short description plus disable-model-invocation (user-invoked only); script usage condensed to a flags line.",
+        "Short trigger-bearing description; model-invocable so release and watch-ci can hand CI failures to it. Script usage condensed to a flags line.",
+        "Step 2 accepts a bare run id (release or push build with no PR) and routes it to the manual gh run view steps.",
         "inspect_pr_checks.py file mode 644 (run via python, not executed directly).",
         "Dropped agents/openai.yaml and assets/ icons: Codex UI metadata, unused by Claude Code."
       ]
@@ -472,6 +473,28 @@
       },
       "localChanges": [
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
+      ]
+    },
+    "test-audit": {
+      "author": "openclaw",
+      "source": {
+        "repo": "openclaw/openclaw",
+        "ref": "main",
+        "path": ".agents/skills/test-audit"
+      },
+      "localPath": "engineering/test-audit",
+      "sync": {
+        "commit": "eacc8dcd118c9264bdade3418cb9a8f6116f954c",
+        "tree": "8015421942bcd215db0e73a13ec944d50ce01ec5",
+        "at": "2026-09-25"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Replaced openclaw validation tooling ($openclaw-testing, $crabbox, scripts/run-vitest.mjs, scripts/check-changed.mjs, $autoreview) with the repo's own test/typecheck/lint gates and /code-review: we run it in Claude Code across arbitrary repos, not the openclaw checkout.",
+        "Generalized openclaw layout wording (provider/receipt/plugin-SDK/prompt-byte, AGENTS.md-only) to repo-neutral terms, reading CLAUDE.md alongside AGENTS.md: same reason, repo-agnostic use.",
+        "Moved orchestration out to our workflows/test-audit-stack skill: dropped the discovery lanes, the Landing and continuation section ($openclaw-pr-maintainer, scripts/pr), PR/merge state in the Handoff, and CAMPAIGN.md (rewritten there as stacked-PR campaign mode). This skill keeps only the rules each batch subagent applies; branching, PRs, and stacking are the orchestrator's job."
       ]
     },
     "to-spec": {

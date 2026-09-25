@@ -1,8 +1,8 @@
 ---
 name: commit-push-pr
-allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git pull:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(gh pr checks:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(gh run:*), Bash(bash:*), Monitor, Read, Write, Edit, AskUserQuestion
+allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git pull:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion, Skill(commit), Skill(watch-ci)
 description: Commit, push, and open a GitHub PR in one flow; optionally watch CI and merge.
-argument_hint: [repo...] [--merge|--bypass] [--all|--yours] [-- note]
+argument-hint: [repo...] [--merge|--bypass] [--all|--yours] [-- note]
 disable-model-invocation: true
 metadata:
   author: sustinbebustin
@@ -27,7 +27,7 @@ Accepts zero or more repo subdirs and/or a free-form user note separated by ` --
 
 `--merge`, `--bypass`, and `--merge-bypass` may appear anywhere before the ` -- ` note separator and apply to every target in the invocation. When any is present the gathered state below starts with a `### Merge mode: ON` block carrying a `**Bypass CI:**` line. `--bypass` implies `--merge`; `--merge --bypass` is the same thing.
 
-`--all` and `--yours` may likewise appear anywhere before the ` -- ` note separator and apply to every target. When one is present the gathered state emits a `### Selection mode:` block. See [Selection modes](#selection-modes).
+`--all` and `--yours` may likewise appear anywhere before the ` -- ` note separator and apply to every target. They select which files get committed; step 2 hands them to the `commit` skill, which owns their meaning.
 
 Subdir names with spaces aren't supported in the multi-scope form -- use the single-scope form for those.
 
@@ -54,116 +54,33 @@ __SKILL_ARGUMENTS__
 ## Your task
 
 1. **Determine the target repo(s):**
-   - If the context above shows one or more `### Target:` blocks, the repo(s) are already known — run steps 2-8 independently for each target.
-   - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then re-invoke this skill scoped to the chosen repo (carrying `--merge` through if it was passed) so the gather script produces a full `### Target:` block (branch, recent commits, commits-ahead-of-default, cumulative diff stat, staged/unstaged diff, release-notes verdict). Don't try to reassemble that state from ad-hoc `git` calls -- the PR description needs the commits-ahead view that the script computes.
+   - If the context above shows one or more `### Target:` blocks, the repo(s) are already known — run steps 2-7 independently for each target.
+   - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then re-invoke this skill scoped to the chosen repo (carrying `--merge` through if it was passed) so the gather script produces a full `### Target:` block (branch, recent commits, commits-ahead-of-default, cumulative diff stat, release-notes verdict). Don't try to reassemble that state from ad-hoc `git` calls -- the PR description needs the commits-ahead view that the script computes.
    - If no repos were found, STOP and tell the user.
-2. **Create a new branch if on main.** Always name it with a conventional prefix. See [Branch naming](#branch-naming).
-3. **Assess atomicity** -- split into multiple commits if changes contain independent logical units. See [When to split commits](#when-to-split-commits).
-4. **Stage selectively per commit** (specific files or `git add -p`), restricted to the file set that [Selection modes](#selection-modes) allows, and commit with a conventional message. See [Conventional commit format](#conventional-commit-format). Each commit subject should read as a user-facing sentence; release tooling (e.g., Release Please, GitHub Releases auto-notes) uses these subjects to build release notes verbatim.
-5. **Release-notes handling.** The gathered state above contains a `**Release-notes action:**` line. That verdict is authoritative — do **not** run additional `ls`, `cat`, `grep`, or any other commands to re-detect release tooling. Dispatch on the action:
+2. **Commit through the `commit` skill.** Call the Skill tool for `commit` once for all targets, with arguments `[<target>...] [--all|--yours] [-- <user note>]`: the targets as named in the `### Target:` blocks (none when the only target is `current directory`), the selection flag if one was passed, and the user note if there is one. Its gathered state holds each target's full diff; work its workflow per target, with one addition:
+   - **Before a target's first commit, branch if it is on its default branch.** Create `<type>/<short-description>` per the Branch Naming the `commit` skill carries, typed by the dominant change across the whole branch.
+   - A target with nothing to commit but with commits ahead of its default branch goes straight to step 3. A target with neither stops here; say so.
+3. **Release-notes handling.** The gathered state above contains a `**Release-notes action:**` line. That verdict is authoritative — do **not** run additional `ls`, `cat`, `grep`, or any other commands to re-detect release tooling. Release-notes files you write here are always yours to commit, whatever the selection mode. Dispatch on the action:
    - `skip` -> do nothing for release notes.
    - `update-changelog` -> following [references/changelog.md](references/changelog.md), add entries under `[Unreleased]` for user-facing changes from the commits you just made. Commit the CHANGELOG change separately as `docs(changelog): ...`.
    - `add-changeset` -> write a new file under `.changeset/<kebab-name>.md` per [Changeset handling](#changeset-handling), using **Candidate packages for changeset frontmatter** from the gathered state. Commit it separately as `docs(changeset): ...`.
    - `verify-changeset` -> read the file(s) listed under **Changeset files added on this branch**. If they describe the user-facing changes in this branch's commits, do nothing. Only add another changeset if the existing ones materially miss something.
-6. **Push the branch to origin.**
-7. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject and should match the dominant change type across the branch. Keep the body short and scale its length to the size of the change: no "Test Plan" section, no `## Summary` / `## Changes` headers. Write it in the repo owner's voice following [references/pr-body.md](references/pr-body.md).
-8. **Merge mode (only if `### Merge mode: ON` appears in the gathered state).** Watch CI, merge the PR, and resync the local default branch. See [Merge mode](#merge-mode). Without that block, stop after step 7 -- never merge a PR that wasn't asked to be merged.
-9. After the target repo is determined, keep output to tool calls only -- no extra prose.
-
-## Selection modes
-
-The `### Selection mode:` block in the gathered state decides **which files** may be staged. It never changes how many commits you make -- atomicity still governs that, so a mode's file set may still split across several commits. Release-notes files you write in step 5 are always yours to commit, in every mode.
-
-| Block | File set |
-|-------|----------|
-| (absent) | Default. Judge from the state what belongs in this branch, as always. |
-| `all` | Every change in the worktree -- tracked modifications, deletions, and untracked files. The worktree ends clean. |
-| `yours` | Only the files this session changed. Everything else stays exactly as it is: unstaged, untracked, and uncommitted. |
-| `CONFLICT` | Both flags were passed. Stop and ask which one was meant. |
-
-### `--all`
-
-Include untracked files -- `git status` in the gathered state lists them, and the diffs do not. Read each one before staging it; scratch files, secrets, and build output that belong in `.gitignore` are still excluded, and say which ones you left out and why.
-
-### `--yours`
-
-The file set is what **you** changed in this session: files you wrote or edited, plus files your commands rewrote (formatters, codegen, lockfiles from an install you ran). Derive it from this conversation's own history, not from the diff -- a file you never touched can still be dirty from the user's own editing.
-
-Name the file set explicitly before staging, then stage those paths by name. `git add -A`, `git add .`, and `git commit -a` all sweep in the user's work, so stage path by path instead.
-
-Some of your files may carry the user's edits on top of yours. That is still your file -- stage it whole and mention the overlap.
-
-If this session changed nothing and the branch has no unpushed commits, stop and say so rather than falling back to the default mode.
+4. **Push the branch to origin.**
+5. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject and should match the dominant change type across the branch. Keep the body short and scale its length to the size of the change: no "Test Plan" section, no `## Summary` / `## Changes` headers. Write it in the repo owner's voice following [references/pr-body.md](references/pr-body.md).
+6. **Merge mode (only if `### Merge mode: ON` appears in the gathered state).** Watch CI, merge the PR, and resync the local default branch. See [Merge mode](#merge-mode). Without that block, stop after step 5 -- never merge a PR that wasn't asked to be merged.
+7. After the target repo is determined, keep output to tool calls only -- no extra prose.
 
 ## Merge mode
 
 Runs only when the gathered state contains `### Merge mode: ON`. Run it per target, right after that target's PR is created. `gh` has no `-C` flag, so run every `gh` command for a target in a subshell: `(cd <target> && gh ...)`, using the relative path from the `### Target:` block.
 
-If the block says `**Bypass CI:** yes`, skip step 1 entirely -- go straight to step 2 without arming a monitor or polling `gh pr checks`. Steps 2-4 are unchanged; a merge that fails for a non-CI reason (conflicts, merge queue, ruleset) still stops the flow per step 4.
+If the block says `**Bypass CI:** yes`, skip step 1 entirely -- go straight to step 2 without watching CI. Steps 2-4 are unchanged; a merge that fails for a non-CI reason (conflicts, merge queue, ruleset) still stops the flow per step 4.
 
-1. **Watch CI with the Monitor tool**, not a blocking foreground command -- `gh pr checks --watch` holds the turn open for the whole run. Arm a monitor that emits each check as it reaches a terminal state and exits when the run is done:
-   ```sh
-   cd <target> && prev=""
-   while true; do
-     s=$(gh pr checks <number> --json name,bucket 2>/dev/null) || { sleep 30; continue; }
-     [ -z "$s" ] && { sleep 30; continue; }
-     cur=$(jq -r '.[] | select(.bucket!="pending") | "\(.name): \(.bucket)"' <<<"$s" | sort)
-     comm -13 <(echo "$prev") <(echo "$cur")
-     prev=$cur
-     jq -e 'all(.bucket!="pending")' <<<"$s" >/dev/null && { echo "CI COMPLETE"; break; }
-     sleep 30
-   done
-   ```
-   `bucket` covers every terminal state (`pass`, `fail`, `skipping`, `cancel`), so a failure or cancellation emits just like a pass -- never filter to `pass` only, since silence is indistinguishable from still-running. Keep `--interval`-scale polling at 30s to stay inside API rate limits. Act on the results the moment they arrive: any non-`pass`/`skipping` bucket is a CI failure -> step 4.
-   - If `gh pr checks` reports `no checks reported`, compare against **CI workflow files** in the gathered state. Workflows listed -> checks haven't registered yet; wait ~20s and retry, up to 3 times. Still nothing, or `(none)` listed -> the repo has no CI; skip to step 2 without arming a monitor.
-   - Required reviewers, merge queues, or other non-check blockers are not CI failures -- see step 4.
+1. **Watch CI.** Call the Skill tool for `watch-ci` with the PR number and the target path. `CI COMPLETE: pass` or `NO CI` -> step 2. `CI COMPLETE: fail` -> step 4.
 2. **Merge.** `gh pr merge <number> --merge --delete-branch --admin`. A standard merge commit is the default, preserving the branch's individual commits. If the repo disallows merge commits, retry with the method its error names (`--squash` or `--rebase`). Never merge a draft PR.
    - Always pass `--admin`: it bypasses required checks and required reviews, which is what merge mode is for. It needs repo admin or bypass-actor rights, and merge queues and some ruleset conditions block even `--admin` -- if the merge still fails, report the error (step 4) rather than trying other bypasses.
 3. **Resync local.** `git -C <target> checkout <default branch>` then `git -C <target> pull`. Use the `**Default branch:**` value from the gathered state.
-4. **On any failure, stop -- do not merge.** Report which checks failed (`gh pr checks` output, plus `gh run view --log-failed <run-id>` for detail) or what blocked the merge, and leave the branch checked out. Don't attempt fixes, re-runs, or a second merge unless the user asks.
-
-## Branch naming
-
-```
-<type>/<short-description>
-```
-
-- Types: same set as commit types -- `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
-- Type must match the dominant change on the branch (the same type you'd use for the PR title)
-- Description: kebab-case, imperative, 2-4 words, no trailing slashes or issue-only names
-- Optional issue reference as a suffix: `fix/null-panel-calc-892`
-
-Examples: `feat/signwell-webhook`, `fix/auth-redirect-loop`, `chore/bump-eslint`, `docs/api-auth-guide`
-
-Never use bare or ad-hoc names like `patch-1`, `wip`, `my-branch`, or `update`.
-
-## Conventional commit format
-
-```
-<type>(<scope>): <description>
-
-[optional body]
-```
-
-- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
-- Scope: optional, area affected (e.g. `auth`, `api`, `proposals`)
-- Description: imperative mood, lowercase, no period, under 50 chars
-- Body: wrap at 72 chars, explain what and why (not how)
-- Breaking changes: add `!` after type/scope, e.g. `feat(auth)!: require API key`
-- Never add co-author, AI attribution, or "Generated with" trailers
-
-### When to split commits
-
-- New utility + feature using it -> two commits
-- Bug fix discovered during feature work -> separate commit
-- Refactor + behavior change -> refactor first, behavior second
-- Formatting/linting + code changes -> formatting first
-
-### When NOT to split
-
-- Changes that only make sense together (function + its tests)
-- Rename/move touching many files but one logical operation
-- Config changes required by the code change
+4. **On any failure, stop -- do not merge.** Report which checks failed (the `watch-ci` failure report) or what blocked the merge, and leave the branch checked out. Don't attempt fixes, re-runs, or a second merge unless the user asks.
 
 ## Changeset handling
 
@@ -211,4 +128,3 @@ Internal refactor; no consumer-visible changes.
 ```
 
 If unsure between a real and empty changeset, prefer empty -- empty is safe, missing breaks CI.
-
