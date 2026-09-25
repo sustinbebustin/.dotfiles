@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # Fetches all Claude Code documentation from code.claude.com/docs/llms.txt,
-# stores each page as a markdown file in .claude/context/, and regenerates
+# stores each page as a markdown file in the cache dir, and regenerates
 # INDEX.md listing every cached doc with its title and description.
+#
+# Usage: fetch-docs.sh [cache-dir]   (default: ~/.claude/context)
+# Must be given the same dir as refresh-if-outdated.sh, or the version check
+# reports on a different cache than the one this refreshes.
 
 set -euo pipefail
 
 LLMS_TXT_URL="https://code.claude.com/docs/llms.txt"
-# Absolute rather than walked up from $0: this skill is symlinked into a
-# dotfiles tree that nests it one level deeper, so a relative walk resolves to
-# a sibling directory the skill never reads.
-CONTEXT_DIR="${HOME}/.claude/context"
+CONTEXT_DIR="${1:-${HOME}/.claude/context}"
 INDEX_FILE="${CONTEXT_DIR}/INDEX.md"
 VERSION_FILE="${CONTEXT_DIR}/.claude-version"
 
@@ -67,7 +68,7 @@ echo "Rebuilding INDEX.md..."
 {
     echo "# Claude Code Docs Index"
     echo
-    echo "Cached docs under \`~/.claude/context/\`. Read the file matching your question."
+    echo "Cached docs under \`${CONTEXT_DIR}/\`. Read the file matching your question."
     echo "Last refreshed: $(date -Iseconds)"
     [[ -n "$CLAUDE_VERSION" ]] && echo "Claude Code version: $CLAUDE_VERSION"
     echo

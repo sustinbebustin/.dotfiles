@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Refreshes the Claude Code docs cache when it is missing or was fetched under
-# a different Claude Code version than the one running now. Prints a one-line
-# status suitable for skill context injection.
+# a different Claude Code version than the one running now, then prints a
+# status line, the cache location, and the index for skill context injection.
+#
+# Usage: refresh-if-outdated.sh [cache-dir]
+# A plugin install passes ${CLAUDE_PLUGIN_DATA} so the cache survives plugin
+# updates; a standalone install passes nothing and uses ~/.claude/context.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-# Absolute rather than walked up from SCRIPT_DIR: this skill is symlinked into
-# a dotfiles tree that nests it one level deeper, so a relative walk resolves
-# to a sibling directory the skill never reads. Must match fetch-docs.sh, or
-# the check reports on a different cache than the one it refreshes.
-CONTEXT_DIR="${HOME}/.claude/context"
+CONTEXT_DIR="${1:-${HOME}/.claude/context}"
 INDEX_FILE="${CONTEXT_DIR}/INDEX.md"
 VERSION_FILE="${CONTEXT_DIR}/.claude-version"
 FETCH_SCRIPT="${SCRIPT_DIR}/fetch-docs.sh"
@@ -44,10 +44,14 @@ fi
 if [[ "$needs_refresh" -eq 1 ]]; then
     echo "Refreshing docs cache (${reason})..."
     # Send fetch progress to stderr so the skill's injected block stays clean
-    CLAUDE_DOCS_VERSION="$current_version" bash "$FETCH_SCRIPT" >&2
+    CLAUDE_DOCS_VERSION="$current_version" bash "$FETCH_SCRIPT" "$CONTEXT_DIR" >&2
     echo "Cache refreshed for Claude Code ${current_version:-unknown}."
 elif [[ -z "$current_version" ]]; then
     echo "Cache is for Claude Code ${cached_version:-unknown}; current version could not be determined, using cache as-is."
 else
     echo "Cache is current for Claude Code ${current_version}."
 fi
+
+echo "Cache directory: ${CONTEXT_DIR}"
+echo
+cat "$INDEX_FILE"
