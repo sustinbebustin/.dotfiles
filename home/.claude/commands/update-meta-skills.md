@@ -1,9 +1,9 @@
 ---
 name: update-meta-skills
-description: Refresh the meta skills (create-agent-skills, create-sub-agents, create-claude-plugin, create-codemode-mcp) against their upstream docs and packages.
+description: Refresh the meta skills (create-skills, create-agents, create-plugins, create-mcp) against their upstream docs and packages.
 argument-hint: "[skills] [agents] [plugins] [codemode]"
 disable-model-invocation: true
-allowed-tools: Read, Edit, Skill, Bash(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel), Bash(claude --version), Bash(curl *), Bash(*/docs/vendor/codemode/scrape.sh)
+allowed-tools: Read, Edit, Skill, Bash(readlink -f ~/.claude/commands/update-meta-skills.md), Bash(claude --version), Bash(curl *), Bash(*/docs/vendor/codemode/scrape.sh)
 metadata:
   author: sustinbebustin
 ---
@@ -12,18 +12,18 @@ metadata:
 
 Keep the meta authoring skills current with their upstream sources.
 
-Dotfiles repo: !`git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel`
+This command's source: !`readlink -f ~/.claude/commands/update-meta-skills.md`
 
-Every path below is relative to that repo; prefix it to get the absolute path, whatever the cwd. The repo is the source of truth — edit skills there, not through the `~/.claude/skills/` symlinks.
+The dotfiles repo is that path with `/home/.claude/commands/update-meta-skills.md` removed. Every path below is relative to that repo; prefix it to get the absolute path, whatever the cwd. The repo is the source of truth — edit skills there, not through the `~/.claude/skills/` symlinks.
 
 ## Targets
 
 | Target | Skill | Version source | Doc sources |
 |--------|-------|----------------|-------------|
-| `skills` | `home/.claude/skills/meta/create-agent-skills/` | `claude --version` | `claude-code-docs` skill |
-| `agents` | `home/.claude/skills/meta/create-sub-agents/` | `claude --version` | `claude-code-docs` skill |
-| `plugins` | `home/.claude/skills/meta/create-claude-plugin/` | `claude --version` | `claude-code-docs` skill |
-| `codemode` | `home/.claude/skills/meta/create-codemode-mcp/` | `@cloudflare/codemode` on npm | package tarball, upstream changelog, `docs/vendor/codemode/docs/` |
+| `skills` | `home/.claude/skills/meta/create-skills/` | `claude --version` | `claude-docs` skill |
+| `agents` | `home/.claude/skills/meta/create-agents/` | `claude --version` | `claude-docs` skill |
+| `plugins` | `home/.claude/skills/meta/create-plugins/` | `claude --version` | `claude-docs` skill |
+| `codemode` | `home/.claude/skills/meta/create-mcp/` | `@cloudflare/codemode` on npm | package tarball, upstream changelog, `docs/vendor/codemode/docs/` |
 
 Arguments: $ARGUMENTS
 
@@ -40,7 +40,7 @@ Run the targets named in the arguments; with no arguments, run all four. If an a
    The cutoff is the recorded version — only changes released after it matter. `skills`, `agents`, and `plugins` share a source, so when more than one runs, use the lowest of their versions as one cutoff. A skill whose version already equals upstream is current; review it only if asked.
 
 2. **Pull fresh sources.**
-   - `skills` / `agents` / `plugins`: invoke the `claude-code-docs` skill for current information on agent skills, subagents, slash commands, plugins, and everything else these skills cover (frontmatter fields, invocation control, scopes, permissions, lifecycle). That skill refreshes its own cache when the Claude Code version changes — let it own fetching. For `plugins`, cover `plugins.md`, `plugins-reference.md`, `plugin-marketplaces.md`, `plugin-dependencies.md`, `plugin-evals.md`, `plugin-hints.md`, `plugin-relevance.md`, `discover-plugins.md`, plus the plugin sections of `settings-reference.md`, `mcp.md`, `hooks.md`, `sub-agents.md`, `output-styles.md`, and `errors.md`.
+   - `skills` / `agents` / `plugins`: invoke the `claude-docs` skill for current information on agent skills, subagents, slash commands, plugins, and everything else these skills cover (frontmatter fields, invocation control, scopes, permissions, lifecycle). That skill refreshes its own cache when the Claude Code version changes — let it own fetching. For `plugins`, cover `plugins.md`, `plugins-reference.md`, `plugin-marketplaces.md`, `plugin-dependencies.md`, `plugin-evals.md`, `plugin-hints.md`, `plugin-relevance.md`, `discover-plugins.md`, plus the plugin sections of `settings-reference.md`, `mcp.md`, `hooks.md`, `sub-agents.md`, `output-styles.md`, and `errors.md`.
    - `codemode`: gather three sources, in authority order. The package ships ahead of Cloudflare's docs, so where they disagree the package wins.
      1. **Package** — download the latest tarball into the scratchpad and read `package/dist/*.d.ts`, `package/README.md`, and `package/docs/`:
         ```bash

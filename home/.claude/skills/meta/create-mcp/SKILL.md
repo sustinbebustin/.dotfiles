@@ -1,5 +1,5 @@
 ---
-name: create-codemode-mcp
+name: create-mcp
 description: Author Code Mode MCP servers that wrap multiple host functions behind one code-generating tool, replacing per-call JSON tool dispatch with a single executed JavaScript function.
 metadata:
   author: sustinbebustin

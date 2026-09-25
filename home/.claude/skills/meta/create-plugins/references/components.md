@@ -9,7 +9,7 @@ These are the plugin-specific rules for each component. Authoring the component 
 - Boolean frontmatter also accepts `yes`/`no`/`on`/`off`/`1`/`0` (v2.1.218+).
 - Reach bundled files through `${CLAUDE_SKILL_DIR}` (the skill's own dir) or `${CLAUDE_PLUGIN_ROOT}` (resources shared across skills).
 - A `SKILL.md` edit applies immediately in a skills-dir plugin. Other components need `/reload-plugins`.
-- Authoring: `create-agent-skills`.
+- Authoring: `create-skills`.
 
 ## Agents
 
@@ -18,7 +18,7 @@ These are the plugin-specific rules for each component. Authoring the component 
 - `hooks`, `mcpServers`, and `permissionMode` are ignored for security. When an agent needs them, have the user copy it into `.claude/agents/`.
 - A missing `name` falls back to the filename. Unparseable frontmatter also loads under the filename, but with a generic description and every field ignored. Run `validate` to catch it.
 - Plugin agents have the lowest precedence, so a same-named project or user agent shadows them.
-- Authoring: `create-sub-agents`.
+- Authoring: `create-agents`.
 
 ## Hooks
 
@@ -60,7 +60,7 @@ A marketplace install with a `package.json` plus an npm or bun lockfile gets `no
 - Path variables resolve in stdio `command`/`args`/`env`, and in remote `url`/`headers`/`headersHelper`.
 - `/reload-plugins` keeps live connections whose config is unchanged.
 - In a project-scope skills-dir plugin, each server needs the same per-server approval as a project `.mcp.json`.
-- Authoring a Code Mode server (one `code` tool over many host functions): `create-codemode-mcp`.
+- Authoring a Code Mode server (one `code` tool over many host functions): `create-mcp`.
 
 ## LSP Servers
 

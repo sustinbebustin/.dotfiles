@@ -1,5 +1,5 @@
 ---
-name: create-agent-skills
+name: create-skills
 description: Author and improve Claude Code skills and slash commands — structure, frontmatter, invocation, and best practices. Use when creating, editing, or auditing a SKILL.md or command file.
 metadata:
   author: sustinbebustin

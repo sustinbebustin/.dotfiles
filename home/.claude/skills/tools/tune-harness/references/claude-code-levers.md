@@ -1,6 +1,6 @@
 # Claude Code levers
 
-Where each part of the user-owned harness lives, how it reaches the request, and how to inspect it. Confirm any behaviour a change depends on with the `claude-code-docs` skill; this file is a map, not the spec.
+Where each part of the user-owned harness lives, how it reaches the request, and how to inspect it. Confirm any behaviour a change depends on with the `claude-docs` skill; this file is a map, not the spec.
 
 ## Where the config lives
 

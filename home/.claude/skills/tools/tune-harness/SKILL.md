@@ -26,7 +26,7 @@ Measure per task, not per request. Every turn resends the prefix (tools, instruc
 
 Work in this order: map the harness and measure the baseline, rank the opportunities, make the changes that are safe to make directly, put the rest behind toggles or in proposals, then report.
 
-Where each layer lives on disk, how Claude Code loads it, and the commands that inspect it: [claude-code-levers.md](references/claude-code-levers.md). Read it before step 1. When a claim about Claude Code behaviour decides a change, confirm it with the `claude-code-docs` skill rather than from memory; the product ships weekly.
+Where each layer lives on disk, how Claude Code loads it, and the commands that inspect it: [claude-code-levers.md](references/claude-code-levers.md). Read it before step 1. When a claim about Claude Code behaviour decides a change, confirm it with the `claude-docs` skill rather than from memory; the product ships weekly.
 
 Figures below come from one team's production coding agent and its multi-agent experiments. Use them to gauge magnitude, not as targets. One round of these changes (prompt trimming, tool offloading, cache layout, sparse line numbers, subagent tuning) cut that team's overall token cost about 7% with no loss in quality. The larger percentages apply only to the part of the request each change touched.
 

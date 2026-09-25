@@ -201,7 +201,7 @@ build_hooks() {
 #
 # Claude Code only reads ~/.claude/skills/<name>/SKILL.md (depth 1), so the
 # source may group skills under an optional one-level category dir for human
-# clarity (e.g. skills/meta/claude-code-docs/); that layer is flattened here.
+# clarity (e.g. skills/meta/claude-docs/); that layer is flattened here.
 
 skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude/skills"; }
 
