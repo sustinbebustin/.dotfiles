@@ -173,10 +173,11 @@ func TestRegistryWiring(t *testing.T) {
 	}
 }
 
-// settingsPath is the settings.json that registers the hook, relative to this
-// package. Both live in the same repo, so the test can read the real file
-// rather than a copy that could drift from it.
-const settingsPath = "../../../settings.json"
+// settingsPath is the tracked settings base that registers the hook, relative
+// to this package; `dot stow` merges it into every account's settings.json.
+// Both live in the same repo, so the test can read the real file rather than a
+// copy that could drift from it.
+const settingsPath = "../../../settings.base.json"
 
 // TestSettingsMatcherMatchesRegistry pins the one thing that cannot be checked
 // from inside the binary: the matcher written in settings.json. Claude Code
@@ -209,8 +210,8 @@ func TestSettingsMatcherMatchesRegistry(t *testing.T) {
 
 	entries := settings.Hooks.PreToolUse
 	if len(entries) != 1 {
-		t.Fatalf("settings.json has %d PreToolUse entries, want exactly 1 -- "+
-			"every rule is dispatched by the single claude-hooks binary", len(entries))
+		t.Fatalf("%s has %d PreToolUse entries, want exactly 1 -- "+
+			"every rule is dispatched by the single claude-hooks binary", settingsPath, len(entries))
 	}
 	if got, want := entries[0].Matcher, rules.Matcher(); got != want {
 		t.Errorf("settings.json matcher = %q, registry needs %q. "+

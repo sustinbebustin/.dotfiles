@@ -26,6 +26,9 @@
 # ~/.claude/hooks/config.json, so it has to be linked like the binary is.
 ^/\.claude/hooks/config\.json\.example$
 
+# Merged into settings.json by dot's sync_claude_settings() rather than linked.
+^/\.claude/settings\.base\.json$
+
 # Ignores for stowing .claude on its own into ~/.claude-<account>; meaningless
 # inside ~/.claude itself.
 ^/\.claude/\.stow-local-ignore$

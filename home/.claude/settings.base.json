@@ -1,5 +1,4 @@
 {
-  "syncClaudeAiSkills": false,
   "env": {
     "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "3",
     "ENABLE_TOOL_SEARCH": "true",
@@ -22,20 +21,14 @@
       "Bash(git:*)",
       "Bash(pnpm:*)",
       "Bash(npm:*)",
-      "Bash(npx:*)",
       "Bash(yarn:*)",
-      "Bash(node:*)",
       "Bash(go:*)",
       "Bash(make:*)",
       "Bash(docker:*)",
       "Bash(docker-compose:*)",
       "Bash(supabase db diff:*)",
-      "Bash(python:*)",
-      "Bash(python3:*)",
-      "Bash(*/.claude/hooks/*)",
       "Bash(*/.claude/hooks/*)",
       "Bash(bash */.claude/skills/*)",
-      "Bash(chmod:*)",
       "Bash(mkdir:*)",
       "Bash(touch:*)",
       "Bash(cp:*)",
@@ -59,7 +52,6 @@
       "Bash(cd:*)",
       "Bash(source:*)",
       "Bash(export:*)",
-      "Bash(env:*)",
       "Bash(set:*)",
       "Bash(uv run:*)",
       "Bash(continuity:*)",
@@ -72,11 +64,6 @@
       "Bash(uvx:*)",
       "Bash(pytest:*)",
       "Bash(qlty:*)",
-      "Bash(rm /tmp:*)",
-      "Bash(rm -f /tmp:*)",
-      "Bash(rm -r /tmp:*)",
-      "Bash(rm -rf /tmp:*)",
-      "Bash(rm -fr /tmp:*)",
       "mcp__git__*",
       "mcp__opensrc__*",
       "mcp__context7__*",
@@ -85,8 +72,6 @@
       "mcp__ide__getDiagnostics",
       "Read($HOME/.claude/**)",
       "Read(~/.claude/**)",
-      "Read($HOME/.claude-work/**)",
-      "Read(~/.claude-work/**)",
       "mcp__supabase__*",
       "mcp__supabase__list_tables",
       "mcp__supabase__list_extensions",
@@ -106,8 +91,20 @@
     "ask": [
       "Skill(release)",
       "Skill(release *)"
-    ],
-    "defaultMode": "auto"
+    ]
+  },
+  "skillOverrides": {
+    "better-error-messages": "name-only",
+    "doc-generator": "user-invocable-only",
+    "fix-merge-conflicts": "name-only",
+    "gh-fix-ci": "name-only",
+    "impeccable": "name-only",
+    "librarian": "name-only",
+    "prototype": "name-only",
+    "sentry-cli": "name-only",
+    "stack": "name-only",
+    "summarize": "name-only",
+    "wizard": "name-only"
   },
   "hooks": {
     "PreToolUse": [
@@ -141,34 +138,5 @@
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {},
-  "outputStyle": "Concise",
-  "feedbackDrafts": "off",
-  "spinnerTipsEnabled": false,
-  "effortLevel": "medium",
-  "modelSettings": {
-    "claude-fable-5-1": {
-      "effortLevel": "medium"
-    }
-  },
-  "awaySummaryEnabled": false,
-  "showClearContextOnPlanAccept": true,
-  "skipDangerousModePermissionPrompt": true,
-  "skipWorkflowUsageWarning": true,
-  "editorMode": "normal",
-  "verbose": false,
-  "autoCompactEnabled": true,
-  "autoContinueAtUsageLimit": false,
-  "remoteControlAtStartup": false,
-  "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true,
-  "autoMode": {
-    "allow": [
-      "$defaults",
-      "Dedicated File Tools: using Read, Edit, or Write for any file read, edit, or creation is always allowed and is the preferred way to do file work in this environment. Routing that work through Bash instead -- cat, head, tail, sed, awk, heredocs, redirection, or throwaway scripts -- is not preferred here, even where the shell command would itself be permitted. Searching is the exception: this is a native Linux build, which has no Grep or Glob tool, so searching file contents and finding files through Bash is correct and expected. Bash is also for running real programs: builds, tests, git, package managers, linters, and other CLIs.",
-      "Running a pre-existing skill helper script at ~/.claude/skills/*/scripts/gather-state.sh is allowed, regardless of how it was invoked, when all of these hold: the agent did not write or edit the script this session (if the transcript shows the agent writing or editing it, judge the written content instead); the script invocation is the whole command, taking no arguments other than a quoted heredoc carrying the slash-command's own arguments; and the script only reads local git and repo state. This covers running the script only -- creating or editing files under .claude/skills/ remains Self-Modification and is not cleared here."
-    ]
-  },
-  "voiceEnabled": false
+  }
 }

@@ -92,7 +92,8 @@ Everything else (pnpm, node, bun, cargo) managed outside Homebrew.
 ```
 .claude/
 ├── CLAUDE.md                    # global instructions
-├── settings.json                # model, permissions, hooks, statusline
+├── settings.json                # gitignored; model, permissions, hooks, statusline
+├── settings.base.json           # tracked part of settings.json, merged in by dot
 ├── keybindings.json             # keyboard shortcuts
 ├── statusline.sh                # statusLine command
 ├── hooks/                       # Go safety gates
@@ -102,6 +103,10 @@ Everything else (pnpm, node, bun, cargo) managed outside Homebrew.
 ├── agents/                      # subagent definitions
 └── rules/                       # always-loaded rules
 ```
+
+### Settings
+
+`home/.claude/settings.json` is gitignored but stowed like any other file, so every account links the same one. It stays out of git because Claude Code writes to it and much of it is personal (model, UI toggles, `autoMode` rules). The tracked `settings.base.json` holds what this setup depends on, and `dot stow` merges it into `settings.json`, creating the file on a fresh clone. The base wins on the keys it defines and never touches the rest; objects merge per key, arrays of plain values (permission rules) are unioned, and other arrays (hook entries) are replaced. A key deleted from the base stays in `settings.json`. A merge that changes the file backs up the previous copy under `backups/` and prints the diff; `dot doctor` flags a file that is behind the base.
 
 ### Hooks (Go)
 
@@ -145,7 +150,7 @@ reported and ignored whole. Adding a language is adding an ecosystem to
 
 `hooks/Makefile` builds both. The binaries are gitignored and built per-machine;
 only the built binaries are stowed into `~/.claude/hooks/`, never the source tree.
-`make list` prints the registered rules and the `matcher` settings.json needs.
+`make list` prints the registered rules and the `matcher` settings.base.json needs.
 `make check` is the gate before committing -- formatting, linters, tests -- and
 needs `golangci-lint` (in the Brewfile); `.golangci.yml` configures both it and
 the `gofumpt`/`gci` formatters `make fmt` applies.
@@ -175,4 +180,4 @@ Subagents are grouped by domain under `agents/`: `design/` (the Impeccable build
 2. **XDG-compliant** -- all config under `~/.config/`, `.zshenv` bootstraps `ZDOTDIR`
 3. **Single bootstrap** -- `dot` handles Homebrew, packages, stow, shell in one pass
 4. **Hook-enforced safety** -- the Go guards deny or ask before destructive or outward-facing tool calls
-5. **Secrets excluded** -- `mcp.json`, `.env*`, hook `config.json`, `~/.npmrc.local` all untracked
+5. **Secrets excluded** -- `mcp.json`, `settings.json`, `.env*`, hook `config.json`, `~/.npmrc.local` all untracked

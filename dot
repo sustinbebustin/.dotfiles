@@ -347,6 +347,79 @@ stow_skills() {
     ok "Linked $count skill(s) -> $dst"
 }
 
+# --- Claude Code settings ---
+
+# home/.claude/settings.json is gitignored but stowed like any other file, so
+# every account links the same one. It stays out of git because Claude Code
+# writes to it (/permissions, /model, auto mode rules) and much of it is
+# personal. The tracked settings.base.json holds what this setup needs --
+# hooks, statusline, env, baseline permissions -- and `dot stow` merges it into
+# settings.json, creating it on a fresh clone. The base wins on the keys it
+# defines; every other key is left alone. Objects merge key by key. Arrays of
+# plain values (permission rules) are unioned, so rules added locally survive;
+# any other array (hook entries) is replaced, so a changed hook doesn't linger
+# beside its old version. A key deleted from the base is not deleted locally --
+# dot can't tell it from one added by hand.
+
+claude_settings_base() { printf '%s\n' "$(claude_pkg_dir)/settings.base.json"; }
+claude_settings_file() { printf '%s\n' "$(claude_pkg_dir)/settings.json"; }
+
+# shellcheck disable=SC2016  # jq program; $b and $u are jq variables
+readonly CLAUDE_SETTINGS_MERGE='
+def scalars: all(.[]; type != "object" and type != "array");
+def merge($b):
+  if type == "object" and ($b | type) == "object" then
+    reduce ($b | keys_unsorted[]) as $k (.; .[$k] |= merge($b[$k]))
+  elif type == "array" and ($b | type) == "array" and scalars and ($b | scalars) then
+    . as $u | $u + [$b[] | select(. as $x | $u | index([$x]) | not)]
+  else $b end;
+merge($base[0])'
+
+# Print settings file $1 with the base merged in.
+render_claude_settings() {
+    jq --indent 2 --slurpfile base "$(claude_settings_base)" "$CLAUDE_SETTINGS_MERGE" "$1"
+}
+
+# Bring settings.json up to date with the base: create it from the base when
+# missing, else merge, backing up the previous file and showing what changed.
+# Runs before stow, so a fresh clone has a file to link.
+sync_claude_settings() {
+    local base target tmp backup_dir
+    base="$(claude_settings_base)"
+    target="$(claude_settings_file)"
+
+    if [[ ! -e "$target" ]]; then
+        cp "$base" "$target"
+        ok "Created $target from settings.base.json"
+        return 0
+    fi
+    if ! command_exists jq; then
+        warn "Can't merge settings.base.json into $target -- jq not installed ($(install_hint jq))"
+        warn "  $target is unchanged; install jq and re-run 'dot stow'"
+        return 1
+    fi
+
+    tmp="$(mktemp)"
+    if ! render_claude_settings "$target" > "$tmp"; then
+        rm -f "$tmp"
+        warn "Can't merge settings.base.json into $target -- one of them isn't valid JSON (see jq error above)"
+        warn "  $target is unchanged; fix the JSON and re-run 'dot stow'"
+        return 1
+    fi
+    if cmp -s "$tmp" "$target"; then
+        rm -f "$tmp"
+        return 0
+    fi
+    backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$backup_dir"
+    cp -p "$target" "${backup_dir}/settings.json"
+    diff -u "$target" "$tmp" || true
+    # Written in place rather than moved, keeping the file's mode.
+    cat "$tmp" > "$target"
+    rm -f "$tmp"
+    ok "Merged settings.base.json into $target (previous copy in ${backup_dir})"
+}
+
 # --- Extra Claude Code accounts ---
 
 # Each account registered with `dot claude add <name>` gets its own config dir,
@@ -884,6 +957,8 @@ cmd_stow() {
         return 1
     fi
     build_hooks
+    # A failure is reported inside and leaves the file as it was; still link it.
+    sync_claude_settings || true
     info "Stowing dotfiles (${STOW_PACKAGE})..."
     prune_broken_stow_links
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "$STOW_PACKAGE"
@@ -1018,6 +1093,25 @@ cmd_doctor() {
     else
         warn "Found ${#broken_list[@]} broken stow symlinks:"
         printf "  %s\n" "${broken_list[@]}"
+        info "  -> dot stow"
+        ((++issues))
+    fi
+
+    # settings.json carries the current settings.base.json
+    local settings
+    settings="$(claude_settings_file)"
+    if [[ ! -f "$settings" ]]; then
+        warn "$settings is missing"
+        info "  -> dot stow"
+        ((++issues))
+    elif ! command_exists jq; then
+        warn "Can't check $settings -- jq not installed"
+        info "  -> $(install_hint jq)"
+        ((++issues))
+    elif cmp -s <(render_claude_settings "$settings" 2>/dev/null) "$settings"; then
+        ok "settings.json up to date with settings.base.json"
+    else
+        warn "$settings is behind settings.base.json (or isn't valid JSON)"
         info "  -> dot stow"
         ((++issues))
     fi
@@ -1268,6 +1362,7 @@ cmd_claude_add() {
         ok "Registered Claude account '$name' in ${CLAUDE_ACCOUNTS_FILE/#$HOME/\~}"
     fi
 
+    sync_claude_settings || true
     stow_claude_account "$name"
     info "Open a new shell, then run '$name' to log in (it takes the same args as claude, e.g. '$name fable h')"
 }

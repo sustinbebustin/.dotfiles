@@ -96,7 +96,7 @@ tidy:
 	go mod tidy
 
 # The "matcher" printed here is what the single PreToolUse entry in
-# settings.json must be registered with, or a rule silently stops running.
+# settings.base.json must be registered with, or a rule silently stops running.
 list: $(BIN)
 	@./$(BIN) list
 

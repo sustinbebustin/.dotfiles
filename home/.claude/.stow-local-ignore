@@ -23,6 +23,9 @@
 ^/hooks/\.golangci\.yml$
 ^/hooks/config\.json\.example$
 
+# Merged into settings.json by dot's sync_claude_settings() rather than linked.
+^/settings\.base\.json$
+
 # The skills tree. Published by dot's stow_skills() instead -- categories
 # flattened, each skill linked as a folder.
 ^/skills$

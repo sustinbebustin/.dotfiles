@@ -6,7 +6,8 @@ Stow-based dotfiles; `home/` mirrors `$HOME`. Layout, commands, and the stow mod
 
 Everything under `home/` is symlinked into `$HOME`, so an edit here is **live** the moment it is saved -- in this session and every other one.
 
-- `home/.claude/CLAUDE.md`, `rules/`, `agents/`, `skills/`, and `settings.json` are the global agent config for every project. This file governs only this repo.
+- `home/.claude/CLAUDE.md`, `rules/`, `agents/`, and `skills/` are the global agent config for every project. This file governs only this repo.
+- `home/.claude/settings.json` is gitignored (still stowed and live). Settings this setup needs go in `settings.base.json`, which is not live until `dot stow` merges it into `settings.json`; personal ones (`autoMode`, model, UI toggles) go only in `settings.json`.
 - Stow links per file (`--no-folding`), so a new file under `home/` is dead until `dot stow` runs. Skills link per folder: a new file in an existing skill is live at once; a new skill needs `dot stow`.
 - Skill category dirs (`skills/<category>/<name>/`) are flattened when published, so a skill name must be unique across all categories.
 - Skills listed in `skills/vendored-skills.json` are third-party copies; add, update, and delete them with `/vendor-skills`. A hand edit to one needs a matching `localChanges` note in the catalog, or the next update may drop it.

@@ -45,6 +45,8 @@ credentials/
 **/*secret*
 !**/*secret*.md
 home/.claude/mcp.json
+# Per-machine; dot stow merges the tracked settings.base.json into it
+home/.claude/settings.json
 
 # Node (if any scripts use it)
 node_modules/
