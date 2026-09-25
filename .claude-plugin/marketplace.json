@@ -1,0 +1,19 @@
+{
+  "name": "sustinbebustin",
+  "owner": {
+    "name": "sustinbebustin",
+    "url": "https://github.com/sustinbebustin"
+  },
+  "description": "Claude Code plugins published from sustinbebustin's dotfiles",
+  "plugins": [
+    {
+      "name": "meta",
+      "source": {
+        "source": "git-subdir",
+        "url": "sustinbebustin/.dotfiles",
+        "path": "home/.claude/skills/meta"
+      },
+      "description": "Skills for authoring Claude Code skills, subagents, plugins, and Code Mode MCP servers"
+    }
+  ]
+}

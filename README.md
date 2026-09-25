@@ -17,6 +17,13 @@ Everything under `home/` maps 1:1 to `$HOME` -- `home/.config/zsh/` becomes `~/.
 
 Claude Code skills are the exception. The tree at `home/.claude/skills/` is skipped by stow and published to `~/.claude/skills` by `dot stow` itself, one folder symlink per skill. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since Claude Code only reads `~/.claude/skills/<name>/SKILL.md`.
 
+A category dir holding `.claude-plugin/plugin.json` doubles as a Claude Code plugin, listed in the root `.claude-plugin/marketplace.json`. `dot` ignores the hidden manifest dir, so local linking is unchanged. The `meta` skills install without cloning this repo:
+
+```sh
+claude plugin marketplace add sustinbebustin/.dotfiles --sparse .claude-plugin
+claude plugin install meta@sustinbebustin
+```
+
 The Go hooks in `home/.claude/hooks/` (PreToolUse guards, PostToolUse format/lint) are stowed as built `*-bin` binaries only -- `dot stow` builds them first, since they are per-platform and gitignored -- and registered in `home/.claude/settings.base.json`, which `dot stow` merges into the gitignored `home/.claude/settings.json`.
 
 ## Structure

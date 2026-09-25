@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "meta",
+  "description": "Skills for authoring Claude Code skills, subagents, plugins, and Code Mode MCP servers, plus a cached-docs lookup and a third-party skill vendoring tool.",
+  "author": {
+    "name": "sustinbebustin",
+    "url": "https://github.com/sustinbebustin"
+  },
+  "repository": "https://github.com/sustinbebustin/.dotfiles",
+  "keywords": ["skills", "subagents", "plugins", "mcp", "authoring"],
+  "skills": "./"
+}
