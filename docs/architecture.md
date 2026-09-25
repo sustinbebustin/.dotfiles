@@ -2,7 +2,7 @@
 
 ## Overview
 
-GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow package, `home/`, mirrors `$HOME`. No templating; `dot` adds custom linking only where stow cannot express it (skills, the second Claude account).
+GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow package, `home/`, mirrors `$HOME`. No templating; `dot` adds custom linking only where stow cannot express it (skills, extra Claude accounts).
 
 ## Components
 
@@ -47,9 +47,11 @@ Stow is run with `--no-folding` to create per-file symlinks rather than director
 
 Skills are the exception. `home/.claude/skills/` is stow-ignored, since stow can express neither the category flattening nor the folder-level symlink each skill is published as. `dot stow` publishes it to `~/.claude/skills` instead. An optional one-level category dir is flattened away when linking, since Claude Code only reads `~/.claude/skills/<name>/SKILL.md`.
 
-### Second Claude account
+### Extra Claude accounts
 
-`dot stow` also links the Claude config into `~/.claude-work`, a second account's config dir. `home/.claude` is stowed there as a package in its own right, which is why it carries its own `.stow-local-ignore` -- keep it in step with the `.claude` entries of `home/.stow-local-ignore`. Session state (`projects/`, `plans/`, `file-history/`, `history.jsonl`, listed in `CLAUDE_SHARED_STATE` in `dot`) is shared by symlinking `~/.claude-work/<path>` to `~/.claude/<path>`; existing work-account data is merged into `~/.claude` first.
+`~/.claude` is the default account and always linked. Extra accounts are opt-in per machine: `dot claude add <name>` records the name in `~/.config/dot/claude-accounts` (outside the repo) and links the Claude config into `~/.claude-<name>`; `dot stow` relinks every registered account, and `dot claude remove <name>` unlinks one while keeping its login. `.zshrc` reads the same file and defines a function `<name>` that runs the claude wrappers with `CLAUDE_CONFIG_DIR` set to that dir.
+
+`home/.claude` is stowed into each account dir as a package in its own right, which is why it carries its own `.stow-local-ignore` -- keep it in step with the `.claude` entries of `home/.stow-local-ignore`. Session state (`projects/`, `plans/`, `file-history/`, `history.jsonl`, listed in `CLAUDE_SHARED_STATE` in `dot`) is shared by symlinking `~/.claude-<name>/<path>` to `~/.claude/<path>`; existing account data is merged into `~/.claude` first.
 
 ## Shell Config
 

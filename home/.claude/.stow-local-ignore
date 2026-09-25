@@ -1,7 +1,7 @@
 # Ignores for when this directory is stowed as a package in its own right,
-# targeting ~/.claude-work (see stow_claude_work in ../../dot). Mirrors the
-# .claude entries of ../.stow-local-ignore, re-anchored to this root; keep the
-# two in step.
+# targeting ~/.claude-<account> (see stow_claude_account in ../../dot).
+# Mirrors the .claude entries of ../.stow-local-ignore, re-anchored to this
+# root; keep the two in step.
 
 # Repeat stow's default ignores (since this file replaces them).
 \.git

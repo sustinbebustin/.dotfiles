@@ -10,7 +10,7 @@ Everything under `home/` is symlinked into `$HOME`, so an edit here is **live** 
 - Stow links per file (`--no-folding`), so a new file under `home/` is dead until `dot stow` runs. Skills link per folder: a new file in an existing skill is live at once; a new skill needs `dot stow`.
 - Skill category dirs (`skills/<category>/<name>/`) are flattened when published, so a skill name must be unique across all categories.
 - Skills listed in `skills/vendored-skills.json` are third-party copies; add, update, and delete them with `/vendor-skills`. A hand edit to one needs a matching `localChanges` note in the catalog, or the next update may drop it.
-- A file that must stay out of `$HOME` goes in `home/.stow-local-ignore`, mirrored re-anchored in `home/.claude/.stow-local-ignore` (the `~/.claude-work` stow). Keep the two in step.
+- A file that must stay out of `$HOME` goes in `home/.stow-local-ignore`, mirrored re-anchored in `home/.claude/.stow-local-ignore` (the `~/.claude-<account>` stows). Keep the two in step.
 - The repo is public. Machine-specific or secret values go in gitignored local files (`~/.claude/hooks/config.json`, `~/.npmrc.local`), with a tracked `.example` recording the shape.
 
 ## Checks

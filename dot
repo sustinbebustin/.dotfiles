@@ -10,14 +10,15 @@ readonly BREWFILE="${PACKAGES_DIR}/Brewfile"
 # The single stow package; its tree mirrors $HOME.
 readonly STOW_PACKAGE="home"
 
-# Config dirs for the primary and second Claude Code accounts (see
-# stow_claude_work).
+# Config dir of the default Claude Code account. Extra accounts are opt-in and
+# per-machine: their names are listed in $CLAUDE_ACCOUNTS_FILE, outside this
+# repo, and each gets its own config dir (see `dot claude`).
 readonly CLAUDE_HOME_DIR="${HOME}/.claude"
-readonly CLAUDE_WORK_DIR="${HOME}/.claude-work"
+readonly CLAUDE_ACCOUNTS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/dot/claude-accounts"
 
-# Session state both accounts share, as "path:kind" relative to either config
-# dir. The data lives in $CLAUDE_HOME_DIR -- never in this repo -- and
-# $CLAUDE_WORK_DIR gets symlinks to it (see link_claude_shared_state).
+# Session state every account shares, as "path:kind" relative to a config dir.
+# The data lives in $CLAUDE_HOME_DIR -- never in this repo -- and each extra
+# account's dir gets symlinks to it (see link_claude_shared_state).
 CLAUDE_SHARED_STATE=(
     "projects:dir"
     "plans:dir"
@@ -92,9 +93,12 @@ stow_target_paths() {
         [[ "$rel" == ".stow-local-ignore" ]] && continue
         printf '%s\0' "${HOME}/${rel}"
     done < <(find "$pkg_dir" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
-    # The second Claude account dir mirrors part of the same package
-    # (stow_claude_work), so it can hold orphans too.
-    printf '%s\0' "$CLAUDE_WORK_DIR"
+    # Extra Claude account dirs mirror part of the same package
+    # (stow_claude_account), so they can hold orphans too.
+    local name
+    while IFS= read -r name; do
+        printf '%s\0' "$(claude_account_dir "$name")"
+    done < <(claude_accounts)
 }
 
 # Emit NUL-separated paths to broken stow symlinks (orphans left behind
@@ -343,32 +347,64 @@ stow_skills() {
     ok "Linked $count skill(s) -> $dst"
 }
 
-# --- Second Claude Code account ---
+# --- Extra Claude Code accounts ---
 
-# The `claude-work` alias (home/.config/zsh/.zshrc) points CLAUDE_CONFIG_DIR at
-# $CLAUDE_WORK_DIR so a second login keeps its own credentials and state.
+# Each account registered with `dot claude add <name>` gets its own config dir,
+# ~/.claude-<name>, and a zsh function <name> (home/.config/zsh/.zshrc) that
+# points CLAUDE_CONFIG_DIR at it, so every login keeps its own credentials.
 # Everything tracked here -- CLAUDE.md, agents, commands, rules, hooks,
-# statusline, skills -- is shared, so it gets linked into that directory too.
+# statusline, skills -- is shared, so it gets linked into each dir too.
 # home/.claude is stowed as a package in its own right for this, which is why
 # it carries a second .stow-local-ignore. Session state (CLAUDE_SHARED_STATE)
 # is shared as well, but by symlinking into ~/.claude rather than via stow.
+#
+# The registry is per-machine and lives outside this repo, so a fresh clone
+# links only the default ~/.claude.
 
 claude_pkg_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude"; }
 
-# Move aside real files in $CLAUDE_WORK_DIR that stow is about to replace with
+claude_account_dir() { printf '%s\n' "${HOME}/.claude-$1"; }
+
+# A name must also be a valid zsh function name and a safe path component; the
+# zsh loader applies the same pattern.
+claude_account_name_valid() { [[ "$1" =~ ^[a-z][a-z0-9-]*$ ]]; }
+
+# Emit the registered account names, one per line. Invalid lines (a hand edit
+# gone wrong) are reported and skipped rather than turned into paths.
+claude_accounts() {
+    [[ -f "$CLAUDE_ACCOUNTS_FILE" ]] || return 0
+    local name
+    while IFS= read -r name || [[ -n "$name" ]]; do
+        [[ -n "$name" ]] || continue
+        if claude_account_name_valid "$name"; then
+            printf '%s\n' "$name"
+        else
+            warn "Ignoring invalid Claude account name '$name' in $CLAUDE_ACCOUNTS_FILE" >&2
+            warn "  Names match ^[a-z][a-z0-9-]*\$; fix or delete that line" >&2
+        fi
+    done < "$CLAUDE_ACCOUNTS_FILE"
+}
+
+claude_account_registered() {
+    # Not grep -q: exiting on the first match can SIGPIPE claude_accounts,
+    # which pipefail would report as "not registered".
+    claude_accounts | grep -Fx -- "$1" >/dev/null
+}
+
+# Move aside real files in account dir $1 that stow is about to replace with
 # symlinks -- Claude Code writes its own settings.json there on first launch.
-backup_claude_work_conflicts() {
-    local pkg file rel target backup_dir=""
+backup_claude_account_conflicts() {
+    local dir="$1" pkg file rel target backup_dir=""
     pkg="$(claude_pkg_dir)"
     while IFS= read -r -d '' file; do
         rel="${file#"$pkg"/}"
-        target="${CLAUDE_WORK_DIR}/${rel}"
+        target="${dir}/${rel}"
         [[ -e "$target" && ! -L "$target" ]] || continue
-        [[ -n "$backup_dir" ]] || backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)/.claude-work"
+        [[ -n "$backup_dir" ]] || backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)/${dir##*/}"
         mkdir -p "$(dirname "${backup_dir}/${rel}")"
         mv "$target" "${backup_dir}/${rel}"
     done < <(find "$pkg" -type f -print0)
-    [[ -n "$backup_dir" ]] && ok "Backed up pre-existing ~/.claude-work files to $backup_dir"
+    [[ -n "$backup_dir" ]] && ok "Backed up pre-existing ${dir/#$HOME/\~} files to $backup_dir"
     return 0
 }
 
@@ -416,19 +452,19 @@ merge_claude_history() {
     info "Merged history into ${dst/#$HOME/\~}"
 }
 
-# Replace $CLAUDE_WORK_DIR/<path> with a symlink to $CLAUDE_HOME_DIR/<path> for
-# each CLAUDE_SHARED_STATE entry. Existing work-account data is renamed aside
+# Replace <account dir $1>/<path> with a symlink to $CLAUDE_HOME_DIR/<path> for
+# each CLAUDE_SHARED_STATE entry. Existing account data is renamed aside
 # first -- so a running session can't write into it mid-merge -- then merged
 # into ~/.claude. Anything that can't be merged is left in the aside path.
 # Idempotent; re-running also re-merges if Claude ever replaces a link with a
 # real file.
 link_claude_shared_state() {
-    local entry rel kind canonical work aside
+    local dir="$1" entry rel kind canonical work aside
     for entry in "${CLAUDE_SHARED_STATE[@]}"; do
         rel="${entry%%:*}"
         kind="${entry##*:}"
         canonical="${CLAUDE_HOME_DIR}/${rel}"
-        work="${CLAUDE_WORK_DIR}/${rel}"
+        work="${dir}/${rel}"
 
         if [[ "$kind" == "dir" ]]; then
             mkdir -p "$canonical"
@@ -471,14 +507,43 @@ link_claude_shared_state() {
     done
 }
 
-stow_claude_work() {
-    info "Linking Claude config into ~/.claude-work..."
-    mkdir -p "$CLAUDE_WORK_DIR"
-    backup_claude_work_conflicts
-    stow -R --no-folding --dir="${DOTFILES_DIR}/${STOW_PACKAGE}" --target="$CLAUDE_WORK_DIR" ".claude"
-    stow_skills "${CLAUDE_WORK_DIR}/skills"
-    link_claude_shared_state
-    ok "Second Claude account linked"
+stow_claude_account() {
+    local name="$1" dir
+    dir="$(claude_account_dir "$name")"
+    info "Linking Claude config into ${dir/#$HOME/\~}..."
+    mkdir -p "$dir"
+    backup_claude_account_conflicts "$dir"
+    stow -R --no-folding --dir="${DOTFILES_DIR}/${STOW_PACKAGE}" --target="$dir" ".claude"
+    stow_skills "${dir}/skills"
+    link_claude_shared_state "$dir"
+    ok "Claude account '$name' linked"
+}
+
+stow_claude_accounts() {
+    local name
+    while IFS= read -r name; do
+        stow_claude_account "$name"
+    done < <(claude_accounts)
+}
+
+# Undo stow_claude_account: remove every link it made, leaving the account's
+# own files -- credentials, .claude.json, anything Claude wrote -- in place.
+unlink_claude_account() {
+    local name="$1" dir entry rel link marker
+    dir="$(claude_account_dir "$name")"
+    [[ -d "$dir" ]] || return 0
+    stow -D --no-folding --dir="${DOTFILES_DIR}/${STOW_PACKAGE}" --target="$dir" ".claude"
+    marker="/$(basename "$DOTFILES_DIR")/"
+    find "$dir/skills" -mindepth 1 -maxdepth 1 -type l -lname "*${marker}*" -delete 2>/dev/null || true
+    for entry in "${CLAUDE_SHARED_STATE[@]}"; do
+        rel="${entry%%:*}"
+        link="${dir}/${rel}"
+        if [[ -L "$link" && "$(readlink "$link")" == "${CLAUDE_HOME_DIR}/${rel}" ]]; then
+            rm -f "$link"
+        fi
+    done
+    # stow -D leaves the dirs --no-folding created behind, emptied.
+    find "$dir" -mindepth 1 -depth -type d -empty -delete 2>/dev/null || true
 }
 
 # --- Core operations ---
@@ -823,7 +888,7 @@ cmd_stow() {
     prune_broken_stow_links
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "$STOW_PACKAGE"
     stow_skills "${HOME}/.claude/skills"
-    stow_claude_work
+    stow_claude_accounts
     ok "Dotfiles linked"
 }
 
@@ -957,25 +1022,27 @@ cmd_doctor() {
         ((++issues))
     fi
 
-    # Session state shared with the second Claude account
-    local rel work
-    for entry in "${CLAUDE_SHARED_STATE[@]}"; do
-        rel="${entry%%:*}"
-        work="${CLAUDE_WORK_DIR}/${rel}"
-        if [[ -L "$work" && "$(readlink "$work")" == "${CLAUDE_HOME_DIR}/${rel}" ]]; then
-            ok "${work/#$HOME/\~} shared with ~/.claude"
-        else
-            warn "${work/#$HOME/\~} is not a symlink to ${CLAUDE_HOME_DIR}/${rel}"
-            info "  -> dot stow"
+    # Session state shared with each extra Claude account
+    local name dir rel work leftover
+    while IFS= read -r name; do
+        dir="$(claude_account_dir "$name")"
+        for entry in "${CLAUDE_SHARED_STATE[@]}"; do
+            rel="${entry%%:*}"
+            work="${dir}/${rel}"
+            if [[ -L "$work" && "$(readlink "$work")" == "${CLAUDE_HOME_DIR}/${rel}" ]]; then
+                ok "${work/#$HOME/\~} shared with ~/.claude"
+            else
+                warn "${work/#$HOME/\~} is not a symlink to ${CLAUDE_HOME_DIR}/${rel}"
+                info "  -> dot stow"
+                ((++issues))
+            fi
+        done
+        while IFS= read -r -d '' leftover; do
+            warn "Unmerged Claude state left from an earlier 'dot stow': $leftover"
+            info "  -> diff it against ~/.claude, keep what you need, then delete it"
             ((++issues))
-        fi
-    done
-    local leftover
-    while IFS= read -r -d '' leftover; do
-        warn "Unmerged Claude state left from an earlier 'dot stow': $leftover"
-        info "  -> diff it against ~/.claude, keep what you need, then delete it"
-        ((++issues))
-    done < <(find "$CLAUDE_WORK_DIR" -mindepth 1 -maxdepth 1 -name '*.merging-*' -print0 2>/dev/null)
+        done < <(find "$dir" -mindepth 1 -maxdepth 1 -name '*.merging-*' -print0 2>/dev/null)
+    done < <(claude_accounts)
 
     # SSH key
     if [[ -f "$HOME/.ssh/id_ed25519.pub" || -f "$HOME/.ssh/id_rsa.pub" ]]; then
@@ -1150,6 +1217,121 @@ SUBCOMMANDS:
 EOF
 }
 
+cmd_claude() {
+    local subcmd="${1:-list}"
+    shift || true
+
+    case "$subcmd" in
+        add)    cmd_claude_add "$@" ;;
+        remove) cmd_claude_remove "$@" ;;
+        list)   cmd_claude_list ;;
+        -h|--help|help) cmd_claude_help ;;
+        *)
+            err "Unknown claude subcommand: $subcmd"
+            cmd_claude_help
+            return 1
+            ;;
+    esac
+}
+
+cmd_claude_add() {
+    local name="${1:-}" dir
+    if [[ -z "$name" ]]; then
+        err "Usage: dot claude add <name>"
+        return 1
+    fi
+    if ! claude_account_name_valid "$name"; then
+        err "Invalid account name '$name' -- use lowercase letters, digits and '-', starting with a letter"
+        return 1
+    fi
+    if ! command_exists stow; then
+        err "GNU Stow is not installed ($(install_hint stow)); nothing was registered"
+        return 1
+    fi
+    dir="$(claude_account_dir "$name")"
+
+    if claude_account_registered "$name"; then
+        info "Claude account '$name' is already registered; relinking ${dir/#$HOME/\~}"
+    else
+        if command_exists "$name"; then
+            err "'$name' is already a command ($(command -v "$name")); the account's shell function would shadow it"
+            err "  Pick another name; nothing was registered"
+            return 1
+        fi
+        mkdir -p "$(dirname "$CLAUDE_ACCOUNTS_FILE")"
+        # Keep a hand-edited file without a trailing newline from gluing
+        # this name onto its last line.
+        if [[ -s "$CLAUDE_ACCOUNTS_FILE" && -n "$(tail -c 1 "$CLAUDE_ACCOUNTS_FILE")" ]]; then
+            printf '\n' >> "$CLAUDE_ACCOUNTS_FILE"
+        fi
+        printf '%s\n' "$name" >> "$CLAUDE_ACCOUNTS_FILE"
+        ok "Registered Claude account '$name' in ${CLAUDE_ACCOUNTS_FILE/#$HOME/\~}"
+    fi
+
+    stow_claude_account "$name"
+    info "Open a new shell, then run '$name' to log in (it takes the same args as claude, e.g. '$name fable h')"
+}
+
+cmd_claude_remove() {
+    local name="${1:-}" dir tmp
+    if [[ -z "$name" ]]; then
+        err "Usage: dot claude remove <name>"
+        return 1
+    fi
+    if ! claude_account_registered "$name"; then
+        warn "No Claude account '$name' registered in ${CLAUDE_ACCOUNTS_FILE/#$HOME/\~}"
+        return 0
+    fi
+    if ! command_exists stow; then
+        err "GNU Stow is not installed ($(install_hint stow)); '$name' is still registered and linked"
+        return 1
+    fi
+    dir="$(claude_account_dir "$name")"
+
+    unlink_claude_account "$name"
+    tmp="$(mktemp "${CLAUDE_ACCOUNTS_FILE}.XXXXXX")"
+    grep -Fxv -- "$name" "$CLAUDE_ACCOUNTS_FILE" > "$tmp" || true
+    mv "$tmp" "$CLAUDE_ACCOUNTS_FILE"
+    ok "Removed Claude account '$name' and unlinked the shared config from ${dir/#$HOME/\~}"
+    if [[ -d "$dir" ]]; then
+        info "Its login and settings are kept in ${dir/#$HOME/\~}; 'dot claude add $name' restores it"
+        info "  -> to delete it for good: rm -rf ${dir/#$HOME/\~}"
+    fi
+    info "Open a new shell to drop the '$name' function"
+}
+
+cmd_claude_list() {
+    printf '%-16s %s\n' "default" "${CLAUDE_HOME_DIR/#$HOME/\~}"
+    local name dir
+    while IFS= read -r name; do
+        dir="$(claude_account_dir "$name")"
+        if [[ -d "$dir" ]]; then
+            printf '%-16s %s\n' "$name" "${dir/#$HOME/\~}"
+        else
+            printf '%-16s %s (not linked -- run dot stow)\n' "$name" "${dir/#$HOME/\~}"
+        fi
+    done < <(claude_accounts)
+}
+
+cmd_claude_help() {
+    cat <<EOF
+dot claude - extra Claude Code accounts
+
+The default account (~/.claude, run as 'claude') is always linked. Each extra
+account <name> gets ~/.claude-<name> -- its own login, the shared config and
+session history -- and a shell function <name> that runs claude as it.
+Accounts are per-machine, listed in ${CLAUDE_ACCOUNTS_FILE/#$HOME/\~}.
+
+USAGE: dot claude <subcommand> [args]
+
+SUBCOMMANDS:
+    add <name>      Register an account and link config into ~/.claude-<name>
+    remove <name>   Unregister and unlink; keeps the account's login and files
+    list            Show accounts
+    help            This message
+EOF
+}
+
 cmd_retry_failed() {
     local failed_file
     failed_file=$(find "$PACKAGES_DIR" -name "failed_packages_*.txt" -type f 2>/dev/null | sort -r | head -1)
@@ -1289,11 +1471,12 @@ cmd_completions() {
 _dot() {
     local -a commands
     commands=(
-        'init:Full bootstrap (packages, stow, shell)'
-        'stow:Re-stow dotfiles'
+        'init:Full bootstrap (brew, packages, stow, shell)'
+        'stow:Re-stow dotfiles (symlink home/ -> ~)'
         'update:Pull latest, update packages, re-stow'
         'doctor:Check tools, symlinks, shell health'
-        'package:Package management (add/remove/list)'
+        'package:Brewfile management (add/remove/list)'
+        'claude:Extra Claude Code accounts (add/remove/list)'
         'retry-failed:Retry failed package installations'
         'link:Symlink dot into PATH'
         'unlink:Remove dot symlink'
@@ -1319,13 +1502,28 @@ _dot() {
         package)
             local -a subcmds
             subcmds=(
-                'add:Install and add to package list'
-                'remove:Remove from package list'
+                'add:Install and add to Brewfile'
+                'remove:Remove from Brewfile'
                 'list:Show packages with install status'
                 'help:Show package help'
             )
             if (( CURRENT == 3 )); then
                 _describe -t subcmds 'package subcommand' subcmds
+            fi
+            ;;
+        claude)
+            local -a subcmds
+            subcmds=(
+                'add:Register an account and link config'
+                'remove:Unregister and unlink an account'
+                'list:Show accounts'
+                'help:Show claude help'
+            )
+            if (( CURRENT == 3 )); then
+                _describe -t subcmds 'claude subcommand' subcmds
+            elif (( CURRENT == 4 )) && [[ "$words[3]" == remove ]]; then
+                local file="${XDG_CONFIG_HOME:-$HOME/.config}/dot/claude-accounts"
+                [[ -r "$file" ]] && compadd -- ${(f)"$(<$file)"}
             fi
             ;;
     esac
@@ -1350,6 +1548,7 @@ COMMANDS:
     update          Pull latest, update packages, re-stow
     doctor          Check tools, symlinks, shell health
     package         Package management (add/remove/list)
+    claude          Extra Claude Code accounts (add/remove/list)
     retry-failed    Retry failed package installations
     link            Symlink dot into PATH (~/.local/bin)
     unlink          Remove dot symlink
@@ -1385,7 +1584,8 @@ main() {
         _update-post-pull)   cmd_update_post_pull "$@" ;;
         doctor)              cmd_doctor "$@" ;;
         package)             cmd_package "$@" ;;
-        retry-failed)        cmd_retry_failed "$@" ;;
+        claude)              cmd_claude "$@" ;;
+        retry-failed)       cmd_retry_failed "$@" ;;
         link)                cmd_link "$@" ;;
         unlink)              cmd_unlink "$@" ;;
         edit)                cmd_edit "$@" ;;

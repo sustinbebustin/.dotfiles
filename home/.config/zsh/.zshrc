@@ -154,16 +154,18 @@ fable()     { _claude_run fable   ""                      "$@" }
 # Plan in Fable 5, then approve the plan to drop back into your default model.
 fableplan() { _claude_run fable   "--permission-mode plan" "$@" }
 
-# Second Claude account. CLAUDE_CONFIG_DIR gives it its own credentials,
-# settings, and session history, so both logins stay live at once; the tracked
-# config (CLAUDE.md, agents, skills, hooks) is linked into both by `dot stow`.
+# Extra Claude accounts, registered per machine with `dot claude add <name>`.
+# Each gets a function <name> whose CLAUDE_CONFIG_DIR, ~/.claude-<name>, holds
+# its own credentials, so every login stays live at once; `dot` links the
+# tracked config and shared session history into it.
 #
-# `work` takes an optional wrapper name, then the same effort token and flags
-# the personal wrappers take: `work`, `work h`, `work fable h`,
+# <name> takes an optional wrapper name, then the same effort token and flags
+# the default wrappers take: `work`, `work h`, `work fable h`,
 # `work fableplan x --resume`. zsh scopes the export to this call and its
 # dynamic extent, so the wrapper it delegates to still sees it.
-work() {
-  local -x CLAUDE_CONFIG_DIR="$HOME/.claude-work"
+_claude_account_run() {
+  local -x CLAUDE_CONFIG_DIR="$HOME/.claude-$1"
+  shift
   case "$1" in
     claude|fable|fableplan)
       local wrapper="$1"
@@ -172,6 +174,23 @@ work() {
       ;;
     *) claude "$@" ;;
   esac
+}
+
+() {
+  local file="${XDG_CONFIG_HOME:-$HOME/.config}/dot/claude-accounts" name
+  [[ -r "$file" ]] || return 0
+  for name in ${(f)"$(<$file)"}; do
+    # Same rule `dot` enforces; the name is spliced into a function body.
+    if [[ ! "$name" =~ '^[a-z][a-z0-9-]*$' ]]; then
+      print -u2 "zshrc: skipping invalid Claude account name '$name' in $file"
+      continue
+    fi
+    if (( $+commands[$name] || $+functions[$name] || $+aliases[$name] || $+builtins[$name] )); then
+      print -u2 "zshrc: Claude account '$name' would shadow an existing command; rename it with dot claude remove/add"
+      continue
+    fi
+    functions[$name]="_claude_account_run $name \"\$@\""
+  done
 }
 
 # Git

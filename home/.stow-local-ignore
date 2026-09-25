@@ -26,7 +26,7 @@
 # ~/.claude/hooks/config.json, so it has to be linked like the binary is.
 ^/\.claude/hooks/config\.json\.example$
 
-# Ignores for stowing .claude on its own into ~/.claude-work; meaningless
+# Ignores for stowing .claude on its own into ~/.claude-<account>; meaningless
 # inside ~/.claude itself.
 ^/\.claude/\.stow-local-ignore$
 

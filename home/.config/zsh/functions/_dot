@@ -8,6 +8,7 @@ _dot() {
         'update:Pull latest, update packages, re-stow'
         'doctor:Check tools, symlinks, shell health'
         'package:Brewfile management (add/remove/list)'
+        'claude:Extra Claude Code accounts (add/remove/list)'
         'retry-failed:Retry failed package installations'
         'link:Symlink dot into PATH'
         'unlink:Remove dot symlink'
@@ -40,6 +41,21 @@ _dot() {
             )
             if (( CURRENT == 3 )); then
                 _describe -t subcmds 'package subcommand' subcmds
+            fi
+            ;;
+        claude)
+            local -a subcmds
+            subcmds=(
+                'add:Register an account and link config'
+                'remove:Unregister and unlink an account'
+                'list:Show accounts'
+                'help:Show claude help'
+            )
+            if (( CURRENT == 3 )); then
+                _describe -t subcmds 'claude subcommand' subcmds
+            elif (( CURRENT == 4 )) && [[ "$words[3]" == remove ]]; then
+                local file="${XDG_CONFIG_HOME:-$HOME/.config}/dot/claude-accounts"
+                [[ -r "$file" ]] && compadd -- ${(f)"$(<$file)"}
             fi
             ;;
     esac

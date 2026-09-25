@@ -52,6 +52,9 @@ dot doctor            Health check with remediation hints
 dot package add       Install and track in Brewfile
 dot package remove    Remove from package list
 dot package list      Show packages with install status
+dot claude add        Add a Claude account (~/.claude-<name>, run as <name>)
+dot claude remove     Unlink a Claude account, keeping its login
+dot claude list       Show Claude accounts
 dot retry-failed      Retry failed package installations
 dot link              Symlink dot into ~/.local/bin
 dot edit              Open dotfiles in $EDITOR
