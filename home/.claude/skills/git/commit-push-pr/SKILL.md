@@ -3,7 +3,6 @@ name: commit-push-pr
 allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git pull:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion, Skill(commit), Skill(watch-ci)
 description: Commit, push, and open a GitHub PR in one flow; optionally watch CI and merge.
 argument-hint: [repo...] [--merge|--bypass] [--all|--yours] [-- note]
-disable-model-invocation: true
 metadata:
   author: sustinbebustin
 ---
@@ -65,7 +64,7 @@ __SKILL_ARGUMENTS__
    - `update-changelog` -> following [references/changelog.md](references/changelog.md), add entries under `[Unreleased]` for user-facing changes from the commits you just made. Commit the CHANGELOG change separately as `docs(changelog): ...`.
    - `add-changeset` -> write a new file under `.changeset/<kebab-name>.md` per [Changeset handling](#changeset-handling), using **Candidate packages for changeset frontmatter** from the gathered state. Commit it separately as `docs(changeset): ...`.
    - `verify-changeset` -> read the file(s) listed under **Changeset files added on this branch**. If they describe the user-facing changes in this branch's commits, do nothing. Only add another changeset if the existing ones materially miss something.
-4. **Push the branch to origin.**
+4. **Push the branch to origin** with the branch named literally: `git -C <target> push -u origin <branch>`. A bare `git push`, a `HEAD` refspec, or a force push prompts for approval.
 5. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject and should match the dominant change type across the branch. Keep the body short and scale its length to the size of the change: no "Test Plan" section, no `## Summary` / `## Changes` headers. Write it in the repo owner's voice following [references/pr-body.md](references/pr-body.md).
 6. **Merge mode (only if `### Merge mode: ON` appears in the gathered state).** Watch CI, merge the PR, and resync the local default branch. See [Merge mode](#merge-mode). Without that block, stop after step 5 -- never merge a PR that wasn't asked to be merged.
 7. After the target repo is determined, keep output to tool calls only -- no extra prose.
