@@ -2,6 +2,12 @@
 // work or discard it (push, merge, rebase, reset --hard, clean, branch/tag
 // delete) return `ask`, so the user approves each case by case.
 //
+// The exception is a plain push of a literally named feature branch (`git push
+// -u origin feat/x`), which runs unprompted so a branch and its PR can be
+// published without a prompt. A push that could reach main or master, or that
+// forces, deletes, or pushes something the guard cannot name, still asks. See
+// checkPush.
+//
 // Discarding uncommitted work is not guarded: `git checkout -- <path>`, `git
 // restore`, and the whole of `git stash`. Those are routine enough that the
 // prompt was pure friction, and what they throw away is working-tree state, not
@@ -48,24 +54,44 @@ func Check(req *hook.Request) hook.Verdict {
 func checkCall(c *syntax.CallExpr) (hook.Verdict, bool) {
 	name, operands := shellast.Invocation(c.Args, shellast.WordLit)
 	args := make([]string, len(operands))
+	literal := true
 	for i, a := range operands {
 		args[i] = shellast.WordLit(a)
+		literal = literal && shellast.IsLiteral(a)
 	}
 
 	switch shellast.CommandName(name) {
 	case "git":
-		return checkGit(args)
+		return checkGit(args, literal)
 	case "gh":
 		return checkGh(args)
 	}
 	return hook.Verdict{}, false
 }
 
-func checkGit(args []string) (hook.Verdict, bool) {
+func checkGit(args []string, literal bool) (hook.Verdict, bool) {
 	sub, rest := subcommand(args, gitTopLevelFlags)
+	var prefix []string
+	if sub != "" {
+		prefix = args[:len(args)-len(rest)-1]
+	}
+	for i, a := range prefix {
+		// An alias defined inline runs under a name no case below matches:
+		// `git -c alias.p='push origin main' p`.
+		if a == "-c" && i+1 < len(prefix) && strings.HasPrefix(strings.ToLower(prefix[i+1]), "alias.") {
+			return hook.Asked("git -c alias.* defines an ad-hoc alias - allow?"), true
+		}
+	}
+
 	switch sub {
 	case "push":
-		return hook.Asked("git push detected - allow?"), true
+		return checkPush(prefix, rest, literal)
+	case "send-pack", "http-push":
+		return hook.Asked(fmt.Sprintf("git %s pushes refs to a remote - allow?", sub)), true
+	case "subtree":
+		if len(rest) > 0 && rest[0] == "push" {
+			return hook.Asked("git subtree push detected - allow?"), true
+		}
 	case "merge":
 		return hook.Asked("git merge detected - allow?"), true
 	case "rebase":
@@ -120,8 +146,13 @@ func checkGh(args []string) (hook.Verdict, bool) {
 			}
 		}
 	case "repo":
-		if len(args) > 1 && (args[1] == "delete" || args[1] == "rename") {
-			return hook.Denied(fmt.Sprintf("[BLOCKED] gh repo %s not allowed", args[1])), true
+		if len(args) > 1 {
+			switch args[1] {
+			case "delete", "rename":
+				return hook.Denied(fmt.Sprintf("[BLOCKED] gh repo %s not allowed", args[1])), true
+			case "sync":
+				return hook.Asked("gh repo sync can update (or with --force reset) a branch - allow?"), true
+			}
 		}
 	case "workflow":
 		if len(args) > 1 && args[1] == "run" {

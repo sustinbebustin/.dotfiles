@@ -248,19 +248,19 @@
     "name": "git-push",
     "stdin": "{\"tool_input\":{\"command\":\"git push origin main\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push to main detected - allow?"
   },
   {
     "name": "git-push-dashC",
     "stdin": "{\"tool_input\":{\"command\":\"git -C /repo push\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "git-push-config",
     "stdin": "{\"tool_input\":{\"command\":\"git -c user.name=x push\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push with top-level -c detected - allow?"
   },
   {
     "name": "git-merge",
@@ -446,13 +446,13 @@
     "name": "git-push-in-subshell",
     "stdin": "{\"tool_input\":{\"command\":\"(git push)\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "git-push-or",
     "stdin": "{\"tool_input\":{\"command\":\"false || git push\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "cred-cat",
@@ -598,7 +598,7 @@
     "name": "multi-push-and-aws",
     "stdin": "{\"tool_input\":{\"command\":\"git push \\u0026\\u0026 aws s3 ls\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow? git push detected - allow?"
+    "reason": "AWS CLI command detected. Allow? git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "multi-cred-and-ghclose",
@@ -735,19 +735,19 @@
     "name": "git-push-abs-path",
     "stdin": "{\"tool_input\":{\"command\":\"/usr/bin/git push\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "git-push-sudo",
     "stdin": "{\"tool_input\":{\"command\":\"sudo git push\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "git-push-escaped",
     "stdin": "{\"tool_input\":{\"command\":\"\\\\git push\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "git-log-abs-path",
@@ -821,19 +821,19 @@
     "name": "git-push-in-if",
     "stdin": "{\"tool_input\":{\"command\":\"if true; then git push; fi\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "git-push-in-for",
     "stdin": "{\"tool_input\":{\"command\":\"for r in origin upstream; do git push $r; done\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push with a shell expansion in its arguments - allow?"
   },
   {
     "name": "git-push-in-function",
     "stdin": "{\"tool_input\":{\"command\":\"deploy() { git push; }; deploy\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git push detected - allow?"
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "gh-api-bundled-include-field",
@@ -891,7 +891,7 @@
     "name": "nested-git-force-push",
     "stdin": "{\"tool_input\":{\"command\":\"sh -ec 'git push --force'\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: git push detected - allow?"
+    "reason": "Inside a script passed to a nested shell: git push --force detected - allow?"
   },
   {
     "name": "nested-twice",

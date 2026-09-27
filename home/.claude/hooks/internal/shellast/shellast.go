@@ -117,6 +117,27 @@ func WordLit(w *syntax.Word) string {
 	return sb.String()
 }
 
+// IsLiteral reports whether w is plain text, so WordLit renders exactly what
+// the shell will pass: no variable, command, or arithmetic expansion anywhere
+// in it. Brace and glob expansion are not detected; callers that care reject
+// those characters themselves.
+func IsLiteral(w *syntax.Word) bool {
+	for _, p := range w.Parts {
+		switch x := p.(type) {
+		case *syntax.Lit, *syntax.SglQuoted:
+		case *syntax.DblQuoted:
+			for _, dp := range x.Parts {
+				if _, ok := dp.(*syntax.Lit); !ok {
+					return false
+				}
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // CommandName strips any leading path, so `/usr/local/bin/aws` and `aws` both
 // resolve to "aws".
 func CommandName(tok string) string {
