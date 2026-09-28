@@ -362,9 +362,9 @@
       },
       "localPath": "tools/sentry-cli",
       "sync": {
-        "commit": "40a89bdefec6b4f4e03d61bdec708ef3fc1f4096",
-        "tree": "100173c89c4b096013c4a03b01dc94e3ee31cab0",
-        "at": "2026-09-21"
+        "commit": "30f92db5da32b51d4a607f5a4f4e783777a3c623",
+        "tree": "c5ca4276c8c117427d6e5a93d7c7598a9871bfc0",
+        "at": "2026-09-28"
       },
       "status": {
         "state": "tracked"
