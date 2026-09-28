@@ -52,7 +52,7 @@ Done when each repaired defect has a failing control and a passing candidate on 
 
 ## C7. Reconcile
 
-Before step 5 (Merge), run `git fetch origin` and `stack sync --apply` to replay the stack onto the latest `<DEFAULT>`. Where `<DEFAULT>` modified a file the campaign deleted, keep the deletion and port the new contract into its keeper, as a fix-up batch at the top of the stack; confirm every regression `<DEFAULT>` added still has a home. A final batch adds durable test-ownership rules to the subsystem's `CLAUDE.md` (or `AGENTS.md`, whichever the repo uses), drawn from mistakes this campaign actually found. Have a subagent rerun the whole subsystem suite and repeat live proof on the top branch.
+Before step 5 (Merge), run `gh stack sync` to replay the stack onto the latest `<DEFAULT>`. Where `<DEFAULT>` modified a file the campaign deleted, keep the deletion and port the new contract into its keeper, as a fix-up batch at the top of the stack; confirm every regression `<DEFAULT>` added still has a home. A final batch adds durable test-ownership rules to the subsystem's `CLAUDE.md` (or `AGENTS.md`, whichever the repo uses), drawn from mistakes this campaign actually found. Have a subagent rerun the whole subsystem suite and repeat live proof on the top branch.
 
 Record maintainer decisions about compatibility flags in the PR description rather than editing gates. Add to the final report:
 

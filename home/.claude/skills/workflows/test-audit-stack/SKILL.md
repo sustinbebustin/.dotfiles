@@ -9,7 +9,7 @@ metadata:
 
 # Test Audit Stack
 
-You orchestrate a test audit as a **stack**: an ordered chain of branches, each holding one **batch** (one coherent owner-boundary change under the test-audit rules), each with a PR based on the branch below it. Subagents discover, implement, and commit; you branch, push, open PRs, and keep the stack synced with the `stack` CLI (see the stack skill for its commands).
+You orchestrate a test audit as a **stack**: an ordered chain of branches, each holding one **batch** (one coherent owner-boundary change under the test-audit rules), each with a PR based on the branch below it. Subagents discover, implement, and commit; you branch, push, open PRs, and link, sync, and merge the stack with `gh stack`. Invoke the gh-stack skill before the first `gh stack` command; it lists the non-interactive forms and exit codes this process relies on.
 
 Do no exploration and no test reading yourself. The judgement lives in the test-audit skill, which every subagent invokes.
 
@@ -29,9 +29,9 @@ Everything after the first `--` token is **notes**: instructions to you about th
 
 ### 1. Preflight
 
-Run `git status --porcelain`, `stack doctor`, and `git fetch origin`. A dirty tree or a nonzero `stack doctor` exit stops the run: report it verbatim.
+Run `git status --porcelain`, `gh extension list`, and `git fetch origin`. A dirty tree stops the run: report it verbatim. A missing `github/gh-stack` extension stops it too: tell the user to run `gh extension install github/gh-stack`.
 
-Done when the tree is clean, `stack doctor` passes, and `origin/<DEFAULT>` is fresh.
+Done when the tree is clean, `gh-stack` is installed, and `origin/<DEFAULT>` is fresh.
 
 ### 2. Discover
 
@@ -77,21 +77,23 @@ Keep a **parent** pointer, starting at `origin/<DEFAULT>`. For each batch in pla
 3. Check the report and the branch. It must carry the Handoff, account for every code-review finding, and name SHAs that `git log <parent>..HEAD` shows; `git status --porcelain` must be empty. Send the same subagent back for anything missing.
    - A batch that ends with no commits (every candidate retained) is dropped: check out `<parent>`, delete the branch, and move to the next batch with the same parent.
 4. `git push -u origin test/<slug>`, then `gh pr create --base <parent without origin/> --head test/<slug>`. Title: a conventional `test(<scope>): ...` subject. Body per the commit-push-pr skill's `references/pr-body.md`, carrying the Handoff's removed categories, retained false positives, proof run, and production versus test LOC.
-5. `stack sync --apply`. The parent becomes `test/<slug>`.
+5. The parent becomes `test/<slug>`.
 
 Report each batch as it lands: position, slug, PR number, the Handoff's LOC split.
 
-Done when every approved batch has a PR or was dropped, and `stack sync` (preview) reports nothing to repair.
+Once every batch is done, link the surviving branches into a GitHub stack: `gh stack init <branches, bottom to top>` adopts them, then `gh stack submit --auto` links their existing PRs without changing titles or bodies. Exit 9 means stacked PRs are unavailable on the repo: report it and stop, leaving the PRs as an ordinary chain.
+
+Done when every approved batch has a PR or was dropped, and `gh stack view --json` lists every branch with an open PR and no `needsRebase`.
 
 ### 5. Merge
 
-Show `stack status`, then ask with AskUserQuestion: merge the stack now, or leave it open for review.
+Show `gh stack view --short`, then ask with AskUserQuestion: merge the stack now, or leave it open for review.
 
-- **Merge**: run `stack merge <bottom branch>` (dry run) and show it, then `stack merge --auto --through <top branch>`. A failed CI check or blocked merge stops there: report it, and leave the remaining stack intact.
+- **Merge**: wait for every PR's checks with the watch-ci skill, then run `gh stack merge <top PR number> --yes`. The merge is all-or-nothing, so a failed check or blocked PR merges nothing: report it and stop.
 - **Leave open**: stop.
 
 Done when the stack is merged, or the user chose to leave it open.
 
 ## Recovery
 
-A `stack` command that fails leaves backups and an undo journal. Report its output verbatim with `stack status` and `stack history`, and stop; `stack undo --apply` is the user's call.
+When `sync` hits a rebase conflict it restores every branch before exiting 3. `push` and `submit` are not atomic, but rerunning them is safe. On any failing `gh stack` command, report its stderr and exit code verbatim with `gh stack view --json`, and stop. Resolving a conflict is the user's call; the gh-stack skill's exit-code table gives the next step for each code.
