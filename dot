@@ -32,12 +32,11 @@ readonly PNPM_HOME_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
 readonly NODE_VERSION="24"
 
 # Globally installed CLIs, as "package:command" -- the command a package
-# provides often differs from its name (@kitlangton/stack -> stack), and
+# provides often differs from its name (a scoped @owner/tool -> tool), and
 # `dot doctor` needs the command to check the install. Assigned then marked
 # readonly separately so this still parses under bash 3.2 on stock macOS.
 PNPM_GLOBALS=(
     "opensrc:opensrc"
-    "@kitlangton/stack:stack"
     "effect-solutions:effect-solutions"
 )
 readonly PNPM_GLOBALS

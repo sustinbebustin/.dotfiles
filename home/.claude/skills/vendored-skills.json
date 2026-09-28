@@ -453,24 +453,6 @@
         "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
-    "stack": {
-      "author": "kitlangton",
-      "source": {
-        "repo": "kitlangton/stack",
-        "ref": "main",
-        "path": "skills/stack"
-      },
-      "localPath": "git/stack",
-      "sync": {
-        "commit": "f56b930e1a6d4bd252cee6f11616a50f92480429",
-        "tree": "ce8d1f575dc98ae5408dd1b5cec73ddd63c67cfb",
-        "at": "2026-09-21"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": []
-    },
     "tdd": {
       "author": "mattpocock",
       "source": {
