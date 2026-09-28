@@ -73,7 +73,7 @@ __SKILL_ARGUMENTS__
 
 Runs only when the gathered state contains `### Merge mode: ON`. Run it per target, right after that target's PR is created. `gh` has no `-C` flag, so run every `gh` command for a target in a subshell: `(cd <target> && gh ...)`, using the relative path from the `### Target:` block.
 
-If the block says `**Bypass CI:** yes`, or the target's block says `**CI:** none`, skip step 1 entirely -- go straight to step 2 without watching CI. Steps 2-4 are unchanged; a merge that fails for a non-CI reason (conflicts, merge queue, ruleset) still stops the flow per step 4.
+If the block says `**Bypass CI:** yes`, skip step 1 entirely -- go straight to step 2 without watching CI. Steps 2-4 are unchanged; a merge that fails for a non-CI reason (conflicts, merge queue, ruleset) still stops the flow per step 4.
 
 1. **Watch CI.** Call the Skill tool for `watch-ci` with the PR number and the target path. `CI COMPLETE: pass` or `NO CI` -> step 2. `CI COMPLETE: fail` -> step 4.
 2. **Merge.** `gh pr merge <number> --merge --delete-branch --admin`. A standard merge commit is the default, preserving the branch's individual commits. If the repo disallows merge commits, retry with the method its error names (`--squash` or `--rebase`). Never merge a draft PR.

@@ -32,7 +32,7 @@ Act on the summary line as soon as it lands:
 |---|---|
 | `CI COMPLETE: pass` | Green, with the run URL (`gh pr checks <number>` or `gh run list --commit <sha>` lists it). |
 | `CI COMPLETE: fail` | Each check that did not pass, plus the failing job's log from `gh run view <run-id> --log-failed`, trimmed to the lines that carry the error. |
-| `NO CI: ...` | Which case: the repo has no workflow files, or workflows exist but nothing registered in time. |
+| `NO CI: ...` | Which case: the repo has no workflow files, no workflow triggers for this PR's branch, or workflows should run but nothing registered in time. It lands within seconds in the first two cases -- act on it then; there is nothing left to wait for. |
 
 When a workflow invoked this skill, its own instructions decide what follows a failure. Invoked on its own, report the failure and offer the `gh-fix-ci` skill to work it.
 

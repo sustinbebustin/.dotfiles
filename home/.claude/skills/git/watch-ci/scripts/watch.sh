@@ -10,7 +10,8 @@
 # Ends with exactly one summary line:
 #   CI COMPLETE: pass    every check passed or was skipped (exit 0)
 #   CI COMPLETE: fail    at least one check failed or was cancelled (exit 1)
-#   NO CI: <reason>      no workflow files, or nothing registered in time (exit 0)
+#   NO CI: <reason>      no workflow will run for the ref, or nothing registered
+#                        in time (exit 0)
 
 set -u
 
@@ -42,11 +43,64 @@ snapshot() {
   esac
 }
 
+# Succeeds when workflow $1 may run for a PR whose head branch is $2: it
+# triggers on pull requests, or on pushes with no branch filter excluding $2.
+# A plain-text read of the YAML, so it errs toward "may run" when unsure.
+runs_for_pr() {
+  local triggers pat
+  triggers=$(awk '
+    /^("on"|'"'"'on'"'"'|on|true):/ {
+      in_on = 1
+      sub(/^[^:]*:[ \t]*/, "")
+      if ($0 != "") { print; exit }
+      next
+    }
+    in_on && /^[^ \t#]/ { exit }
+    in_on { print }
+  ' "$1")
+  case "$triggers" in *pull_request*) return 0 ;; esac
+  case "$triggers" in *push*) ;; *) return 1 ;; esac
+  case "$triggers" in *branches-ignore*) return 0 ;; esac
+  case "$triggers" in *branches:*) ;; *) return 0 ;; esac
+  while IFS= read -r pat; do
+    # shellcheck disable=SC2053  # $pat is a glob by design
+    [[ "$2" == $pat ]] && return 0
+  done < <(printf '%s\n' "$triggers" | awk '
+    /branches:/ {
+      if (match($0, /\[.*\]/)) {
+        n = split(substr($0, RSTART + 1, RLENGTH - 2), items, ",")
+        for (i = 1; i <= n; i++) print items[i]
+      } else list = 1
+      next
+    }
+    list && /^[ \t]*-/ { sub(/^[ \t]*-/, ""); print; next }
+    { list = 0 }
+  ' | tr -d " \t\"'")
+  return 1
+}
+
+# Decide whether any workflow will run. When none will, one snapshot still
+# catches checks from outside Actions (deploy previews, apps) before giving up.
 shopt -s nullglob
 workflows=(.github/workflows/*.yml .github/workflows/*.yaml)
 shopt -u nullglob
+no_ci=""
 if [ "${#workflows[@]}" -eq 0 ]; then
-  echo "NO CI: no workflow files under .github/workflows in $(pwd)"
+  no_ci="no workflow files under .github/workflows in $(pwd)"
+elif [ "$mode" = "pr" ]; then
+  head=$(gh pr view "$ref" --json headRefName --jq .headRefName 2>/dev/null)
+  if [ -n "$head" ]; then
+    no_ci="no workflow triggers on pull requests or on pushes to $head"
+    for wf in "${workflows[@]}"; do
+      if runs_for_pr "$wf" "$head"; then
+        no_ci=""
+        break
+      fi
+    done
+  fi
+fi
+if [ -n "$no_ci" ] && [ -z "$(snapshot)" ]; then
+  echo "NO CI: $no_ci"
   exit 0
 fi
 

@@ -192,18 +192,6 @@ report_repo() {
   echo "**Default branch:** $default_branch"
   echo ""
 
-  # Merge mode skips the CI watch outright when there is nothing to watch.
-  local workflows=()
-  shopt -s nullglob
-  workflows=("$dir"/.github/workflows/*.yml "$dir"/.github/workflows/*.yaml)
-  shopt -u nullglob
-  if [ "${#workflows[@]}" -gt 0 ]; then
-    echo "**CI:** yes -- ${#workflows[@]} workflow file(s) under .github/workflows"
-  else
-    echo "**CI:** none -- no workflow files under .github/workflows"
-  fi
-  echo ""
-
   echo "**Branch commits ahead of origin/$default_branch (these will all be in the PR):**"
   if [ -n "$base" ]; then
     ahead=$(git -C "$dir" log --format='%h %s%n%b' "$base"..HEAD 2>/dev/null)
