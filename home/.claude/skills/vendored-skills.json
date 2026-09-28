@@ -588,19 +588,15 @@
       },
       "localPath": "tools/turborepo",
       "sync": {
-        "commit": "d7e061b6db6647b2f006bc2a2ee396a9b441e5d6",
-        "tree": "91ddb42a80a1ff5f4da07085c59e5005772b28a5",
-        "at": "2026-09-21"
+        "commit": "ac801403d9d58fc13331485de7b11b992c2da5d9",
+        "tree": "a1bae26a81bbc79e6eb14b4e7ec4d36694e6e94a",
+        "at": "2026-09-28"
       },
       "status": {
         "state": "tracked"
       },
       "localChanges": [
-        "Single-line description and disable-model-invocation (user-invoked only).",
-        "Added a Workflow section (Steps 1-4 using $ARGUMENTS, reference table, verify list, summary block).",
-        "Removed the 'Using turbo Shorthand in Code' and 'Root Scripts Bypassing Turbo' anti-pattern sections; the Workflow points to the two core rules that already state them.",
-        "Added scripts/fetch-docs.sh (local helper); dropped command/turborepo.md (slash-command duplicate of the skill).",
-        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
+        "disable-model-invocation (user-invoked only)."
       ]
     },
     "uv": {
