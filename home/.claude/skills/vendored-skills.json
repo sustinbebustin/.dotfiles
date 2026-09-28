@@ -140,6 +140,24 @@
         "Dropped agents/openai.yaml and assets/ icons: Codex UI metadata, unused by Claude Code."
       ]
     },
+    "gh-stack": {
+      "author": "github",
+      "source": {
+        "repo": "github/gh-stack",
+        "ref": "main",
+        "path": "skills/gh-stack"
+      },
+      "localPath": "git/gh-stack",
+      "sync": {
+        "commit": "2bd699a544a09cb5c45a013d03416e0894b0454e",
+        "tree": "6bfe555e89a6b264e09d5ece7c4040226458c8e5",
+        "at": "2026-09-28"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
     "grill-with-docs": {
       "author": "mattpocock",
       "source": {
