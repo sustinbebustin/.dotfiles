@@ -9,12 +9,12 @@ hooks:
   Stop:
     - hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/hooks/stop-guard.sh"
+          command: 'bash "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/autoresearch/hooks/stop-guard.sh"'
   PreCompact:
     - matcher: "auto"
       hooks:
         - type: command
-          command: "bash ${CLAUDE_SKILL_DIR}/hooks/pre-compact.sh"
+          command: 'bash "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/autoresearch/hooks/pre-compact.sh"'
 metadata:
   author: sustinbebustin
 ---
