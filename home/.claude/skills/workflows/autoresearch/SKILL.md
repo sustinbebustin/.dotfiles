@@ -35,17 +35,19 @@ Everything after the first `--` token is **notes**: the goal, command, metric, s
 
 Three helper scripts handle all experiment infrastructure. Always call them via Bash:
 
-- **`bash ${CLAUDE_SKILL_DIR}/scripts/autoresearch-init.sh <name> <metric_name> [unit] [direction]`** -- configure session. Call again to re-initialize with a new baseline when the optimization target changes.
-- **`bash ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.sh [command] [timeout]`** -- runs command (default: `./autoresearch.sh`, 600s timeout), captures output, extracts `METRIC` lines, runs `autoresearch.checks.sh` if present.
-- **`bash ${CLAUDE_SKILL_DIR}/scripts/autoresearch-log.sh <status> <metric_value> <description> [options]`** -- records result. `keep` auto-commits. `discard`/`crash`/`checks_failed` auto-reverts code changes (autoresearch files preserved). Options: `--commit <hash>`, `--metrics '{"k":v}'`, `--asi '{"k":"v"}'`.
+- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-init.py <name> <metric_name> [unit] [direction] [repo...]`** -- configure session. Repos are the git repos experiments change, relative to the working directory (default `.`); name each repo itself, never a repo that contains another listed one. Call again to re-initialize with a new baseline when the optimization target or repo set changes.
+- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.py [command] [timeout]`** -- runs command (default: `./autoresearch.sh`, 600s timeout), captures output, extracts `METRIC` lines, runs `autoresearch.checks.sh` if present.
+- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-log.py <status> <metric_value> <description> [options]`** -- records result. `keep` commits each repo's changes. `discard`/`crash`/`checks_failed` reverts every uncommitted change in each repo. Options: `--metrics '{"k":v}'`, `--asi '{"k":"v"}'`.
+
+Session files (`autoresearch.*`) live in the working directory and stay out of git: the scripts never stage, commit, or revert them.
 
 ## Setup
 
 1. Take **Goal**, **Command**, **Metric** (+ direction), **Files in scope**, **Constraints** from the notes; infer or ask for the rest.
-2. `git checkout -b autoresearch/<goal>-<date>`
+2. In each repo in scope, start clean and `git checkout -b autoresearch/<goal>-<date>`. A discard reverts every uncommitted change in a listed repo, so anything uncommitted at start is lost.
 3. Read the source files. Understand the workload deeply before writing anything.
-4. Write `autoresearch.md` and `autoresearch.sh` (see below). Commit both.
-5. Run `autoresearch-init.sh` -> run baseline with `autoresearch-run.sh` -> log with `autoresearch-log.sh` -> start looping immediately.
+4. Write `autoresearch.md` and `autoresearch.sh` (see below).
+5. Run `autoresearch-init.py` -> run baseline with `autoresearch-run.py` -> log with `autoresearch-log.py` -> start looping immediately.
 
 ### `autoresearch.md`
 
@@ -88,7 +90,7 @@ Bash script (`set -euo pipefail`) that: pre-checks fast (syntax errors in <1s), 
 
 #### Structured output
 
-- `METRIC name=value` -- primary metric (must match `autoresearch-init.sh`'s `metric_name`) and any secondary metrics. Parsed automatically by `autoresearch-run.sh`.
+- `METRIC name=value` -- primary metric (must match `autoresearch-init.py`'s `metric_name`) and any secondary metrics. Parsed automatically by `autoresearch-run.py`.
 
 #### Design the script to inform optimization
 
@@ -103,7 +105,7 @@ The script runs the same code every iteration -- but you can **update it during 
 
 #### Agent-supplied ASI
 
-Use `autoresearch-log.sh`'s `--asi` option to annotate each run with **whatever would help the next iteration make a better decision.** Free-form key/value JSON -- you decide what's worth recording. Don't repeat the description or raw output; capture what you'd lose after a context reset.
+Use `autoresearch-log.py`'s `--asi` option to annotate each run with **whatever would help the next iteration make a better decision.** Free-form key/value JSON -- you decide what's worth recording. Don't repeat the description or raw output; capture what you'd lose after a context reset.
 
 **Annotate failures and crashes heavily.** Discarded and crashed runs are reverted -- the code changes are gone. The only record that survives is the description and ASI in `autoresearch.jsonl`. If you don't capture what was tried and why it failed, future iterations will waste time re-discovering the same dead ends.
 
@@ -111,7 +113,7 @@ Use `autoresearch-log.sh`'s `--asi` option to annotate each run with **whatever 
 
 JSON config file in the project directory. Supported fields:
 
-- **`maxIterations`** (number) -- maximum experiments before auto-stopping. When set, check the run count from `autoresearch-log.sh` output and stop when reached.
+- **`maxIterations`** (number) -- maximum experiments before auto-stopping. When set, check the run count from `autoresearch-log.py` output and stop when reached.
 
 ```json
 {
@@ -124,8 +126,8 @@ JSON config file in the project directory. Supported fields:
 Bash script (`set -euo pipefail`) for backpressure/correctness checks: tests, types, lint, etc. **Only create this file when the user's constraints require correctness validation** (e.g., "tests must pass", "types must check").
 
 When this file exists:
-- Runs automatically after every **passing** benchmark in `autoresearch-run.sh`.
-- If checks fail, `autoresearch-run.sh` reports it clearly -- log as `checks_failed`.
+- Runs automatically after every **passing** benchmark in `autoresearch-run.py`.
+- If checks fail, `autoresearch-run.py` reports it clearly -- log as `checks_failed`.
 - Its execution time does **NOT** affect the primary metric.
 - You cannot `keep` a result when checks have failed.
 - Has a separate timeout (default 300s).
@@ -158,7 +160,7 @@ Agent tool, `subagent_type: "general-purpose"`, `model: "<MODEL>"`. `<HYPOTHESIS
 ```
 Read autoresearch.md, then test this hypothesis: <HYPOTHESIS>
 
-Edit only the files autoresearch.md lists under Files in Scope. Measure with `bash ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.sh`. If the run crashes or checks fail for a trivial reason (typo, missing import), fix it and rerun; any deeper failure is the result. Leave your changes uncommitted in the working tree: logging, committing, and reverting belong to the orchestrator.
+Edit only the files autoresearch.md lists under Files in Scope. Measure with `uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.py`. If the run crashes or checks fail for a trivial reason (typo, missing import), fix it and rerun; any deeper failure is the result. Leave your changes uncommitted in the working tree: logging, committing, and reverting belong to the orchestrator.
 
 The change must win on the real workload: the benchmark measures the work, it is not the target. Code that special-cases benchmark inputs or skips work the real workload does is a failed experiment.
 
@@ -197,17 +199,17 @@ Each iteration:
 1. Pick the next hypothesis from `autoresearch.ideas.md` (remove it from the file) or from what the last reports suggest.
 2. Dispatch the experimenter and wait for its report.
 3. Decide the status from the reported blocks. On a candidate `keep`, dispatch the reviewer first.
-4. Log with `autoresearch-log.sh`, folding the experimenter's lessons into `--asi`. The tree is clean again for the next iteration.
+4. Log with `autoresearch-log.py`, folding the experimenter's lessons into `--asi`. The tree is clean again for the next iteration.
 
 **LOOP FOREVER.** Never ask "should I continue?" -- the user expects autonomous work.
 
 - **Primary metric is king.** Improved -> `keep`. Worse/equal -> `discard`. Secondary metrics rarely affect this.
 - **Annotate every run with `--asi`.** Record what was learned -- not what was done. What would help the next iteration or a fresh agent resuming this session? At minimum `{"hypothesis": "what was tried"}`. On discard/crash: also `rollback_reason` and `next_action_hint`.
-- **Watch the confidence score.** After 3+ runs, `autoresearch-log.sh` reports a confidence score (best improvement as a multiple of the session noise floor). >=2.0x means the improvement is likely real. <1.0x means it's within noise -- consider re-running to confirm before keeping. The score is advisory -- it never auto-discards.
+- **Watch the confidence score.** After 3+ runs, `autoresearch-log.py` reports a confidence score (best improvement as a multiple of the session noise floor). >=2.0x means the improvement is likely real. <1.0x means it's within noise -- consider re-running to confirm before keeping. The score is advisory -- it never auto-discards.
 - **Simpler is better.** Removing code for equal perf = keep. Ugly complexity for tiny gain = probably discard.
 - **Don't thrash.** Repeatedly reverting the same idea? Dispatch the analyst for something structurally different.
 - **Crashes:** the experimenter fixes trivial ones; log the rest and move on.
-- **Resuming:** if `autoresearch.md` exists, read it + `autoresearch.jsonl` + git log, remove an in-flight marker a previous session left behind, continue looping.
+- **Resuming:** if `autoresearch.md` exists, read it + `autoresearch.jsonl` + each repo's git log, remove an in-flight marker a previous session left behind, continue looping.
 
 **NEVER STOP.** The user may be away for hours. Keep going until interrupted.
 
