@@ -29,7 +29,7 @@ You are the **orchestrator**. You own the strategy and the record: which hypothe
 
 Arguments: $ARGUMENTS
 
-Everything after the first `--` token is **notes**: the goal, command, metric, scope, or constraints for this session, or instructions on how to run it. They are yours alone; subagent prompts below go out unchanged. Before the `--`, a token that is exactly `haiku`, `sonnet`, `opus`, or `fable` is the **experiment model**. Default `sonnet` when absent. Below, `<MODEL>` means that model name.
+Everything after the first `--` token is **notes**: the goal, command, metric, scope, or constraints for this session, or instructions on how to run it. They are yours alone; subagent prompts below go out unchanged. Before the `--`, a token that is exactly `haiku`, `sonnet`, `opus`, or `fable` is the **experiment model**. Default `opus` when absent. Below, `<MODEL>` means that model name.
 
 ## Scripts
 
