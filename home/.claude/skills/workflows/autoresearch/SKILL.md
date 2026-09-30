@@ -1,6 +1,7 @@
 ---
 name: autoresearch
-description: Set up and run an autonomous experiment loop for any optimization target.
+description: Set up and run an autonomous experiment loop for any optimization target, one subagent per experiment.
+argument-hint: "[haiku|sonnet|opus|fable] [-- notes]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 disable-model-invocation: true
 effort: max
@@ -22,6 +23,14 @@ metadata:
 
 Autonomous experiment loop: try ideas, keep what works, discard what doesn't, never stop.
 
+You are the **orchestrator**. You own the strategy and the record: which hypothesis runs next, keep or discard, the ASI, `autoresearch.md`. Subagents do the legwork: an **experimenter** implements and measures one hypothesis, an **analyst** refills the ideas backlog, a **reviewer** vets every `keep`. Your context holds their reports, never their file reads or benchmark logs, so it lasts hundreds of iterations.
+
+## Arguments
+
+Arguments: $ARGUMENTS
+
+Everything after the first `--` token is **notes**: the goal, command, metric, scope, or constraints for this session, or instructions on how to run it. They are yours alone; subagent prompts below go out unchanged. Before the `--`, a token that is exactly `haiku`, `sonnet`, `opus`, or `fable` is the **experiment model**. Default `sonnet` when absent. Below, `<MODEL>` means that model name.
+
 ## Scripts
 
 Three helper scripts handle all experiment infrastructure. Always call them via Bash:
@@ -32,7 +41,7 @@ Three helper scripts handle all experiment infrastructure. Always call them via 
 
 ## Setup
 
-1. Ask (or infer): **Goal**, **Command**, **Metric** (+ direction), **Files in scope**, **Constraints**.
+1. Take **Goal**, **Command**, **Metric** (+ direction), **Files in scope**, **Constraints** from the notes; infer or ask for the rest.
 2. `git checkout -b autoresearch/<goal>-<date>`
 3. Read the source files. Understand the workload deeply before writing anything.
 4. Write `autoresearch.md` and `autoresearch.sh` (see below). Commit both.
@@ -40,7 +49,7 @@ Three helper scripts handle all experiment infrastructure. Always call them via 
 
 ### `autoresearch.md`
 
-This is the heart of the session. A fresh agent with no context should be able to read this file and run the loop effectively. Invest time making it excellent.
+This is the heart of the session: every experimenter starts cold and reads only this file, so it is the whole briefing. A fresh agent with no context should be able to read it and run an experiment effectively. Invest time making it excellent.
 
 ```markdown
 # Autoresearch: <goal>
@@ -69,7 +78,7 @@ This is the heart of the session. A fresh agent with no context should be able t
 and architectural insights so the agent doesn't repeat failed approaches.>
 ```
 
-Update `autoresearch.md` periodically -- especially the "What's Been Tried" section -- so resuming agents have full context.
+Update `autoresearch.md` periodically -- especially the "What's Been Tried" section -- so experimenters and resuming agents have full context.
 
 ### `autoresearch.sh`
 
@@ -96,7 +105,7 @@ The script runs the same code every iteration -- but you can **update it during 
 
 Use `autoresearch-log.sh`'s `--asi` option to annotate each run with **whatever would help the next iteration make a better decision.** Free-form key/value JSON -- you decide what's worth recording. Don't repeat the description or raw output; capture what you'd lose after a context reset.
 
-**Annotate failures and crashes heavily.** Discarded and crashed runs are reverted -- the code changes are gone. The only record that survives is the description and ASI in `autoresearch.jsonl`. If you don't capture what you tried and why it failed, future iterations will waste time re-discovering the same dead ends.
+**Annotate failures and crashes heavily.** Discarded and crashed runs are reverted -- the code changes are gone. The only record that survives is the description and ASI in `autoresearch.jsonl`. If you don't capture what was tried and why it failed, future iterations will waste time re-discovering the same dead ends.
 
 ### `autoresearch.config.json` (optional)
 
@@ -133,35 +142,88 @@ pnpm test --run --reporter=dot 2>&1 | tail -50
 pnpm typecheck 2>&1 | grep -i error || true
 ```
 
-## Loop Rules
+## Dispatching
+
+One subagent in flight at a time: experiments share one working tree, and concurrent benchmarks corrupt each other's timings. Your turn ends while a subagent runs, so bracket every dispatch with the **in-flight marker**, which tells the Stop hook you are waiting, not quitting:
+
+- Before the Agent call: `touch autoresearch.inflight`
+- On the report: `rm -f autoresearch.inflight`
+
+Send each prompt below exactly, with only its placeholder filled in.
+
+### Experimenter
+
+Agent tool, `subagent_type: "general-purpose"`, `model: "<MODEL>"`. `<HYPOTHESIS>` is one change, stated specifically enough to implement: what to change, where, and why it should move the metric.
+
+```
+Read autoresearch.md, then test this hypothesis: <HYPOTHESIS>
+
+Edit only the files autoresearch.md lists under Files in Scope. Measure with `bash ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.sh`. If the run crashes or checks fail for a trivial reason (typo, missing import), fix it and rerun; any deeper failure is the result. Leave your changes uncommitted in the working tree: logging, committing, and reverting belong to the orchestrator.
+
+The change must win on the real workload: the benchmark measures the work, it is not the target. Code that special-cases benchmark inputs or skips work the real workload does is a failed experiment.
+
+Your final message reports, in this order:
+1. The final run's `--- Metrics ---` and `--- Summary ---` blocks verbatim, or its crash/timeout block.
+2. What you changed: one line per file.
+3. What you learned: why the metric moved or didn't, and the most promising follow-up.
+```
+
+### Analyst
+
+Agent tool, `subagent_type: "Plan"`, no `model` (it inherits yours). Dispatch when `autoresearch.ideas.md` holds fewer than three untried ideas, or after five consecutive runs without a `keep`.
+
+```
+Read autoresearch.md, autoresearch.jsonl, and autoresearch.ideas.md if present, then study the source files in scope and any profiling data the benchmark emits. Work out where the workload actually spends its time and why.
+
+Return five to ten untried hypotheses, ranked by expected gain. Each names the change, the files it touches, the mechanism by which it moves the primary metric, and the evidence behind it. Structurally different ideas outrank variations of past runs; a hypothesis the jsonl shows was already tried needs a stated reason it would land differently now.
+```
+
+Append its hypotheses to `autoresearch.ideas.md`.
+
+### Reviewer
+
+Agent tool, `subagent_type: "general-review"`, no `model`. Dispatch before every `keep`.
+
+```
+Review the uncommitted diff (`git diff`) against the objective and constraints in autoresearch.md. Judge whether the change wins on the real workload or games the benchmark: special-cased inputs, skipped work, cached results the real workload cannot reuse, measurement changes, or behaviour the constraints forbid. Report a verdict of sound or gamed, then each finding with its file and line.
+```
+
+A `gamed` verdict or a correctness finding turns the `keep` into a `discard`; record the finding in the ASI.
+
+## Loop
+
+Each iteration:
+
+1. Pick the next hypothesis from `autoresearch.ideas.md` (remove it from the file) or from what the last reports suggest.
+2. Dispatch the experimenter and wait for its report.
+3. Decide the status from the reported blocks. On a candidate `keep`, dispatch the reviewer first.
+4. Log with `autoresearch-log.sh`, folding the experimenter's lessons into `--asi`. The tree is clean again for the next iteration.
 
 **LOOP FOREVER.** Never ask "should I continue?" -- the user expects autonomous work.
 
 - **Primary metric is king.** Improved -> `keep`. Worse/equal -> `discard`. Secondary metrics rarely affect this.
-- **Annotate every run with `--asi`.** Record what you learned -- not what you did. What would help the next iteration or a fresh agent resuming this session? At minimum `{"hypothesis": "what you tried"}`. On discard/crash: also `rollback_reason` and `next_action_hint`.
+- **Annotate every run with `--asi`.** Record what was learned -- not what was done. What would help the next iteration or a fresh agent resuming this session? At minimum `{"hypothesis": "what was tried"}`. On discard/crash: also `rollback_reason` and `next_action_hint`.
 - **Watch the confidence score.** After 3+ runs, `autoresearch-log.sh` reports a confidence score (best improvement as a multiple of the session noise floor). >=2.0x means the improvement is likely real. <1.0x means it's within noise -- consider re-running to confirm before keeping. The score is advisory -- it never auto-discards.
 - **Simpler is better.** Removing code for equal perf = keep. Ugly complexity for tiny gain = probably discard.
-- **Don't thrash.** Repeatedly reverting the same idea? Try something structurally different.
-- **Crashes:** fix if trivial, otherwise log and move on. Don't over-invest.
-- **Think longer when stuck.** Re-read source files, study the profiling data, reason about what the CPU is actually doing. The best ideas come from deep understanding, not from trying random variations.
-- **Resuming:** if `autoresearch.md` exists, read it + git log, continue looping.
-- **Be careful not to overfit to the benchmarks and do not cheat on the benchmarks.**
+- **Don't thrash.** Repeatedly reverting the same idea? Dispatch the analyst for something structurally different.
+- **Crashes:** the experimenter fixes trivial ones; log the rest and move on.
+- **Resuming:** if `autoresearch.md` exists, read it + `autoresearch.jsonl` + git log, remove an in-flight marker a previous session left behind, continue looping.
 
 **NEVER STOP.** The user may be away for hours. Keep going until interrupted.
 
 ## Ideas Backlog
 
-When you discover complex but promising optimizations that you won't pursue right now, **append them as bullets to `autoresearch.ideas.md`**. Don't let good ideas get lost.
+`autoresearch.ideas.md` is a bullet list of hypotheses not yet tried: the analyst's output, plus follow-ups from experimenter reports worth more than the next iteration. Don't let good ideas get lost.
 
-On resume (context limit, crash), check `autoresearch.ideas.md` -- prune stale/tried entries, experiment with the rest. When all paths are exhausted, delete the file and write a final summary.
+On resume (context limit, crash), prune stale/tried entries, then experiment with the rest. When all paths are exhausted and a fresh analyst pass finds nothing new, delete the file and write a final summary.
 
 ## User Messages During Experiments
 
-If the user sends a message while an experiment is running, finish the current run + log cycle first, then incorporate their feedback in the next iteration. Don't abandon a running experiment.
+If the user sends a message while an experiment is running, wait for the experimenter's report and log it first, then incorporate their feedback in the next iteration. Don't abandon a running experiment.
 
 ## How to Stop
 
 The user can stop the loop by:
-- Saying "stop autoresearch" or "stop the loop" -- you should finish the current run+log cycle, then stop.
+- Saying "stop autoresearch" or "stop the loop" -- finish the current run+log cycle, then stop.
 - Pressing Ctrl+C to interrupt immediately.
 - The Stop hook will automatically allow stopping after 20 auto-resumes.

@@ -13,6 +13,12 @@ if [ ! -f "autoresearch.jsonl" ]; then
   exit 0
 fi
 
+# A dispatched subagent is still running; its completion notification resumes
+# the loop, so this stop is a wait, not an exit.
+if [ -f "autoresearch.inflight" ]; then
+  exit 0
+fi
+
 # Counter-based resume limit
 COUNTER_FILE="/tmp/autoresearch-resumes-$(pwd | md5sum | cut -c1-8)"
 COUNT=0
