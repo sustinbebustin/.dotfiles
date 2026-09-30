@@ -3,24 +3,25 @@ set -euo pipefail
 
 # Stop hook for autoresearch skill.
 # Blocks Claude from stopping while an autoresearch session is active.
-# Counter-limited to 20 auto-resumes to prevent truly infinite loops.
+# Counter-limited to 20 auto-resumes per session to prevent truly infinite loops.
 
-# Consume stdin (hook input JSON)
-cat > /dev/null
+INPUT=$(cat)
+CWD=$(jq -r '.cwd // empty' <<<"$INPUT")
+SESSION_ID=$(jq -r '.session_id // "unknown"' <<<"$INPUT")
 
-# Only active when autoresearch session exists in current working directory
-if [ ! -f "autoresearch.jsonl" ]; then
+# Only active when an autoresearch session exists in Claude's working directory
+if [ ! -f "${CWD:-.}/autoresearch.jsonl" ]; then
   exit 0
 fi
 
-# A dispatched subagent is still running; its completion notification resumes
-# the loop, so this stop is a wait, not an exit.
-if [ -f "autoresearch.inflight" ]; then
+# Background work (a dispatched subagent) is in flight; its completion
+# notification resumes the loop, so this stop is a wait, not an exit.
+if [ "$(jq '.background_tasks // [] | length' <<<"$INPUT")" -gt 0 ]; then
   exit 0
 fi
 
 # Counter-based resume limit
-COUNTER_FILE="/tmp/autoresearch-resumes-$(pwd | md5sum | cut -c1-8)"
+COUNTER_FILE="/tmp/autoresearch-resumes-$SESSION_ID"
 COUNT=0
 if [ -f "$COUNTER_FILE" ]; then
   COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo "0")

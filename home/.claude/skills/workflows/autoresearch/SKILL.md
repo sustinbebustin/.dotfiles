@@ -146,10 +146,7 @@ pnpm typecheck 2>&1 | grep -i error || true
 
 ## Dispatching
 
-One subagent in flight at a time: experiments share one working tree, and concurrent benchmarks corrupt each other's timings. Your turn ends while a subagent runs, so bracket every dispatch with the **in-flight marker**, which tells the Stop hook you are waiting, not quitting:
-
-- Before the Agent call: `touch autoresearch.inflight`
-- On the report: `rm -f autoresearch.inflight`
+One subagent in flight at a time: experiments share one working tree, and concurrent benchmarks corrupt each other's timings. While a subagent runs, end your turn: its completion notification wakes you, and the Stop hook lets a turn end while background work is in flight.
 
 Send each prompt below exactly, with only its placeholder filled in.
 
@@ -209,7 +206,7 @@ Each iteration:
 - **Simpler is better.** Removing code for equal perf = keep. Ugly complexity for tiny gain = probably discard.
 - **Don't thrash.** Repeatedly reverting the same idea? Dispatch the analyst for something structurally different.
 - **Crashes:** the experimenter fixes trivial ones; log the rest and move on.
-- **Resuming:** if `autoresearch.md` exists, read it + `autoresearch.jsonl` + each repo's git log, remove an in-flight marker a previous session left behind, continue looping.
+- **Resuming:** if `autoresearch.md` exists, read it + `autoresearch.jsonl` + each repo's git log, continue looping.
 
 **NEVER STOP.** The user may be away for hours. Keep going until interrupted.
 
