@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = []
 # ///
-"""Run the benchmark, extract METRIC lines, then run autoresearch.checks.sh if present.
+"""Run the benchmark, extract METRIC lines, then run .scratch/autoresearch/checks.sh if present.
 
 Exits 1 when the benchmark crashes or times out; a failing check still exits 0
 and reports CHECKS_STATUS: fail, since the run itself produced a result.
@@ -19,13 +19,14 @@ import tempfile
 import time
 from pathlib import Path
 
-BENCHMARK = Path("autoresearch.sh")
-CHECKS = Path("autoresearch.checks.sh")
+SESSION_DIR = Path(".scratch/autoresearch")
+BENCHMARK = SESSION_DIR / "bench.sh"
+CHECKS = SESSION_DIR / "checks.sh"
 KILL_GRACE_SECONDS = 10
 # Env assignments and wrappers that may precede the benchmark in a command.
 PREFIX = re.compile(r"^(?:\w+=\S*\s+|(?:env|time|nice|nohup)(?:\s+-\S+)*\s+)+")
 BENCHMARK_COMMAND = re.compile(
-    r"^(?:bash\s+(?:-\w+\s+)*)?(?:\./|/[\w/.-]*/)?autoresearch\.sh(?:\s|$)"
+    r"^(?:bash\s+(?:-\w+\s+)*)?(?:\S*/)?\.scratch/autoresearch/bench\.sh(?:\s|$)"
 )
 
 
@@ -57,7 +58,7 @@ def tail(text: str, n: int) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", nargs="?", default=f"./{BENCHMARK}")
+    parser.add_argument("command", nargs="?", default=f"bash {BENCHMARK}")
     parser.add_argument("timeout", nargs="?", type=int, default=600)
     parser.add_argument("checks_timeout", nargs="?", type=int, default=300)
     args = parser.parse_args()
@@ -65,7 +66,7 @@ def main() -> None:
     if BENCHMARK.exists() and not BENCHMARK_COMMAND.match(PREFIX.sub("", args.command)):
         sys.exit(
             f"ERROR: {BENCHMARK} exists -- you must run it instead of a custom command.\n"
-            f"Use: autoresearch-run.py './{BENCHMARK}'"
+            f"Use: autoresearch-run.py 'bash {BENCHMARK}'"
         )
 
     print("--- Running benchmark ---")

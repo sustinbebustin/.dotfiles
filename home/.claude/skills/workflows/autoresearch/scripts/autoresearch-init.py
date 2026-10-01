@@ -3,19 +3,21 @@
 # requires-python = ">=3.12"
 # dependencies = []
 # ///
-"""Write a session config header to autoresearch.jsonl.
+"""Write a session config header to .scratch/autoresearch/log.jsonl.
 
-On re-init (the file already exists), appends a new config line, which starts
-a new segment with its own baseline. Repos are the git repos experiments
-change, relative to the working directory; autoresearch-log.py commits and
-reverts in each.
+Creates the session directory on first run, and a .scratch/.gitignore that
+ignores all of .scratch when none exists. On re-init (the log already
+exists), appends a new config line, which starts a new segment with its own
+baseline. Repos are the git repos experiments change, relative to the working
+directory; autoresearch-log.py commits and reverts in each.
 """
 
 import argparse
 import json
 from pathlib import Path
 
-JSONL = Path("autoresearch.jsonl")
+SESSION_DIR = Path(".scratch/autoresearch")
+JSONL = SESSION_DIR / "log.jsonl"
 
 
 def main() -> None:
@@ -38,6 +40,11 @@ def main() -> None:
         "repos": args.repos,
     }
 
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    # .scratch ignores itself, so git add, restore, and clean skip it in any repo.
+    scratch_ignore = SESSION_DIR.parent / ".gitignore"
+    if not scratch_ignore.exists():
+        scratch_ignore.write_text("*\n")
     existing = JSONL.read_text().splitlines() if JSONL.exists() else []
     with JSONL.open("a") as f:
         f.write(json.dumps(config) + "\n")

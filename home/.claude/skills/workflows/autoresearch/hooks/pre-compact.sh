@@ -4,13 +4,12 @@ set -euo pipefail
 # PreCompact hook for autoresearch skill.
 # Injects a reminder to restore state after context compaction.
 
-# Consume stdin (hook input JSON)
-cat > /dev/null
+CWD=$(jq -r '.cwd // empty')
 
-if [ ! -f "autoresearch.md" ]; then
+if [ ! -f "${CWD:-.}/.scratch/autoresearch/session.md" ]; then
   exit 0
 fi
 
 cat <<'EOF'
-{"systemMessage": "Context compacting. After compaction, immediately read autoresearch.md and autoresearch.jsonl to restore experiment state, then continue the loop. Check autoresearch.ideas.md for deferred ideas."}
+{"systemMessage": "Context compacting. After compaction, immediately read .scratch/autoresearch/session.md and .scratch/autoresearch/log.jsonl to restore experiment state, then continue the loop. Check .scratch/autoresearch/ideas.md for deferred ideas."}
 EOF

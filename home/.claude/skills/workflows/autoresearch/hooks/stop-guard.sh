@@ -10,7 +10,7 @@ CWD=$(jq -r '.cwd // empty' <<<"$INPUT")
 SESSION_ID=$(jq -r '.session_id // "unknown"' <<<"$INPUT")
 
 # Only active when an autoresearch session exists in Claude's working directory
-if [ ! -f "${CWD:-.}/autoresearch.jsonl" ]; then
+if [ ! -f "${CWD:-.}/.scratch/autoresearch/log.jsonl" ]; then
   exit 0
 fi
 
@@ -36,5 +36,5 @@ echo $((COUNT + 1)) > "$COUNTER_FILE"
 
 # Block stop and instruct continuation
 cat <<'EOF'
-{"decision": "block", "reason": "Autoresearch loop active. Read autoresearch.md and git log for context, then continue the experiment loop. Check autoresearch.ideas.md for promising paths to explore. Do not overfit to benchmarks."}
+{"decision": "block", "reason": "Autoresearch loop active. Read .scratch/autoresearch/session.md and git log for context, then continue the experiment loop. Check .scratch/autoresearch/ideas.md for promising paths to explore. Do not overfit to benchmarks."}
 EOF

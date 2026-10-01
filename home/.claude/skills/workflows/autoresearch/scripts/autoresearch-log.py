@@ -7,8 +7,8 @@
 
 Acts on every repo named by the latest autoresearch-init.py config. keep
 commits each repo's changes; discard, crash, and checks_failed revert every
-uncommitted change in each repo. Session files (autoresearch.*) are never
-staged, committed, or reverted.
+uncommitted change in each repo. The session directory (.scratch/autoresearch)
+is git-ignored, so it is never staged, committed, or reverted.
 """
 
 import argparse
@@ -19,8 +19,8 @@ import sys
 import time
 from pathlib import Path
 
-JSONL = Path("autoresearch.jsonl")
-SESSION_FILES = "autoresearch.*"
+SESSION_DIR = Path(".scratch/autoresearch")
+JSONL = SESSION_DIR / "log.jsonl"
 STATUSES = ("keep", "discard", "crash", "checks_failed")
 
 
@@ -47,7 +47,7 @@ def git(repo: str, *args: str) -> str:
 def apply_status(repo: str, status: str, message: str) -> str:
     """Commit or revert one repo; returns its report line."""
     if status == "keep":
-        git(repo, "add", "-A", "--", ".", f":!{SESSION_FILES}")
+        git(repo, "add", "-A")
         # --quiet exits 0 for no staged changes, 1 for changes, anything else on error.
         diff = subprocess.run(
             ["git", "-C", repo, "diff", "--cached", "--quiet"],
@@ -63,17 +63,8 @@ def apply_status(repo: str, status: str, message: str) -> str:
             )
         git(repo, "commit", "--quiet", "-m", message)
         return f"{repo}: committed {git(repo, 'rev-parse', '--short=7', 'HEAD')}"
-    git(
-        repo,
-        "restore",
-        "--source=HEAD",
-        "--staged",
-        "--worktree",
-        "--",
-        ".",
-        f":!{SESSION_FILES}",
-    )
-    git(repo, "clean", "-fdq", "-e", SESSION_FILES)
+    git(repo, "restore", "--source=HEAD", "--staged", "--worktree", "--", ".")
+    git(repo, "clean", "-fdq")
     return f"{repo}: reverted"
 
 

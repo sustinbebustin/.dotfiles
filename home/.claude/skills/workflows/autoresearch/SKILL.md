@@ -23,7 +23,7 @@ metadata:
 
 Autonomous experiment loop: try ideas, keep what works, discard what doesn't, never stop.
 
-You are the **orchestrator**. You own the strategy and the record: which hypothesis runs next, keep or discard, the ASI, `autoresearch.md`. Subagents do the legwork: an **experimenter** implements and measures one hypothesis, an **analyst** refills the ideas backlog, a **reviewer** vets every `keep`. Your context holds their reports, never their file reads or benchmark logs, so it lasts hundreds of iterations.
+You are the **orchestrator**. You own the strategy and the record: which hypothesis runs next, keep or discard, the ASI, `session.md`. Subagents do the legwork: an **experimenter** implements and measures one hypothesis, an **analyst** refills the ideas backlog, a **reviewer** vets every `keep`. Your context holds their reports, never their file reads or benchmark logs, so it lasts hundreds of iterations.
 
 ## Arguments
 
@@ -31,25 +31,27 @@ Arguments: $ARGUMENTS
 
 Everything after the first `--` token is **notes**: the goal, command, metric, scope, or constraints for this session, or instructions on how to run it. They are yours alone; subagent prompts below go out unchanged. Before the `--`, a token that is exactly `haiku`, `sonnet`, `opus`, or `fable` is the **experiment model**. Default `opus` when absent. Below, `<MODEL>` means that model name.
 
+## Session Directory
+
+Every session file lives in `.scratch/autoresearch/` under the working directory: `session.md`, `bench.sh`, `checks.sh`, `log.jsonl`, `ideas.md`, `config.json`. Bare file names below mean files in this directory. Write every session file, note, and artifact here and nowhere else. The scripts never stage, commit, or revert it.
+
 ## Scripts
 
 Three helper scripts handle all experiment infrastructure. Always call them via Bash:
 
-- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-init.py <name> <metric_name> [unit] [direction] [repo...]`** -- configure session. Repos are the git repos experiments change, relative to the working directory (default `.`); name each repo itself, never a repo that contains another listed one. Call again to re-initialize with a new baseline when the optimization target or repo set changes.
-- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.py [command] [timeout]`** -- runs command (default: `./autoresearch.sh`, 600s timeout), captures output, extracts `METRIC` lines, runs `autoresearch.checks.sh` if present.
-- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-log.py <status> <metric_value> <description> [options]`** -- records result. `keep` commits each repo's changes. `discard`/`crash`/`checks_failed` reverts every uncommitted change in each repo. Options: `--metrics '{"k":v}'`, `--asi '{"k":"v"}'`.
-
-Session files (`autoresearch.*`) live in the working directory and stay out of git: the scripts never stage, commit, or revert them.
+- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-init.py <name> <metric_name> [unit] [direction] [repo...]`** -- configure session; creates the session directory. Repos are the git repos experiments change, relative to the working directory (default `.`); name each repo itself, never a repo that contains another listed one. Call again to re-initialize with a new baseline when the optimization target or repo set changes.
+- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.py [command] [timeout]`** -- runs command (default: `bash .scratch/autoresearch/bench.sh`, 600s timeout), captures output, extracts `METRIC` lines, runs `checks.sh` if present.
+- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-log.py <status> <metric_value> <description> [options]`** -- records result in `log.jsonl`. `keep` commits each repo's changes. `discard`/`crash`/`checks_failed` reverts every uncommitted change in each repo. Options: `--metrics '{"k":v}'`, `--asi '{"k":"v"}'`.
 
 ## Setup
 
 1. Take **Goal**, **Command**, **Metric** (+ direction), **Files in scope**, **Constraints** from the notes; infer or ask for the rest.
 2. In each repo in scope, start clean and `git checkout -b autoresearch/<goal>-<date>`. A discard reverts every uncommitted change in a listed repo, so anything uncommitted at start is lost.
 3. Read the source files. Understand the workload deeply before writing anything.
-4. Write `autoresearch.md` and `autoresearch.sh` (see below).
-5. Run `autoresearch-init.py` -> run baseline with `autoresearch-run.py` -> log with `autoresearch-log.py` -> start looping immediately.
+4. Run `autoresearch-init.py`, then write `session.md` and `bench.sh` (see below).
+5. Run the baseline with `autoresearch-run.py` -> log with `autoresearch-log.py` -> start looping immediately.
 
-### `autoresearch.md`
+### `session.md`
 
 This is the heart of the session: every experimenter starts cold and reads only this file, so it is the whole briefing. A fresh agent with no context should be able to read it and run an experiment effectively. Invest time making it excellent.
 
@@ -64,7 +66,7 @@ This is the heart of the session: every experimenter starts cold and reads only 
 - **Secondary**: <name>, <name>, ... -- independent tradeoff monitors
 
 ## How to Run
-`./autoresearch.sh` -- outputs `METRIC name=number` lines.
+`bash .scratch/autoresearch/bench.sh` -- outputs `METRIC name=number` lines.
 
 ## Files in Scope
 <Every file the agent may modify, with a brief note on what it does.>
@@ -80,11 +82,11 @@ This is the heart of the session: every experimenter starts cold and reads only 
 and architectural insights so the agent doesn't repeat failed approaches.>
 ```
 
-Update `autoresearch.md` periodically -- especially the "What's Been Tried" section -- so experimenters and resuming agents have full context.
+Update `session.md` periodically -- especially the "What's Been Tried" section -- so experimenters and resuming agents have full context.
 
-### `autoresearch.sh`
+### `bench.sh`
 
-Bash script (`set -euo pipefail`) that: pre-checks fast (syntax errors in <1s), runs the benchmark, and outputs structured lines to stdout. Keep the script fast -- every second is multiplied by hundreds of runs.
+Bash script (`set -euo pipefail`) that: pre-checks fast (syntax errors in <1s), runs the benchmark, and outputs structured lines to stdout. It runs from the working directory, not the session directory. Keep the script fast -- every second is multiplied by hundreds of runs.
 
 **For fast, noisy benchmarks** (< 5s), run the workload multiple times inside the script and report the median. This produces stable data points and makes the confidence score reliable from the start. Slow workloads (ML training, large builds) don't need this -- single runs are fine.
 
@@ -107,11 +109,11 @@ The script runs the same code every iteration -- but you can **update it during 
 
 Use `autoresearch-log.py`'s `--asi` option to annotate each run with **whatever would help the next iteration make a better decision.** Free-form key/value JSON -- you decide what's worth recording. Don't repeat the description or raw output; capture what you'd lose after a context reset.
 
-**Annotate failures and crashes heavily.** Discarded and crashed runs are reverted -- the code changes are gone. The only record that survives is the description and ASI in `autoresearch.jsonl`. If you don't capture what was tried and why it failed, future iterations will waste time re-discovering the same dead ends.
+**Annotate failures and crashes heavily.** Discarded and crashed runs are reverted -- the code changes are gone. The only record that survives is the description and ASI in `log.jsonl`. If you don't capture what was tried and why it failed, future iterations will waste time re-discovering the same dead ends.
 
-### `autoresearch.config.json` (optional)
+### `config.json` (optional)
 
-JSON config file in the project directory. Supported fields:
+Supported fields:
 
 - **`maxIterations`** (number) -- maximum experiments before auto-stopping. When set, check the run count from `autoresearch-log.py` output and stop when reached.
 
@@ -121,7 +123,7 @@ JSON config file in the project directory. Supported fields:
 }
 ```
 
-### `autoresearch.checks.sh` (optional)
+### `checks.sh` (optional)
 
 Bash script (`set -euo pipefail`) for backpressure/correctness checks: tests, types, lint, etc. **Only create this file when the user's constraints require correctness validation** (e.g., "tests must pass", "types must check").
 
@@ -155,9 +157,9 @@ Send each prompt below exactly, with only its placeholder filled in.
 Agent tool, `subagent_type: "general-purpose"`, `model: "<MODEL>"`. `<HYPOTHESIS>` is one change, stated specifically enough to implement: what to change, where, and why it should move the metric.
 
 ```
-Read autoresearch.md, then test this hypothesis: <HYPOTHESIS>
+Read .scratch/autoresearch/session.md, then test this hypothesis: <HYPOTHESIS>
 
-Edit only the files autoresearch.md lists under Files in Scope. Measure with `uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.py`. If the run crashes or checks fail for a trivial reason (typo, missing import), fix it and rerun; any deeper failure is the result. Leave your changes uncommitted in the working tree: logging, committing, and reverting belong to the orchestrator.
+Edit only the files session.md lists under Files in Scope, and write nothing into .scratch/autoresearch/. Measure with `uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.py`. If the run crashes or checks fail for a trivial reason (typo, missing import), fix it and rerun; any deeper failure is the result. Leave your changes uncommitted in the working tree: logging, committing, and reverting belong to the orchestrator.
 
 The change must win on the real workload: the benchmark measures the work, it is not the target. Code that special-cases benchmark inputs or skips work the real workload does is a failed experiment.
 
@@ -169,22 +171,22 @@ Your final message reports, in this order:
 
 ### Analyst
 
-Agent tool, `subagent_type: "Plan"`, no `model` (it inherits yours). Dispatch when `autoresearch.ideas.md` holds fewer than three untried ideas, or after five consecutive runs without a `keep`.
+Agent tool, `subagent_type: "Plan"`, no `model` (it inherits yours). Dispatch when `ideas.md` holds fewer than three untried ideas, or after five consecutive runs without a `keep`.
 
 ```
-Read autoresearch.md, autoresearch.jsonl, and autoresearch.ideas.md if present, then study the source files in scope and any profiling data the benchmark emits. Work out where the workload actually spends its time and why.
+Read session.md, log.jsonl, and ideas.md (if present) in .scratch/autoresearch/, then study the source files in scope and any profiling data the benchmark emits. Work out where the workload actually spends its time and why.
 
-Return five to ten untried hypotheses, ranked by expected gain. Each names the change, the files it touches, the mechanism by which it moves the primary metric, and the evidence behind it. Structurally different ideas outrank variations of past runs; a hypothesis the jsonl shows was already tried needs a stated reason it would land differently now.
+Return five to ten untried hypotheses, ranked by expected gain. Each names the change, the files it touches, the mechanism by which it moves the primary metric, and the evidence behind it. Structurally different ideas outrank variations of past runs; a hypothesis log.jsonl shows was already tried needs a stated reason it would land differently now.
 ```
 
-Append its hypotheses to `autoresearch.ideas.md`.
+Append its hypotheses to `ideas.md`.
 
 ### Reviewer
 
 Agent tool, `subagent_type: "general-review"`, no `model`. Dispatch before every `keep`.
 
 ```
-Review the uncommitted diff (`git diff`) against the objective and constraints in autoresearch.md. Judge whether the change wins on the real workload or games the benchmark: special-cased inputs, skipped work, cached results the real workload cannot reuse, measurement changes, or behaviour the constraints forbid. Report a verdict of sound or gamed, then each finding with its file and line.
+Review the uncommitted diff (`git diff`) against the objective and constraints in .scratch/autoresearch/session.md. Judge whether the change wins on the real workload or games the benchmark: special-cased inputs, skipped work, cached results the real workload cannot reuse, measurement changes, or behaviour the constraints forbid. Report a verdict of sound or gamed, then each finding with its file and line.
 ```
 
 A `gamed` verdict or a correctness finding turns the `keep` into a `discard`; record the finding in the ASI.
@@ -193,7 +195,7 @@ A `gamed` verdict or a correctness finding turns the `keep` into a `discard`; re
 
 Each iteration:
 
-1. Pick the next hypothesis from `autoresearch.ideas.md` (remove it from the file) or from what the last reports suggest.
+1. Pick the next hypothesis from `ideas.md` (remove it from the file) or from what the last reports suggest.
 2. Dispatch the experimenter and wait for its report.
 3. Decide the status from the reported blocks. On a candidate `keep`, dispatch the reviewer first.
 4. Log with `autoresearch-log.py`, folding the experimenter's lessons into `--asi`. The tree is clean again for the next iteration.
@@ -206,13 +208,13 @@ Each iteration:
 - **Simpler is better.** Removing code for equal perf = keep. Ugly complexity for tiny gain = probably discard.
 - **Don't thrash.** Repeatedly reverting the same idea? Dispatch the analyst for something structurally different.
 - **Crashes:** the experimenter fixes trivial ones; log the rest and move on.
-- **Resuming:** if `autoresearch.md` exists, read it + `autoresearch.jsonl` + each repo's git log, continue looping.
+- **Resuming:** if `session.md` exists, read it + `log.jsonl` + each repo's git log, continue looping.
 
 **NEVER STOP.** The user may be away for hours. Keep going until interrupted.
 
 ## Ideas Backlog
 
-`autoresearch.ideas.md` is a bullet list of hypotheses not yet tried: the analyst's output, plus follow-ups from experimenter reports worth more than the next iteration. Don't let good ideas get lost.
+`ideas.md` is a bullet list of hypotheses not yet tried: the analyst's output, plus follow-ups from experimenter reports worth more than the next iteration. Don't let good ideas get lost.
 
 On resume (context limit, crash), prune stale/tried entries, then experiment with the rest. When all paths are exhausted and a fresh analyst pass finds nothing new, delete the file and write a final summary.
 
