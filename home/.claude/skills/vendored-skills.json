@@ -279,7 +279,8 @@
       },
       "localChanges": [
         "Rewrote Cursor Task subagent params to Claude Code Agent tool: explorers use Explore (read-only); the explainer uses general-purpose with model opus and read-only stated in its prompt, since Cursor's readonly flag has no per-spawn equivalent here.",
-        "Dropped the pstack-models.mdc model-routing paragraph and Cursor model slugs; that rule is Cursor-only, and Agent model aliases cover routing here."
+        "Dropped the pstack-models.mdc model-routing paragraph and Cursor model slugs; that rule is Cursor-only, and Agent model aliases cover routing here.",
+        "Removed disable-model-invocation so the model can invoke it, including from why's pointer to how."
       ]
     },
     "impeccable": {
@@ -881,7 +882,8 @@
         "Dropped the pstack-models.mdc model-routing paragraph and Cursor model slugs; that rule is Cursor-only, and Agent model aliases cover routing here.",
         "MCP discovery reads the session's mcp__<server>__* tools (including deferred ones via ToolSearch) instead of Cursor's available-tools map and mcps/ directory, which Claude Code doesn't have.",
         "Context hint says 'the IDE selection' instead of 'cursor location'; that is the Claude Code equivalent.",
-        "Removed Slack: deleted references/sources/slack.md, its source-playbook.md row (chat now says to adapt the closest playbook), and the Slack mentions in SKILL.md and incident-postmortem.md; we don't use Slack. The real-time team chat category stays for other chat MCPs."
+        "Removed Slack: deleted references/sources/slack.md, its source-playbook.md row (chat now says to adapt the closest playbook), and the Slack mentions in SKILL.md and incident-postmortem.md; we don't use Slack. The real-time team chat category stays for other chat MCPs.",
+        "Removed disable-model-invocation so the model can invoke it, including from how's pointer to why."
       ]
     },
     "wizard": {
