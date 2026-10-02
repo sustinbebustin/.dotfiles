@@ -1,0 +1,49 @@
+#!/bin/zsh -f
+# Point ~/.ssh/ssh_auth_sock at a live agent that holds keys.
+#
+# Each SSH login forwards the Mac's agent on its own socket, which dies with
+# that connection, so a fixed link must be re-pointed whenever its target
+# goes away. This runs before every outgoing ssh (Match exec in ~/.ssh/config)
+# and before every zsh prompt, so processes that never draw a prompt -- tmux
+# panes, coding agents -- still reach a live agent.
+#
+# Preference: the newest forwarded agent with keys, else a long-lived local
+# agent (started on demand) for sessions without forwarding, e.g. Termius.
+# Always exits 0: Match exec treats failure as "no match".
+
+link=$HOME/.ssh/ssh_auth_sock
+local_sock=$HOME/.ssh/agent.local.sock
+
+# ssh-add -l exits 0 with keys, 1 with none, 2 when nothing is listening.
+has_keys() { SSH_AUTH_SOCK=$1 ssh-add -l >/dev/null 2>&1 }
+
+# Fast path, no agent round trip (it crosses the network to the Mac): sshd
+# removes a forwarded socket when its connection closes, so one that still
+# exists is live.
+if [[ -S $link && ${link:A} != $local_sock ]]; then
+  exit 0
+fi
+
+pick=
+# Sockets owned by us, newest first.
+for sock in /tmp/ssh-*/agent.*(N=Uom); do
+  if has_keys $sock; then
+    pick=$sock
+    break
+  fi
+done
+
+if [[ -z $pick ]]; then
+  SSH_AUTH_SOCK=$local_sock ssh-add -l >/dev/null 2>&1
+  if (( $? == 2 )); then
+    rm -f $local_sock
+    ssh-agent -a $local_sock >/dev/null
+  fi
+  pick=$local_sock
+fi
+
+# Swap the link atomically so concurrent callers never see it missing.
+if [[ ${link:A} != $pick ]]; then
+  ln -sfn $pick $link.$$ && mv -fT $link.$$ $link
+fi
+exit 0
