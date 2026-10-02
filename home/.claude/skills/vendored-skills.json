@@ -160,6 +160,26 @@
       },
       "localChanges": []
     },
+    "go-best-practices": {
+      "author": "poteto",
+      "source": {
+        "repo": "poteto/noodle",
+        "ref": "main",
+        "path": ".agents/skills/go-best-practices"
+      },
+      "localPath": "engineering/go-best-practices",
+      "sync": {
+        "commit": "82d2921c52370f23f29086de81ccfb600939c037",
+        "tree": "be3d912dfc730499d12097d66ca40d80ee1ffbda",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Added paths: [\"**/*.go\"] to the frontmatter so the skill auto-loads only when Go files are in play, as our previous go-best-practices did."
+      ]
+    },
     "grill-with-docs": {
       "author": "mattpocock",
       "source": {
