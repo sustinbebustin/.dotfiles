@@ -346,6 +346,30 @@ stow_skills() {
     ok "Linked $count skill(s) -> $dst"
 }
 
+# --- Mods ---
+
+# Claude Code mods (plugins of in-process function hooks) live in
+# home/.claude/mods/<name>/ and load through CLAUDE_CODE_PLUGIN_DIRS
+# (~/.claude/mods) in settings.base.json. The tree is stow-ignored: the plugin loader resolves
+# symlinks and rejects a module file that lands outside the plugin dir, so each
+# mod is published as one folder symlink rather than stow's per-file links.
+
+mods_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude/mods"; }
+
+stow_mods() {
+    local dst="$1" src entry count=0
+    src="$(mods_src_dir)"
+    [[ -d "$src" ]] || return 0
+    info "Linking Claude mods into ${dst/#$HOME/\~}..."
+    mkdir -p "$dst"
+    prune_skill_links "$dst"
+    while IFS= read -r -d '' entry; do
+        link_skill_tree "$entry" "$dst/${entry##*/}" || return 1
+        ((++count))
+    done < <(find "$src" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+    ok "Linked $count mod(s) -> $dst"
+}
+
 # --- Claude Code settings ---
 
 # home/.claude/settings.json is gitignored but stowed like any other file, so
@@ -962,6 +986,7 @@ cmd_stow() {
     prune_broken_stow_links
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "$STOW_PACKAGE"
     stow_skills "${HOME}/.claude/skills"
+    stow_mods "${HOME}/.claude/mods"
     stow_claude_accounts
     ok "Dotfiles linked"
 }

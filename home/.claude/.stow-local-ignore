@@ -29,3 +29,7 @@
 # The skills tree. Published by dot's stow_skills() instead -- categories
 # flattened, each skill linked as a folder.
 ^/skills$
+
+# Claude Code mods. Published by dot's stow_mods() into ~/.claude/mods only;
+# every account's settings point there.
+^/mods$

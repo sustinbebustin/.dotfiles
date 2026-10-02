@@ -1,3 +1,6 @@
+# Type declarations Claude Code writes into each mod on load
+home/.claude/mods/*/.claude-plugin/types/
+
 # Zsh generated files
 home/.config/zsh/.zcompdump*
 home/.config/zsh/.zsh_history

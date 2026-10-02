@@ -24,6 +24,8 @@ claude plugin marketplace add sustinbebustin/.dotfiles --sparse .claude-plugin
 claude plugin install meta@sustinbebustin
 ```
 
+Claude Code mods in `home/.claude/mods/` are published the same way, one folder symlink per mod into `~/.claude/mods`, because the plugin loader rejects per-file links. `settings.base.json` points `CLAUDE_CODE_PLUGIN_DIRS` at that folder, so every mod there loads in every session.
+
 The Go hooks in `home/.claude/hooks/` (PreToolUse guards, PostToolUse format/lint) are stowed as built `*-bin` binaries only -- `dot stow` builds them first, since they are per-platform and gitignored -- and registered in `home/.claude/settings.base.json`, which `dot stow` merges into the gitignored `home/.claude/settings.json`.
 
 ## Structure

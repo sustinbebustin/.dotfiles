@@ -5,7 +5,8 @@
     "CLAUDE_CODE_NO_FLICKER": "1",
     "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
     "IMPECCABLE_CONTEXT_DIR": ".impeccable",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5-5"
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5-5",
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods"
   },
   "attribution": {
     "commit": "",

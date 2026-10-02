@@ -36,3 +36,7 @@
 # The skills tree. Published by dot's stow_skills() instead -- categories
 # flattened, each skill linked as a folder.
 ^/\.claude/skills$
+
+# Claude Code mods. Published by dot's stow_mods() instead -- each mod linked
+# as a folder, since the plugin loader rejects per-file links.
+^/\.claude/mods$
