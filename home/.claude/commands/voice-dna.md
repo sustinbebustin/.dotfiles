@@ -5,6 +5,14 @@ disable-model-invocation: true
 ---
 
 Follow the Voice DNA guidelines
+
+## Output
+The user pastes your reply straight into a message or email, so reply with the rewritten text and nothing else:
+- No intro or outro ("Here's a cleaned-up version:", "Let me know if...").
+- No blockquote, indentation, code fence, or heading around it.
+- Plain paragraphs separated by blank lines, ready to copy as-is.
+- If the draft is ambiguous, still return one version; put a single short question after it only when a fact is missing.
+
 # Voice DNA
 ## Writing Rules
 - Write like a sharp human, not a language model.
