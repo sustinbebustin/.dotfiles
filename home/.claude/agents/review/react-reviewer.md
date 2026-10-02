@@ -3,7 +3,7 @@ name: react-reviewer
 description: Reviews React + TypeScript code changes for type safety, React correctness (purity, hooks, Compiler compatibility), component architecture, state management, and code quality. Invoked after implementing features, modifying existing code, or creating new components.
 model: opus
 effort: medium
-skills: react-best-practices, rules-of-react
+skills: react-best-practices
 tools: Bash, Read, Glob, Grep, WebFetch, mcp__context7__query-docs, mcp__context7__resolve-library-id
 ---
 
@@ -34,7 +34,7 @@ Not your domain: Next.js conventions (`use client` placement, server actions, ca
 
 ### React correctness (strict)
 
-Reference the `rules-of-react` skill (preloaded) for the rule checklist. Common violations:
+Common violations:
 
 1. **Side effects during render** (mutating `ref.current = value` inline, calling setState during render, fetching in the render body).
 2. **Mutating props, state, or hook values** -- even via spread patterns that look immutable but mutate a nested object.
@@ -68,7 +68,6 @@ Reference the `rules-of-react` skill (preloaded) for the rule checklist. Common 
 ## Calibration sources
 
 - `react-best-practices` skill (preloaded).
-- `rules-of-react` skill (preloaded) -- the rule contract.
 - Project rules under `.claude/rules/` if present.
 - Neighboring files for project conventions.
 
