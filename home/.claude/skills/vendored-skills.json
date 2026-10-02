@@ -309,6 +309,24 @@
         "checkout.sh exits when parse_repo fails; upstream runs it in a process substitution, so set -e never fired and the script went on with an empty path."
       ]
     },
+    "pr": {
+      "author": "mattpocock",
+      "source": {
+        "repo": "mattpocock/skills",
+        "ref": "main",
+        "path": "skills/engineering/pr"
+      },
+      "localPath": "git/pr",
+      "sync": {
+        "commit": "d81f3a183412e71a5b1e84ca21bc1a35eea03a60",
+        "tree": "00b896d811adffad747c7ca30078d909d60c7f93",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
     "prototype": {
       "author": "mattpocock",
       "source": {
