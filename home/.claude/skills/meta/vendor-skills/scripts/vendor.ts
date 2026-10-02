@@ -900,6 +900,15 @@ export const Catalog = {
     return `${JSON.stringify({ version: 1, trustedAuthors, skills }, null, 2)}\n`;
   },
 
+  /** An entry's next localChanges: `--note`s replace the list, `--clear-notes` empties it, neither keeps it. */
+  notes(previous: readonly string[] | undefined, notes: readonly string[] | undefined, clear: boolean): Result<readonly string[]> {
+    if (clear && notes !== undefined) {
+      return fail("usage", "--note and --clear-notes conflict: pass the full note list alone, or --clear-notes alone to empty it");
+    }
+    if (clear) return ok([]);
+    return ok(notes ?? previous ?? []);
+  },
+
   load(file: string): Result<Catalog> {
     if (!fs.existsSync(file)) return ok(EMPTY_CATALOG);
     const parsed = Catalog.parse(fs.readFileSync(file, "utf8"));
@@ -927,6 +936,8 @@ const USAGE = `usage: node vendor.ts <command> [args]
   author <skill-dir> <login>                set metadata.author in SKILL.md
   catalog list | show <name> | remove <name> | mark-removed <name> | trust <author> | untrust <author>
   catalog upsert <name> --fetch <out> --local <path> [--note text]... [--clear-notes]
+                                            --notes replace every note; --clear-notes empties them;
+                                            neither keeps them
                                             (catalog commands take [--catalog file]; default <root>/${CATALOG_FILE})`;
 
 function print(value: unknown): void {
@@ -1000,7 +1011,9 @@ function catalogCommand(args: readonly string[]): Result<unknown> {
       if (!fetched.ok) return fetched;
       const f = fetched.value;
       const previous = catalog.skills[target];
-      const localChanges = values["clear-notes"] === true ? [] : (values.note ?? previous?.localChanges ?? []);
+      const notes = Catalog.notes(previous?.localChanges, values.note, values["clear-notes"] === true);
+      if (!notes.ok) return notes;
+      const localChanges = notes.value;
       const entry: CatalogEntry = {
         author: f.owner,
         source: { repo: `${f.owner}/${f.repo}`, ref: f.ref, path: f.path },

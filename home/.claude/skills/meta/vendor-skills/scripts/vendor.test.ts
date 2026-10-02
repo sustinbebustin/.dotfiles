@@ -291,6 +291,15 @@ describe("Catalog", () => {
     assert.deepEqual(unwrap(Catalog.parse(serialized)).skills["a"], entry);
   });
 
+  it("keeps, replaces, or clears notes, and rejects --note with --clear-notes", () => {
+    assert.deepEqual(unwrap(Catalog.notes(["old"], undefined, false)), ["old"]);
+    assert.deepEqual(unwrap(Catalog.notes(["old"], ["new"], false)), ["new"]);
+    assert.deepEqual(unwrap(Catalog.notes(["old"], undefined, true)), []);
+    const both = Catalog.notes(["old"], ["new"], true);
+    assert.equal(both.ok, false);
+    if (!both.ok) assert.equal(both.error.kind, "usage");
+  });
+
   it("names the bad field", () => {
     const bad = JSON.stringify({ version: 1, trustedAuthors: [], skills: { a: { ...entry, sync: { ...entry.sync, commit: "x" } } } });
     const parsed = Catalog.parse(bad);
