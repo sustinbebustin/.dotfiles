@@ -504,12 +504,14 @@
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "b32508a8a7d62c07d32d7c5cff84d357719def7f",
-        "at": "2026-09-26"
+        "at": "2026-10-02"
       },
       "status": {
         "state": "tracked"
       },
-      "localChanges": []
+      "localChanges": [
+        "Deleted agents/openai.yaml; it is OpenAI Codex agent metadata that Claude Code never reads."
+      ]
     },
     "shadcn": {
       "author": "shadcn-ui",
