@@ -367,6 +367,45 @@
       },
       "localChanges": []
     },
+    "principle-boundary-discipline": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "pstack/skills/principle-boundary-discipline"
+      },
+      "localPath": "engineering/principle-boundary-discipline",
+      "sync": {
+        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
+        "tree": "743b098e6874a93b11e9f4d5843c79a243580ae2",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
+    "principle-type-system-discipline": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "pstack/skills/principle-type-system-discipline"
+      },
+      "localPath": "engineering/principle-type-system-discipline",
+      "sync": {
+        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
+        "tree": "88836c25807833f4f8bc79b8c8542fc1c8c558b3",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Pointer to principle-boundary-discipline is a file path to Read rather than a skill name: that skill sets disable-model-invocation, so the model cannot invoke it.",
+        "Dropped the pointer to the encode-lessons-in-structure principle skill; we do not vendor it."
+      ]
+    },
     "prototype": {
       "author": "mattpocock",
       "source": {
