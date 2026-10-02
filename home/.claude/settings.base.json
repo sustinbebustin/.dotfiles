@@ -105,6 +105,8 @@
     "sentry-cli": "name-only",
     "stack": "name-only",
     "summarize": "name-only",
+    "thermo-nuclear-code-quality-review": "name-only",
+    "thermo-nuclear-review": "name-only",
     "wizard": "name-only"
   },
   "hooks": {

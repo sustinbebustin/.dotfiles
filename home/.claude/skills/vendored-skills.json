@@ -656,6 +656,65 @@
         "Moved orchestration out to our workflows/test-audit-stack skill: dropped the discovery lanes, the Landing and continuation section ($openclaw-pr-maintainer, scripts/pr), PR/merge state in the Handoff, and CAMPAIGN.md (rewritten there as stacked-PR campaign mode). This skill keeps only the rules each batch subagent applies; branching, PRs, and stacking are the orchestrator's job."
       ]
     },
+    "thermo-nuclear-code-quality-review": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "thermos/skills/thermo-nuclear-code-quality-review"
+      },
+      "localPath": "review/thermo-nuclear-code-quality-review",
+      "sync": {
+        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
+        "tree": "d9c8935dd560b3b6f5941247d04a1843f8c7cc35",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Removed disable-model-invocation so the matching thermo agent can preload it via skills:; the flag blocks preloading. skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing."
+      ]
+    },
+    "thermo-nuclear-review": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "thermos/skills/thermo-nuclear-review"
+      },
+      "localPath": "review/thermo-nuclear-review",
+      "sync": {
+        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
+        "tree": "b222e50771b6bc6f7d2b926b86da2342f160bb79",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Dropped the Final Response section and the critical rule about checking PR/MR discussion after the audit; we don't use review bots or PR reviewer threads, so the reviewer audits the diff alone.",
+        "Removed disable-model-invocation so the matching thermo agent can preload it via skills:; the flag blocks preloading. skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing."
+      ]
+    },
+    "thermos": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "thermos/skills/thermos"
+      },
+      "localPath": "review/thermos",
+      "sync": {
+        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
+        "tree": "56e7ab69f83a54852b54512b536c95ea45ecf1e1",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
     "to-spec": {
       "author": "mattpocock",
       "source": {
