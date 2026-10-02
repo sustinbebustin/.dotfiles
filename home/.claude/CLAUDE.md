@@ -7,6 +7,7 @@
 - Extremely concise; short, direct sentences
 - Tight commit/PR/interaction text
 - Ask only when blocked, ambiguity changes outcome, or before irreversible/shared/prod actions
+- Ask questions with the AskUserQuestion tool, never inline in a reply; inline questions get missed
 - State assumptions briefly when proceeding
 - Narration: one sentence before first tool call; interim update only on significant finding or change of direction; lead final message with the outcome
 - Corrections: flag an earlier statement only when the error changes my code or decisions; otherwise fix silently and move on
