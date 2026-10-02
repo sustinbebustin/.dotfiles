@@ -391,6 +391,24 @@
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
     },
+    "retro": {
+      "author": "mattpocock",
+      "source": {
+        "repo": "mattpocock/skills",
+        "ref": "main",
+        "path": "skills/engineering/retro"
+      },
+      "localPath": "productivity/retro",
+      "sync": {
+        "commit": "d81f3a183412e71a5b1e84ca21bc1a35eea03a60",
+        "tree": "335c1862a43da9d629abafdb79ca0c0de118be08",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
     "sentry-cli": {
       "author": "getsentry",
       "source": {
