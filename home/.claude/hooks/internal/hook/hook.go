@@ -8,19 +8,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 
 	"claude-hooks/internal/config"
 	"claude-hooks/internal/shellast"
 )
 
-// Decision is the verdict a rule reaches. Rules return one of these;
-// [Decision.String] gives the name used on the wire.
+// Decision is the verdict a rule reaches. Rules return one of these. They are
+// ordered by severity, which is how Merge picks the winner.
 type Decision int
 
 const (
 	// Allow means the rule found nothing to act on.
 	Allow Decision = iota
+	// Rewrite means the action may run, but only as the rule's replacement
+	// command: an equivalent the guards allow.
+	Rewrite
 	// Ask means the action is risky enough that a human should approve it
 	// case by case.
 	Ask
@@ -28,13 +32,16 @@ const (
 	Deny
 )
 
-// String renders a Decision as the name Claude Code uses on the wire. A value
+// String names a Decision. Every name but "rewrite" is also its wire value; a
+// rewrite goes out as an allow carrying the new input (see Encode). A value
 // outside the enum renders as Decision(n), which no consumer accepts -- it is a
 // bug signal, not a wire value.
 func (d Decision) String() string {
 	switch d {
 	case Allow:
 		return "allow"
+	case Rewrite:
+		return "rewrite"
 	case Ask:
 		return "ask"
 	case Deny:
@@ -44,14 +51,26 @@ func (d Decision) String() string {
 }
 
 // Verdict is a Decision plus the reason shown to the user and the model. Reason
-// is required for Ask and Deny and ignored for Allow.
+// is required for Ask and Deny and ignored otherwise.
+//
+// Command and Note come from a rewrite: the replacement command, and what the
+// model is told about it, since it sees only the result. A Rewrite always has
+// them; an Ask may keep them from a rewrite it outranked (see Merge); an Allow
+// or Deny never does.
 type Verdict struct {
 	Decision Decision
 	Reason   string
+	Command  string
+	Note     string
 }
 
 // Allowed is the verdict for "nothing to act on here".
 func Allowed() Verdict { return Verdict{Decision: Allow} }
+
+// Rewritten is the verdict for "run command in place of the one sent".
+func Rewritten(command, note string) Verdict {
+	return Verdict{Decision: Rewrite, Command: command, Note: note}
+}
 
 // Asked is the verdict for "a human should approve this".
 func Asked(reason string) Verdict { return Verdict{Decision: Ask, Reason: reason} }
@@ -98,9 +117,11 @@ func toolInputFields(raw json.RawMessage) map[string]json.RawMessage {
 // output is the PreToolUse wire format.
 type output struct {
 	HookSpecificOutput struct {
-		HookEventName            string `json:"hookEventName"`
-		PermissionDecision       string `json:"permissionDecision"`
-		PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
+		HookEventName            string                     `json:"hookEventName"`
+		PermissionDecision       string                     `json:"permissionDecision"`
+		PermissionDecisionReason string                     `json:"permissionDecisionReason,omitempty"`
+		UpdatedInput             map[string]json.RawMessage `json:"updatedInput,omitempty"`
+		AdditionalContext        string                     `json:"additionalContext,omitempty"`
 	} `json:"hookSpecificOutput"`
 }
 
@@ -122,6 +143,9 @@ type Request struct {
 	// that need it set it directly, and the rest get the zero value, which is
 	// the no-config state.
 	Config config.Config
+	// toolInput is tool_input as sent, field by field. A rewrite must hand
+	// back the whole input object, so the fields no rule reads are kept too.
+	toolInput map[string]json.RawMessage
 }
 
 // NewRequest builds a Request from already-decoded fields. It is the seam the
@@ -206,18 +230,43 @@ func Read(r io.Reader) (*Request, error) {
 		jsonString(fields["command"]),
 	)
 	req.Cwd = jsonString(in.Cwd)
+	req.toolInput = fields
 	return req, nil
 }
 
 // Encode renders v as the PreToolUse wire bytes, including the trailing
 // newline json.Encoder writes. It does no I/O, so tests can pin the exact
 // bytes without running a binary.
-func Encode(v Verdict) ([]byte, error) {
+//
+// A rewrite goes out as an allow, or as an ask when it was outranked by one, so
+// the prompt shows the command that will actually run. Its updatedInput is req's
+// tool input with the command replaced: Claude Code swaps in the whole object,
+// so every other field is carried over as sent. The note goes to the model as
+// additionalContext. req may be nil when v carries no rewrite.
+func Encode(v Verdict, req *Request) ([]byte, error) {
 	var out output
 	out.HookSpecificOutput.HookEventName = "PreToolUse"
-	out.HookSpecificOutput.PermissionDecision = v.Decision.String()
-	if v.Decision != Allow {
+	switch v.Decision {
+	case Allow:
+		out.HookSpecificOutput.PermissionDecision = v.Decision.String()
+	case Rewrite:
+		out.HookSpecificOutput.PermissionDecision = Allow.String()
+	default:
+		out.HookSpecificOutput.PermissionDecision = v.Decision.String()
 		out.HookSpecificOutput.PermissionDecisionReason = v.Reason
+	}
+	if v.Command != "" && v.Decision != Deny {
+		command, err := json.Marshal(v.Command)
+		if err != nil {
+			return nil, err
+		}
+		fields := map[string]json.RawMessage{}
+		if req != nil {
+			maps.Copy(fields, req.toolInput)
+		}
+		fields["command"] = command
+		out.HookSpecificOutput.UpdatedInput = fields
+		out.HookSpecificOutput.AdditionalContext = v.Note
 	}
 
 	var buf bytes.Buffer
@@ -227,10 +276,11 @@ func Encode(v Verdict) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// Render writes v to stdout as a PreToolUse decision and exits: 0 when the
-// decision was written, 2 when it could not be. It never returns.
-func Render(name string, v Verdict) {
-	raw, err := Encode(v)
+// Render writes v, reached on req, to stdout as a PreToolUse decision and
+// exits: 0 when the decision was written, 2 when it could not be. It never
+// returns. req may be nil when v is not a rewrite (see Encode).
+func Render(name string, req *Request, v Verdict) {
+	raw, err := Encode(v, req)
 	if err == nil {
 		_, err = os.Stdout.Write(raw)
 	}

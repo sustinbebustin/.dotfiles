@@ -41,7 +41,7 @@ func TestEncodeWireFormat(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := Encode(tc.verdict)
+			got, err := Encode(tc.verdict, NewRequest("Bash", "", "", "ls"))
 			if err != nil {
 				t.Fatalf("Encode: %v", err)
 			}
@@ -52,12 +52,48 @@ func TestEncodeWireFormat(t *testing.T) {
 	}
 }
 
+// TestEncodeRewrite pins the rewrite on the wire: an allow carrying the whole
+// tool input with only the command replaced, since updatedInput replaces the
+// input object outright, and the note as context for the model.
+func TestEncodeRewrite(t *testing.T) {
+	stdin := `{"tool_name":"Bash","tool_input":{"command":"cd /a; ls","description":"List","timeout":5000}}`
+	req, err := Read(strings.NewReader(stdin))
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	got, err := Encode(Rewritten("(\ncd /a; ls\n)", "ran confined"), req)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	want := `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow",` +
+		`"updatedInput":{"command":"(\ncd /a; ls\n)","description":"List","timeout":5000},` +
+		`"additionalContext":"ran confined"}}` + "\n"
+	if string(got) != want {
+		t.Errorf("bytes mismatch\n got: %q\nwant: %q", got, want)
+	}
+
+	asked := Verdict{Decision: Ask, Reason: "push?", Command: "(\ncd /a; ls\n)", Note: "ran confined"}
+	got, err = Encode(asked, req)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	want = `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask",` +
+		`"permissionDecisionReason":"push?",` +
+		`"updatedInput":{"command":"(\ncd /a; ls\n)","description":"List","timeout":5000},` +
+		`"additionalContext":"ran confined"}}` + "\n"
+	if string(got) != want {
+		t.Errorf("ask with a rewrite: bytes mismatch\n got: %q\nwant: %q", got, want)
+	}
+}
+
 func TestMerge(t *testing.T) {
 	cases := []struct {
 		name     string
 		in       []Verdict
 		decision Decision
 		reason   string
+		command  string
+		note     string
 	}{
 		{
 			name:     "no applicable rule is an allow",
@@ -105,6 +141,42 @@ func TestMerge(t *testing.T) {
 			decision: Deny,
 			reason:   "real",
 		},
+		{
+			name:     "a rewrite wins over allows",
+			in:       []Verdict{Allowed(), Rewritten("(ls)", "note")},
+			decision: Rewrite,
+			command:  "(ls)",
+			note:     "note",
+		},
+		// Approving the original would run it unrewritten, so the ask carries
+		// the rewrite and the user approves the command that will run.
+		{
+			name:     "an ask beats a rewrite but keeps its command",
+			in:       []Verdict{Rewritten("(ls)", "note"), Asked("a")},
+			decision: Ask,
+			reason:   "a",
+			command:  "(ls)",
+			note:     "note",
+		},
+		{
+			name:     "a deny drops the rewrite",
+			in:       []Verdict{Rewritten("(ls)", "note"), Denied("d")},
+			decision: Deny,
+			reason:   "d",
+		},
+		{
+			name:     "two identical rewrites agree",
+			in:       []Verdict{Rewritten("(ls)", "note"), Rewritten("(ls)", "note")},
+			decision: Rewrite,
+			command:  "(ls)",
+			note:     "note",
+		},
+		{
+			name:     "two different rewrites deny",
+			in:       []Verdict{Rewritten("(ls)", "a"), Rewritten("(pwd)", "b")},
+			decision: Deny,
+			reason:   conflictingRewrites,
+		},
 	}
 
 	for _, tc := range cases {
@@ -115,6 +187,12 @@ func TestMerge(t *testing.T) {
 			}
 			if got.Reason != tc.reason {
 				t.Errorf("reason = %q, want %q", got.Reason, tc.reason)
+			}
+			if got.Command != tc.command {
+				t.Errorf("command = %q, want %q", got.Command, tc.command)
+			}
+			if got.Note != tc.note {
+				t.Errorf("note = %q, want %q", got.Note, tc.note)
 			}
 		})
 	}

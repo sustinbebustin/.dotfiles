@@ -199,6 +199,23 @@ func TestNestedVerdictSaysWhereItCameFrom(t *testing.T) {
 	}
 }
 
+// TestNestedRewriteBlocks keeps a rewrite of an inner script from standing in
+// for the whole command, which would run the inner script alone.
+func TestNestedRewriteBlocks(t *testing.T) {
+	rs := []Rule{rule("nested", []string{"Bash"}, func(req *hook.Request) hook.Verdict {
+		if req.Command == "ls" {
+			return hook.Rewritten("(ls)", "note")
+		}
+		return hook.Allowed()
+	})}
+	rs[0].Nested = true
+
+	got := Apply(rs, hook.NewRequest("Bash", "", "", `bash -c 'ls'`))
+	if got.Decision != hook.Deny || got.Command != "" {
+		t.Fatalf("got %q with command %q, want a deny with none", got.Decision, got.Command)
+	}
+}
+
 // TestRepeatedFindingIsReportedOnce keeps one rule's several verdicts -- one per
 // nested script -- from reading as several different problems.
 func TestRepeatedFindingIsReportedOnce(t *testing.T) {

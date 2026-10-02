@@ -35,6 +35,10 @@ type goldenCase struct {
 	// diff that introduced them.
 	Decision string `json:"decision"`
 	Reason   string `json:"reason,omitempty"`
+	// Command and Note are a rewrite's replacement command and what the model
+	// is told about it, carried by a rewrite or an ask that outranked one.
+	Command string `json:"command,omitempty"`
+	Note    string `json:"note,omitempty"`
 }
 
 func loadGolden(t *testing.T) []goldenCase {
@@ -72,6 +76,7 @@ func TestDecisions(t *testing.T) {
 		for i := range cases {
 			v := decide(cases[i].Stdin)
 			cases[i].Decision, cases[i].Reason = v.Decision.String(), v.Reason
+			cases[i].Command, cases[i].Note = v.Command, v.Note
 		}
 		raw, err := json.MarshalIndent(cases, "", "  ")
 		if err != nil {
@@ -100,6 +105,9 @@ func TestDecisions(t *testing.T) {
 			if got.Reason != tc.Reason {
 				t.Fatalf("reason mismatch\n got: %q\nwant: %q", got.Reason, tc.Reason)
 			}
+			if got.Command != tc.Command || got.Note != tc.Note {
+				t.Fatalf("rewrite mismatch\n got: %q, %q\nwant: %q, %q", got.Command, got.Note, tc.Command, tc.Note)
+			}
 		})
 	}
 }
@@ -111,7 +119,7 @@ func TestEveryDecisionIsExercised(t *testing.T) {
 	for _, tc := range loadGolden(t) {
 		counts[tc.Decision]++
 	}
-	for _, want := range []string{"allow", "ask", "deny"} {
+	for _, want := range []string{"allow", "rewrite", "ask", "deny"} {
 		if counts[want] == 0 {
 			t.Errorf("no payload in the corpus produces %q", want)
 		}
@@ -119,14 +127,22 @@ func TestEveryDecisionIsExercised(t *testing.T) {
 }
 
 // TestReasonAccompaniesEveryBlock pins the wire contract at corpus scale: an ask
-// or a deny with no reason gives the user nothing to act on.
+// or a deny with no reason gives the user nothing to act on, and a rewrite
+// without its command and note runs nothing new and tells the model nothing.
 func TestReasonAccompaniesEveryBlock(t *testing.T) {
 	for _, tc := range loadGolden(t) {
-		if tc.Decision != "allow" && strings.TrimSpace(tc.Reason) == "" {
+		blocks := tc.Decision == "ask" || tc.Decision == "deny"
+		if blocks && strings.TrimSpace(tc.Reason) == "" {
 			t.Errorf("%s: %s carries no reason", tc.Name, tc.Decision)
 		}
-		if tc.Decision == "allow" && tc.Reason != "" {
-			t.Errorf("%s: allow carries a reason (%q), which is dropped on the wire", tc.Name, tc.Reason)
+		if !blocks && tc.Reason != "" {
+			t.Errorf("%s: %s carries a reason (%q), which is dropped on the wire", tc.Name, tc.Decision, tc.Reason)
+		}
+		switch {
+		case tc.Decision == "rewrite" && (tc.Command == "" || tc.Note == ""):
+			t.Errorf("%s: rewrite without a command and a note", tc.Name)
+		case (tc.Decision == "allow" || tc.Decision == "deny") && tc.Command != "":
+			t.Errorf("%s: %s carries command %q, which only a rewrite or an ask applies", tc.Name, tc.Decision, tc.Command)
 		}
 	}
 }

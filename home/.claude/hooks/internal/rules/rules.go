@@ -111,9 +111,16 @@ func Apply(rs []Rule, req *hook.Request) hook.Verdict {
 // recursive rm against a command whose visible words contain no rm at all.
 const nestedPrefix = "Inside a script passed to a nested shell: "
 
+// A rewrite is of the inner script alone and cannot stand in for the whole
+// command, so inside a nested shell it blocks instead.
 func markNested(v hook.Verdict) hook.Verdict {
-	if v.Decision == hook.Allow {
+	switch v.Decision {
+	case hook.Allow:
 		return v
+	case hook.Rewrite:
+		return hook.Denied(nestedPrefix + "a guard asked to rewrite this script, which cannot be " +
+			"done from outside the nested shell, so the command is blocked unchanged. Run the " +
+			"script's commands directly rather than through `bash -c`.")
 	}
 	v.Reason = nestedPrefix + v.Reason
 	return v

@@ -16,16 +16,35 @@ import "strings"
 // finding in two of them says nothing the first said, while reading as though
 // two different things were wrong.
 //
+// A rewrite ranks above allow and below ask. An ask that outranks one keeps
+// its command, so the user is asked about the command that will run rather
+// than approving the original unchanged; a deny drops it. Rewrites that agree
+// are one rewrite; two that differ cannot both be applied, and the call is
+// denied rather than one chosen.
+//
 // An empty slice means no rule applied to this tool, which is an Allow.
 func Merge(verdicts []Verdict) Verdict {
 	winner := Allow
+	var command, note string
 	for _, v := range verdicts {
 		if v.Decision > winner {
 			winner = v.Decision
 		}
+		if v.Decision != Rewrite {
+			continue
+		}
+		if command != "" && v.Command != command {
+			return Denied(conflictingRewrites)
+		}
+		command, note = v.Command, v.Note
 	}
-	if winner == Allow {
+	switch winner {
+	case Allow:
 		return Allowed()
+	case Rewrite:
+		return Rewritten(command, note)
+	case Deny:
+		command, note = "", ""
 	}
 
 	var reasons []string
@@ -37,5 +56,9 @@ func Merge(verdicts []Verdict) Verdict {
 		seen[v.Reason] = true
 		reasons = append(reasons, v.Reason)
 	}
-	return Verdict{Decision: winner, Reason: strings.Join(reasons, " ")}
+	return Verdict{Decision: winner, Reason: strings.Join(reasons, " "), Command: command, Note: note}
 }
+
+const conflictingRewrites = "Two guards rewrote this command in different ways, and only one rewrite " +
+	"can run, so it is blocked unchanged. Rewrite it into the form the guards ask for, such as a " +
+	"`( ... )` subshell around any `cd`, and run it again."

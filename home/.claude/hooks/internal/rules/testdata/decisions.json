@@ -22,8 +22,9 @@
   {
     "name": "cd-top-level",
     "stdin": "{\"tool_input\":{\"command\":\"cd /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "Disallowed `cd` outside a subshell: `cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+    "decision": "rewrite",
+    "command": "(\ncd /tmp \u0026\u0026 ls\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is unchanged for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
   },
   {
     "name": "cd-subshell",
@@ -45,8 +46,9 @@
   {
     "name": "cd-in-block",
     "stdin": "{\"tool_input\":{\"command\":\"{ cd /tmp; ls; }\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "Disallowed `cd` outside a subshell: `cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+    "decision": "rewrite",
+    "command": "(\n{ cd /tmp; ls; }\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is unchanged for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
   },
   {
     "name": "rm-repo",
@@ -591,8 +593,10 @@
   {
     "name": "multi-cd-and-rm",
     "stdin": "{\"tool_input\":{\"command\":\"cd /tmp \\u0026\\u0026 rm -rf /repo/src\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "Disallowed `cd` outside a subshell: `cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+    "decision": "ask",
+    "reason": "recursive rm detected - permanently deletes files/directories. Allow?",
+    "command": "(\ncd /tmp \u0026\u0026 rm -rf /repo/src\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is unchanged for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
   },
   {
     "name": "multi-push-and-aws",
@@ -609,8 +613,10 @@
   {
     "name": "multi-cd-and-push",
     "stdin": "{\"tool_input\":{\"command\":\"cd /repo \\u0026\\u0026 git push\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "Disallowed `cd` outside a subshell: `cd /repo`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+    "decision": "ask",
+    "reason": "git push without an explicit branch pushes whatever is checked out, which could be main - allow?",
+    "command": "(\ncd /repo \u0026\u0026 git push\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is unchanged for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
   },
   {
     "name": "multi-rm-and-aws",
@@ -786,26 +792,30 @@
   {
     "name": "cd-quoted",
     "stdin": "{\"tool_input\":{\"command\":\"\\\"cd\\\" /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "Disallowed `cd` outside a subshell: `\"cd\" /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+    "decision": "rewrite",
+    "command": "(\n\"cd\" /tmp \u0026\u0026 ls\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is unchanged for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
   },
   {
     "name": "cd-escaped",
     "stdin": "{\"tool_input\":{\"command\":\"\\\\cd /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "Disallowed `cd` outside a subshell: `\\cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+    "decision": "rewrite",
+    "command": "(\n\\cd /tmp \u0026\u0026 ls\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is unchanged for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
   },
   {
     "name": "cd-partly-quoted",
     "stdin": "{\"tool_input\":{\"command\":\"c'd' /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "Disallowed `cd` outside a subshell: `c'd' /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+    "decision": "rewrite",
+    "command": "(\nc'd' /tmp \u0026\u0026 ls\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is unchanged for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
   },
   {
     "name": "cd-via-builtin",
     "stdin": "{\"tool_input\":{\"command\":\"builtin cd /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "Disallowed `cd` outside a subshell: `builtin cd /tmp`. Working directory does not persist between Bash tool calls, so a top-level `cd` silently desyncs the rest of the command (and later calls). Use `(cd dir \u0026\u0026 cmd)` for subshell scope, or a tool-native flag: `git -C \u003cdir\u003e`, `pnpm --prefix \u003cdir\u003e`, `npm --prefix \u003cdir\u003e`, `make -C \u003cdir\u003e`, `just -d \u003cdir\u003e`. If the project exposes root-level Make/Just targets that handle directory context, prefer those."
+    "decision": "rewrite",
+    "command": "(\nbuiltin cd /tmp \u0026\u0026 ls\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is unchanged for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
   },
   {
     "name": "benign-sudo-ls",

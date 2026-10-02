@@ -40,13 +40,13 @@ func main() {
 	// A payload that cannot be read is no grounds to block anything.
 	req, err := hook.Read(os.Stdin)
 	if err != nil {
-		hook.Render(progName, hook.Allowed())
+		hook.Render(progName, nil, hook.Allowed())
 		return
 	}
 
 	req.Config = loadConfig()
 
-	hook.Render(progName, rules.Apply(selected, req))
+	hook.Render(progName, req, rules.Apply(selected, req))
 }
 
 // loadConfig reads the machine-local configuration, reporting a broken one on
