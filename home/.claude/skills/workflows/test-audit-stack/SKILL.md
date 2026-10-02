@@ -76,7 +76,7 @@ Keep a **parent** pointer, starting at `origin/<DEFAULT>`. For each batch in pla
 
 3. Check the report and the branch. It must carry the Handoff, account for every code-review finding, and name SHAs that `git log <parent>..HEAD` shows; `git status --porcelain` must be empty. Send the same subagent back for anything missing.
    - A batch that ends with no commits (every candidate retained) is dropped: check out `<parent>`, delete the branch, and move to the next batch with the same parent.
-4. `git push -u origin test/<slug>`, then `gh pr create --base <parent without origin/> --head test/<slug>`. Title: a conventional `test(<scope>): ...` subject. Body per the commit-push-pr skill's `references/pr-body.md`, carrying the Handoff's removed categories, retained false positives, proof run, and production versus test LOC.
+4. `git push -u origin test/<slug>`, then `gh pr create --base <parent without origin/> --head test/<slug>`. Title: a conventional `test(<scope>): ...` subject. Body written through the `pr` skill, carrying the Handoff's removed categories, retained false positives, proof run, and production versus test LOC.
 5. The parent becomes `test/<slug>`.
 
 Report each batch as it lands: position, slug, PR number, the Handoff's LOC split.
