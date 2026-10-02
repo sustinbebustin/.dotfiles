@@ -700,26 +700,6 @@
         "Glossary/ADR locations come from the project domain doc config (typically docs/agents/domain.md) when present, GLOSSARY.md otherwise: our repos configure CONTEXT.md and two-tier layouts there, matching domain-modeling."
       ]
     },
-    "ts-best-practices": {
-      "author": "poteto",
-      "source": {
-        "repo": "poteto/noodle",
-        "ref": "main",
-        "path": ".agents/skills/ts-best-practices"
-      },
-      "localPath": "engineering/ts-best-practices",
-      "sync": {
-        "commit": "82d2921c52370f23f29086de81ccfb600939c037",
-        "tree": "e4b6fa1b4986cfcf732a76668012e270388d45db",
-        "at": "2026-10-02"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": [
-        "Added paths for *.ts/*.tsx/*.mts/*.cts to the frontmatter so the skill auto-loads only when TypeScript files are in play, as our previous typescript-best-practices did."
-      ]
-    },
     "turborepo": {
       "author": "vercel",
       "source": {
@@ -738,6 +718,28 @@
       },
       "localChanges": [
         "disable-model-invocation (user-invoked only)."
+      ]
+    },
+    "typescript-best-practices": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "pstack/skills/typescript-best-practices"
+      },
+      "localPath": "engineering/typescript-best-practices",
+      "sync": {
+        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
+        "tree": "924cb1d5fee20dc4028a10bf98b26dec8cbdfd83",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Removed disable-model-invocation so paths auto-loads it on .ts/.tsx files and typescript-reviewer can preload it via skills:; upstream's flag blocks both.",
+        "Principle-skill pointers (SKILL.md and references/patterns.md) are file paths under ~/.claude/skills to Read, not skill names: the principle skills keep disable-model-invocation, so the model cannot invoke them.",
+        "Wrote the non-null assertion as words instead of a backticked ! (SKILL.md Simplest total type row, references/patterns.md strengthen paragraph); ! before a backtick span is load-time command syntax and the vendor scanner blocks it."
       ]
     },
     "uv": {
