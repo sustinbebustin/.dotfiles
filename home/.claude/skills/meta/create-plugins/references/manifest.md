@@ -6,7 +6,7 @@ The manifest is optional. Without one, the directory name becomes the plugin nam
 
 | Field | Notes |
 | --- | --- |
-| `name` | **Required.** Kebab-case, with no spaces, control characters, or bidi characters. It is the namespace (`/name:skill`) and the key in `enabledPlugins`/`pluginConfigs`. Renaming it breaks installs; change `displayName` instead. |
+| `name` | **Required.** Kebab-case, with no spaces, control characters, or bidi characters. It is the namespace (`/name:skill`) and the key in `enabledPlugins`/`pluginConfigs`. Renaming it breaks installs; change `displayName` instead. `validate` errors on names that pass as Anthropic's own (`claude-`, `anthropic-`, `cc-plugin-` prefixes, `claude-mods`, `official` beside `claude`/`anthropic`), and `init`/`tag` refuse them. |
 | `$schema` | `https://json.schemastore.org/claude-code-plugin-manifest.json`. Used for editor validation and ignored at load. |
 | `displayName` | UI label that may use spaces and any casing. A marketplace entry's value wins. |
 | `version` | Semver. Setting it **pins** the plugin: users update only when it changes. See Versioning. |
@@ -18,6 +18,7 @@ The manifest is optional. Without one, the directory name becomes the plugin nam
 | `hooks`, `mcpServers`, `lspServers` | A path, an array of paths, or an inline object. Each has its own merge rules. |
 | `experimental.themes`, `experimental.monitors` | **Replace** the default dir. Declaring them at top level still works but `validate` warns, and a future release will require `experimental.*`. |
 | `experimental.evals` | Eval dir when it isn't `evals/`. |
+| `types` | Path to a `.d.ts` declaring a mod's `$.state` values and `$` nouns. Mods only; see `plugin-authoring`. |
 | `userConfig` | Values prompted for at enable time; see below. |
 | `channels` | `[{ server, userConfig? }]`. `server` must be a key in `mcpServers`. |
 | `dependencies` | Other plugins this one needs; see below. |
@@ -88,6 +89,8 @@ Where the values live:
 - Non-sensitive values are stored under `pluginConfigs[<plugin-id>].options` in **user** settings.
 - They are read only from user settings, `--settings`, and managed settings. Project and local settings are ignored, so a cloned repo can't inject values.
 - Non-sensitive, non-`multiple` fields also appear in `/config` (v2.1.269+).
+- Users set values with `claude plugin install --config key=value`, `/plugin configure <plugin>`, or `claude plugin configure <name@marketplace> [--values-stdin] [--json]` (v2.1.285+; the full id is required, and sensitive values are never printed).
+- A bundled `.mcpb` MCP server declares its own `user_config`. A required setting with no value keeps the server from starting; set it with `--config <server>.<key>=<value>` at install (v2.1.285+) or **Configure** in `/plugin`.
 
 ## `dependencies`
 

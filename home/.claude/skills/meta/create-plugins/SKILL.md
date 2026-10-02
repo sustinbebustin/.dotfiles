@@ -4,12 +4,12 @@ description: Designing, scaffolding, validating, and distributing Claude Code pl
 disable-model-invocation: true
 metadata:
   author: sustinbebustin
-  last_reviewed_version: 2.1.278
+  last_reviewed_version: 2.1.288
 ---
 
 # Creating Claude Code Plugins
 
-First, call the Skill tool for "writing-for-agents". Plugin skills, agents, and output styles are documents an agent consumes, so those rules govern how they are written. For the components themselves, invoke `create-skills` for skills and `create-agents` for subagents, and `create-mcp` for a Code Mode MCP server (many tools behind one `code` tool). This skill covers the plugin packaging around them.
+First, call the Skill tool for "writing-for-agents". Plugin skills, agents, and output styles are documents an agent consumes, so those rules govern how they are written. For the components themselves, invoke `create-skills` for skills and `create-agents` for subagents, and `create-mcp` for a Code Mode MCP server (many tools behind one `code` tool). This skill covers the plugin packaging around them. For a mod (a plugin whose `hooks/hooks.json` registers in-process JavaScript function hooks that draw panes or add commands, v2.1.287+), load `plugin-authoring`; the packaging, validation, and distribution rules here still apply.
 
 A plugin is a self-contained directory that bundles skills, agents, hooks, MCP/LSP servers, monitors, themes, output styles, workflows, `bin/` executables, and default settings, so one install carries them to every project. Spec: [code.claude.com/docs/en/plugins](https://code.claude.com/docs/en/plugins).
 

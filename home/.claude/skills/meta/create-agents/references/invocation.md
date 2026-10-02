@@ -113,6 +113,6 @@ To disable all background tasks: `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`.
 
 ## Forks (Experimental)
 
-A "fork" is a subagent that inherits the entire conversation so far instead of starting fresh. Useful when a named subagent would need too much background to be useful, or when you want to try several approaches in parallel from the same starting point. Fork mode is on by default in interactive sessions (v2.1.232+) and off under `-p`/the Agent SDK; `CLAUDE_CODE_FORK_SUBAGENT=1` turns it on everywhere, `0` off everywhere. With it on, Claude spawns a fork by requesting the `fork` subagent type; untyped requests still get `general-purpose` and named subagents spawn fresh.
+A "fork" is a subagent that inherits the entire conversation so far instead of starting fresh. Useful when a named subagent would need too much background to be useful, or when you want to try several approaches in parallel from the same starting point. Fork mode is on by default in interactive sessions (v2.1.232+) and off under `-p`/the Agent SDK; `CLAUDE_CODE_FORK_SUBAGENT=1` turns it on everywhere, `0` off everywhere. With it on, Claude spawns a fork by requesting the `fork` subagent type; untyped requests still get `general-purpose` and named subagents spawn fresh. A fork runs under its parent's permission mode (plan, `dontAsk`) and cannot exit plan mode.
 
 `/subtask <directive>` spawns a fork manually (v2.1.212+; `/fork` on v2.1.161–v2.1.211). See [advanced-patterns.md](advanced-patterns.md).

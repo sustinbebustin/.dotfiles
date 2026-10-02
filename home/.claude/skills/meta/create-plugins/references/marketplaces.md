@@ -21,9 +21,11 @@ Reserved names include:
 
 - `claude-plugins-official`, `claude-plugins-community`, `claude-community`, `claude-code-marketplace`, `claude-code-plugins`
 - `anthropic-plugins`, `anthropic-marketplace`, `agent-skills`, `anthropic-agent-skills`, `first-party-plugins`, `healthcare`
-- look-alikes of any of these
+- `knowledge-work-plugins`, `life-sciences`, `claude-for-legal`, `claude-for-financial-services`, `financial-services-plugins`, `claude-tag-plugins`, `anthropic-plugin-directory`, `claude-plugin-directory`
+- look-alikes of any of these, including another spelling (trailing dot, or a symbol in place of a hyphen, v2.1.280+), non-ASCII names, and `claudeai-*`
+- plugin-origin names: `inline`, `builtin`, `skills-dir`, `synced`, `claude-plugin-test`
 
-`npm`, `pip`, `uv`, `cargo`, `github`, and `gh` are also blocked (v2.1.275+). Check the docs for the full list before picking a name.
+`npm`, `pip`, `uv`, `cargo`, `github`, and `gh` are also blocked (v2.1.275+). A marketplace already registered under an imitating name stops loading, and removing it uninstalls its plugins. Check the docs for the full list before picking a name.
 
 ## Plugin Entries
 
@@ -45,7 +47,7 @@ Reserved names include:
 | `github` | `{ "source": "github", "repo": "o/r", "ref"?, "sha"? }` | `sha` wins over `ref` |
 | `url` | `{ "source": "url", "url": "https://....git", "ref"?, "sha"? }` | Any git host |
 | `git-subdir` | `{ "source": "git-subdir", "url", "path", "ref"?, "sha"? }` | Sparse clone for monorepos |
-| `npm` | `{ "source": "npm", "package", "version"?, "registry"? }` | No install scripts run. Ship `npm-shrinkwrap.json` rather than `package-lock.json` |
+| `npm` | `{ "source": "npm", "package", "version"?, "registry"? }` | No install scripts run. Ship `npm-shrinkwrap.json` rather than `package-lock.json`. `package` must be a registry package name: git addresses, folders, `file:`, `npm:` aliases, and tarball links on git hosts are refused, and dependencies install only from registry packages |
 | `archive` | `{ "source": "archive", "url", "sha256"? }` | HTTPS zip; needs no git or npm (v2.1.224+) |
 | `command` | `{ "source": "command", "command", "timeout"?, "mode"?: "copy" \| "link" }` | Local tool prints the plugin dir. The user must accept the exact command. Re-runs once per session (v2.1.229+) |
 

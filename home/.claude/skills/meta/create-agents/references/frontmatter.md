@@ -215,7 +215,7 @@ A backgrounded agent now preserves the `permissionMode`, `model`, and `effort` i
 
 ### `isolation`
 
-`worktree` to run in a temporary git worktree (isolated copy of the repo). Auto-cleaned if the subagent makes no changes.
+`worktree` to run in a temporary git worktree (isolated copy of the repo), branched by default from the repo's default branch rather than the parent session's `HEAD`. Auto-cleaned if the subagent makes no changes.
 
 ```yaml
 isolation: worktree

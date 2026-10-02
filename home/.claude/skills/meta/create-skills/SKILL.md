@@ -3,7 +3,7 @@ name: create-skills
 description: Author and improve Claude Code skills and slash commands — structure, frontmatter, invocation, and best practices. Use when creating, editing, or auditing a SKILL.md or command file.
 metadata:
   author: sustinbebustin
-  last_reviewed_version: 2.1.278
+  last_reviewed_version: 2.1.288
 ---
 
 # Creating Skills & Commands
@@ -29,7 +29,7 @@ Frontmatter is read only when the opening `---` is the file's first line; otherw
 | `arguments` | No | Named positional arguments for `$name` substitution. Names map to positions in order — `arguments: [issue, branch]` makes `$issue` the first arg and `$branch` the second. Space-separated string or YAML list. |
 | `disable-model-invocation` | No | Set `true` to prevent Claude auto-loading. Use for manual workflows like `/deploy`, `/commit`. Also blocks preloading into subagents via their `skills:` field, and (v2.1.196+) blocks a scheduled task from firing with the skill as its prompt. Default: `false`. |
 | `user-invocable` | No | Set `false` to hide from `/` menu. Use for background knowledge. Default: `true`. |
-| `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict other tools — add deny rules in `/permissions` for that. Example: `Read, Bash(git *)` |
+| `allowed-tools` | No | Tools Claude can use without per-use approval while the skill is active. Does *not* restrict other tools — add deny rules in `/permissions` for that. Example: `Read, Bash(git *)`. Ignored in project and personal skills when managed settings set `allowManagedPermissionRulesOnly` (v2.1.282+); `/status` lists the skills affected. |
 | `disallowed-tools` | No | Tools removed from Claude's available pool while the skill is active. Use for autonomous skills that should never call a tool (e.g. `AskUserQuestion` in a background loop). The restriction clears on your next message. Space/comma-separated string or YAML list. |
 | `model` | No | Model to use. Accepts an alias (`haiku`, `sonnet`, `opus`, `fable`), a full model ID (e.g. `claude-opus-5`), or `inherit`. Override applies only for the current turn — session model resumes on the next prompt. A value your org's `availableModels` allowlist excludes is ignored. With `context: fork` the value sets the forked subagent's model instead. |
 | `effort` | No | Effort level while the skill is active. Options: `low`, `medium`, `high`, `xhigh`, `max`; available levels depend on the model. Overrides session effort. |
@@ -146,7 +146,7 @@ Priority order (higher wins on name conflicts): **enterprise > personal > projec
 
 **Nested discovery:** skills in a `.claude/skills/` below where the session started don't load at startup — they load the first time Claude reads or edits a file there, and until then can't be invoked by name. `/add-dir <subdirectory>` loads them immediately (v2.1.257+). On a name clash both stay available: the nested one gets a directory-qualified name (`/apps/web:deploy`), and invoking the unqualified name loads the root skill with a note listing the variants so Claude also invokes the one matching the files it's touching (v2.1.203+).
 
-**Skills synced from claude.ai:** these are named `/anthropic-skills:<name>` (v2.1.269+); the bare `/<name>` works only while no other command uses it. Name comparison ignores case, spacing, and invisible characters. In local sessions their `!` commands, `@` references, and `${CLAUDE_PROJECT_DIR}`/`${CLAUDE_SESSION_ID}` reach Claude as literal text. Opt out per machine with `syncClaudeAiSkills: false` in user settings (v2.1.275+); already-synced skills move to `~/.claude/skills/.trash/`.
+**Skills synced from claude.ai:** these are named `/anthropic-skills:<name>` (v2.1.269+); the bare `/<name>` works only while no other command uses it. Name comparison ignores case, spacing, and invisible characters. In local sessions their `!` commands, `@` references, and `${CLAUDE_PROJECT_DIR}`/`${CLAUDE_SESSION_ID}` reach Claude as literal text. The name `anthropic-skills` (and `anthropic-skills:*`) is reserved: outside a plugin, a skill folder, frontmatter `name`, or command file so named doesn't load. Opt out per machine with `syncClaudeAiSkills: false` in user settings (v2.1.275+); already-synced skills move to `~/.claude/skills/.trash/`.
 
 ## Skill Content Lifecycle
 
@@ -160,7 +160,7 @@ Re-invoking a skill whose rendered content is identical adds only a short "alrea
 
 Control which skills Claude can invoke without editing each SKILL.md.
 
-**Permission rules** (`/permissions` or `settings.json`) — `Skill(name)` exact match, `Skill(name *)` prefix match. Use in `allow`/`deny` to grant or block specific skills. Deny the bare `Skill` tool to disable all skills at once. A `deny` rule also matches an alias or an unqualified name — `Skill(review)` blocks the bundled `/code-review`, and `Skill(deploy)` blocks a nested `apps/web:deploy` (v2.1.260+). An `allow` rule matches only the skill's own name.
+**Permission rules** (`/permissions` or `settings.json`) — `Skill(name)` exact match, `Skill(name *)` prefix match. Use in `allow`/`deny` to grant or block specific skills. Deny the bare `Skill` tool to disable all skills at once. A `deny` rule also matches an alias or an unqualified name — `Skill(review)` blocks the bundled `/code-review`, and `Skill(deploy)` blocks a nested `apps/web:deploy` (v2.1.260+). `Skill(skill:deploy)` (parameter form) blocks the skill under any of its names, alias and display name included. An `allow` rule matches only the skill's own name; approve synced skills as `Skill(anthropic-skills:pdf)` or `Skill(anthropic-skills *)`.
 
 **`skillOverrides` setting** — per-skill visibility states without touching the skill file (useful for shared/MCP-provided skills). The `/skills` menu writes this to `.claude/settings.local.json`; cycle with `Space`, save with `Esc`:
 

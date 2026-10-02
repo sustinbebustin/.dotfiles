@@ -40,12 +40,13 @@ claude plugin validate ./my-plugin --strict   # CI: add --json
 - It does **not** check a root `SKILL.md` or follow symlinks.
 - Validating a dir without a manifest works on v2.1.233+. For example, `validate ./my-plugin/agents` checks agent frontmatter.
 - A marketplace run (`validate .` at the marketplace root) checks the schema, duplicate names, path traversal, `renames` chains, and entry vs `plugin.json` version mismatches.
+- It also checks `.mcp.json` and inline/`.json` MCP entries (v2.1.281+): entries dropped at load, undeclared `${user_config.*}` references, and insecure URLs. `outputStyles`, `themes`, `monitors`, and `lspServers` paths that are missing or escape the root fail (v2.1.283+). A shell-form hook with an unquoted `${CLAUDE_PLUGIN_ROOT}` warns.
 - Unknown fields produce warnings with a suggested fix. `--strict` makes them fail.
 - Inside a session, `/plugin validate <path>` runs the same checks.
 
 ## Evaluate (`claude plugin eval`, v2.1.269+)
 
-Evals measure whether Claude reaches for the plugin and gets the right result. Each case runs N times (default 3) **with** and **without** the plugin, and the report shows WITH, W/OUT, and Δ.
+Requires git 2.31+ when git is installed; an older git stops the run with exit 1 before any case. Evals measure whether Claude reaches for the plugin and gets the right result. Each case runs N times (default 3) **with** and **without** the plugin, and the report shows WITH, W/OUT, and Δ.
 
 ```bash
 claude plugin eval init              # interview: reads the plugin, proposes + pilots cases
@@ -119,6 +120,7 @@ Exit codes: `0` every case met the threshold, `1` a case failed or a load error,
 - Scaffolding: `init|new`.
 - Install lifecycle: `install [--scope user|project|local]`, `uninstall|remove|rm [--prune] [--keep-data]`, `prune|autoremove`, `enable`, `disable`, `update`.
 - Inspection: `list`, `details <name>`.
+- Options: `configure <name@marketplace> [--values-stdin] [--json]` (v2.1.285+).
 - Checks and releases: `validate`, `eval`, `eval init`, `tag [--push] [--dry-run]`.
 - Marketplaces: `marketplace add|list|remove|update`.
 
