@@ -1,10 +1,20 @@
 # Changelog reference
 
-Used by the `update-changelog` action: add entries under `[Unreleased]` in an existing `CHANGELOG.md`. Follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard with [SemVer](https://semver.org/spec/v2.0.0.html).
+Used by the `rebuild-changelog` action: after restoring `CHANGELOG.md` to the merge base, add entries under `[Unreleased]`. Follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard with [SemVer](https://semver.org/spec/v2.0.0.html). The scope rules below also govern changeset descriptions.
 
 ## Release Please exception
 
 If the repo has `release-please-config.json` at the root, Release Please owns `CHANGELOG.md`. Do not hand-edit it -- the bot generates entries from conventional-commit subjects on its release PR. Hand edits cause merge conflicts. (The skill's `gather-state.sh` already routes this case to `skip`.)
+
+## Scope: net change vs the default branch
+
+A changelog tells someone upgrading what is different for them. Write entries from the final branch diff against the merge base, as if the whole branch were one change.
+
+- A bug introduced and fixed on this branch never shipped. It gets no `Fixed` entry; the feature is simply `Added`.
+- Something added and then reworked on this branch is described in its final form only.
+- Many commits toward one feature make one entry.
+- `Fixed` is only for bugs that exist on the default branch today.
+- If nothing in the diff is user-facing, add no entries. An unchanged `[Unreleased]` is a correct result.
 
 ## Section types
 
@@ -36,6 +46,10 @@ Use these section headings, in this order. Omit empty sections.
 - No vague entries ("various fixes", "misc").
 - No internal refactoring unless it affects users.
 - No entries only developers would understand.
+- No tests, CI, build, lint, or dev-tooling changes.
+- No deploy order, rollout steps, migration run instructions, or environment setup. Those belong in the PR body or deploy docs.
+- No spec, ticket, or task references, and no notes about how the work was done.
+- No dependency bumps, unless they change user-visible behavior or fix a vulnerability (`Security`).
 
 ## File structure
 

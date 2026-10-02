@@ -191,6 +191,8 @@ report_repo() {
 
   echo "**Default branch:** $default_branch"
   echo ""
+  echo "**Merge base:** ${base:-(none)}"
+  echo ""
 
   echo "**Branch commits ahead of origin/$default_branch (these will all be in the PR):**"
   if [ -n "$base" ]; then
@@ -238,16 +240,11 @@ report_repo() {
     reason="release-please owns CHANGELOG.md (release-please-config.json present). Do not hand-edit CHANGELOG.md and do not add a changeset."
   elif [ "$cs" = "1" ]; then
     new=$(list_new_changesets "$dir" | sort -u)
-    if [ -n "$new" ]; then
-      action="verify-changeset"
-      reason="changesets is in use (.changeset/config.json present) and one or more changeset files have been added on this branch. Read them; if they cover this branch's user-facing changes, do nothing. Only add another if they don't."
-    else
-      action="add-changeset"
-      reason="changesets is in use (.changeset/config.json present) and no changeset file has been added on this branch. Add one under .changeset/<kebab-name>.md (empty changeset if the diff is internal-only)."
-    fi
+    action="rebuild-changeset"
+    reason="changesets is in use (.changeset/config.json present). Delete every changeset file added on this branch, then write fresh ones from the final branch diff (empty changeset if the diff is internal-only)."
   elif [ "$has_changelog" = "1" ]; then
-    action="update-changelog"
-    reason="manual CHANGELOG.md present (no release-please, no changesets). Add user-facing entries under [Unreleased] per references/changelog.md."
+    action="rebuild-changelog"
+    reason="manual CHANGELOG.md present (no release-please, no changesets). Restore CHANGELOG.md to the merge base, then write [Unreleased] entries from the final branch diff per references/changelog.md."
   else
     action="skip"
     reason="no release tooling and no CHANGELOG.md. Nothing to do for release notes."
