@@ -6,6 +6,7 @@
     "mattpocock",
     "mitsuhiko",
     "oxc-project",
+    "poteto",
     "shadcn-ui"
   ],
   "skills": {
@@ -219,6 +220,29 @@
       "localChanges": [
         "Removed disable-model-invocation so the model can offer a handoff itself.",
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
+      ]
+    },
+    "how": {
+      "author": "poteto",
+      "source": {
+        "repo": "poteto/how",
+        "ref": "main",
+        "path": "skills/how"
+      },
+      "localPath": "engineering/how",
+      "sync": {
+        "commit": "b1ef42969ea7a2bb50aa26c2480274828a0385e7",
+        "tree": "f9dd4a0bb9f724bb59cb950b082fba0365d11444",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Added disable-model-invocation: true; we invoke /how explicitly so its multi-agent fan-out never auto-triggers.",
+        "Rewrote Cursor subagent params to Claude Code Agent tool: explorers use Explore (read-only); explainer and critics use general-purpose with read-only stated in the prompt, since Cursor's readonly flag has no per-spawn equivalent here.",
+        "Replaced Cursor model IDs (gpt-5.4, composer-2, claude-opus-4.6) with Agent model aliases (opus/fable/sonnet), and dropped the 'escalate reasoning tier' note; Cursor models are unavailable in Claude Code, so critic diversity is across Claude models only.",
+        "Renamed the ComposerService example in explainer-prompt.md to MessageService; Composer is Cursor's product name and we keep the skill tool-neutral."
       ]
     },
     "impeccable": {
