@@ -1,0 +1,6 @@
+{
+  "name": "compact-handoff",
+  "version": "0.1.0",
+  "description": "Writes a handoff before each compaction and carries it into the compacted conversation.",
+  "author": { "name": "sustinbebustin" }
+}
