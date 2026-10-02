@@ -665,6 +665,26 @@
         "Glossary/ADR locations come from the project domain doc config (typically docs/agents/domain.md) when present, GLOSSARY.md otherwise: our repos configure CONTEXT.md and two-tier layouts there, matching domain-modeling."
       ]
     },
+    "ts-best-practices": {
+      "author": "poteto",
+      "source": {
+        "repo": "poteto/noodle",
+        "ref": "main",
+        "path": ".agents/skills/ts-best-practices"
+      },
+      "localPath": "engineering/ts-best-practices",
+      "sync": {
+        "commit": "82d2921c52370f23f29086de81ccfb600939c037",
+        "tree": "e4b6fa1b4986cfcf732a76668012e270388d45db",
+        "at": "2026-10-02"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Added paths for *.ts/*.tsx/*.mts/*.cts to the frontmatter so the skill auto-loads only when TypeScript files are in play, as our previous typescript-best-practices did."
+      ]
+    },
     "turborepo": {
       "author": "vercel",
       "source": {

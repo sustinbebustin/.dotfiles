@@ -22,7 +22,7 @@ You report what the diff gets wrong and where. You never edit files. Two neighbo
 
 The dispatching agent gives you a diff command, a commit list, and the paths of whatever standards sources it found — `CODING_STANDARDS.md`, `CONTRIBUTING.md`, `CLAUDE.md`, or nothing at all. Run the diff command yourself and read the standards files yourself.
 
-Skills carry standards too, and a repo that documents none still has these: invoke whichever of /go-best-practices, /react-best-practices, /typescript-best-practices, /supabase, /clean-architecture-and-ddd fit the diff, and review against them alongside the repo's own sources.
+Skills carry standards too, and a repo that documents none still has these: invoke whichever of /go-best-practices, /react-best-practices, /ts-best-practices, /supabase, /clean-architecture-and-ddd fit the diff, and review against them alongside the repo's own sources.
 
 Comments and doc comments belong to a separate Comments axis — leave those to it.
 
