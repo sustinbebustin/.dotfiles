@@ -57,11 +57,11 @@
         "ref": "main",
         "path": "skills/engineering/code-review"
       },
-      "localPath": "engineering/code-review",
+      "localPath": "review/code-review",
       "sync": {
         "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
         "tree": "d8e341cee7980127dddda05159bedf25dc853615",
-        "at": "2026-09-21"
+        "at": "2026-10-02"
       },
       "status": {
         "state": "tracked"
@@ -638,11 +638,11 @@
         "ref": "main",
         "path": ".agents/skills/test-audit"
       },
-      "localPath": "engineering/test-audit",
+      "localPath": "review/test-audit",
       "sync": {
         "commit": "eacc8dcd118c9264bdade3418cb9a8f6116f954c",
         "tree": "8015421942bcd215db0e73a13ec944d50ce01ec5",
-        "at": "2026-09-25"
+        "at": "2026-10-02"
       },
       "status": {
         "state": "tracked"
