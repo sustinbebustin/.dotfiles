@@ -8,7 +8,7 @@ metadata:
 
 # TypeScript best practices
 
-Read `~/.claude/skills/principle-type-system-discipline/SKILL.md` first and apply it.
+Call the Skill tool for `principle-type-system-discipline` first and apply it.
 
 | Rule | Summary |
 |------|---------|
@@ -23,7 +23,7 @@ Read `~/.claude/skills/principle-type-system-discipline/SKILL.md` first and appl
 | Type guards | Must verify the claim. A lying guard is worse than `as` because the bug hides behind a name that says it's safe. Name them `isX` or `hasX`. |
 | Exhaustiveness | Inline `const _exhaustive: never = x;` in default arms so the compiler errors when a new variant is added. |
 | `satisfies` over `as` | Validates the value without widening literal types. |
-| Boundary validation | Parse where data crosses in, into a named domain type. `Record<string, unknown>` (however spelled) stops at that parse. Trust types inside. See `~/.claude/skills/principle-boundary-discipline/SKILL.md`. |
+| Boundary validation | Parse where data crosses in, into a named domain type. `Record<string, unknown>` (however spelled) stops at that parse. Trust types inside. Call the Skill tool for `principle-boundary-discipline`. |
 | Schema-derived types | Reach for `Pick`/`Omit`/`Parameters`/`ReturnType`/`Awaited`/`typeof` before declaring a new interface. |
 | Object args | Pass objects, not positional, so argument order is self-documenting. Skip on hot paths (per-frame render, tokenizers, parsers). |
 | Real tests | Don't mock what you can run. Prefer the framework's real test primitives with leak/disposable checks, and verify UI in a running build. Mock only what you can't run locally. |

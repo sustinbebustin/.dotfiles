@@ -405,7 +405,9 @@
       "status": {
         "state": "tracked"
       },
-      "localChanges": []
+      "localChanges": [
+        "Removed disable-model-invocation so typescript-best-practices and the other principle skill can invoke it with the Skill tool; skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing."
+      ]
     },
     "principle-type-system-discipline": {
       "author": "cursor",
@@ -424,8 +426,9 @@
         "state": "tracked"
       },
       "localChanges": [
-        "Pointer to principle-boundary-discipline is a file path to Read rather than a skill name: that skill sets disable-model-invocation, so the model cannot invoke it.",
-        "Dropped the pointer to the encode-lessons-in-structure principle skill; we do not vendor it."
+        "Pointer to principle-boundary-discipline says to call the Skill tool for it by its installed name, instead of upstream's 'the boundary-discipline principle skill'.",
+        "Dropped the pointer to the encode-lessons-in-structure principle skill; we do not vendor it.",
+        "Removed disable-model-invocation so typescript-best-practices and the other principle skill can invoke it with the Skill tool; skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing."
       ]
     },
     "prototype": {
@@ -819,7 +822,7 @@
       },
       "localChanges": [
         "Removed disable-model-invocation so paths auto-loads it on .ts/.tsx files and typescript-reviewer can preload it via skills:; upstream's flag blocks both.",
-        "Principle-skill pointers (SKILL.md and references/patterns.md) are file paths under ~/.claude/skills to Read, not skill names: the principle skills keep disable-model-invocation, so the model cannot invoke them.",
+        "Principle-skill pointers (SKILL.md and references/patterns.md) say to call the Skill tool for principle-type-system-discipline / principle-boundary-discipline, by their exact installed names, instead of upstream's loose 'the type-system-discipline principle skill'.",
         "Wrote the non-null assertion as words instead of a backticked ! (SKILL.md Simplest total type row, references/patterns.md strengthen paragraph); ! before a backtick span is load-time command syntax and the vendor scanner blocks it."
       ]
     },
