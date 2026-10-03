@@ -3,6 +3,7 @@ tap "sustinbebustin/tap"
 tap "supabase/tap"
 
 # Core
+brew "atuin"
 brew "gawk"
 brew "gcc"
 brew "git"

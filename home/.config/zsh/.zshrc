@@ -251,7 +251,11 @@ ZSH_AUTOSUGGESTION_HIGHLIGHT_STYLE='fg=#504C67'
 HISTFILE=~/.zsh_history
 HISTSIZE=50000
 SAVEHIST=50000
-setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_VERIFY
+setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_VERIFY EXTENDED_HISTORY
+
+# ===== Atuin =====
+# Takes Ctrl-R from fzf (bound above, so this wins); the up arrow stays plain history.
+command -v atuin &>/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
 
 # ===== Direnv =====
 command -v direnv &>/dev/null && eval "$(direnv hook zsh)"

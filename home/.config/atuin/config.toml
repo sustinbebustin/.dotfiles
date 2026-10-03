@@ -1,0 +1,14 @@
+# Atuin shell history: https://docs.atuin.sh/configuration/config/
+# Local only: nothing syncs unless `atuin login` is run.
+auto_sync = false
+# Homebrew handles updates.
+update_check = false
+
+# Ctrl-R cycles filter modes; "workspace" is the current git repo.
+filter_mode = "global"
+workspaces = true
+
+# Enter puts the command on the prompt to review, like HIST_VERIFY, rather than running it.
+enter_accept = false
+
+secrets_filter = true
