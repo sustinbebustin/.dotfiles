@@ -3,9 +3,9 @@
 
 Usage: mine-sessions.py [--root <project dir>] [--days N]
 
-Reads every account's ~/.claude*/projects/**/*.jsonl modified in the last N
-days (default 21). With --root, only sessions whose working directory is at or
-under that path. Prints counts of tools, skills, slash commands, subagents,
+Reads the running account's transcripts, $CLAUDE_CONFIG_DIR/projects (default
+~/.claude/projects), modified in the last N days (default 21). With --root,
+only sessions whose working directory is at or under that path. Prints counts of tools, skills, slash commands, subagents,
 MCP tools, Bash commands, hook blocks, rejections, and a sample of the user's
 own prompts.
 """
@@ -32,16 +32,21 @@ def encode(path):
 
 
 def transcripts(root, cutoff):
-    for projects in glob.glob(os.path.expanduser("~/.claude*/projects")):
-        for folder in os.listdir(projects):
-            if root and not folder.startswith(encode(root)):
+    # The running account's transcripts: CLAUDE_CONFIG_DIR when set, as Claude Code reads it.
+    config = os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude"
+    projects = os.path.join(os.path.expanduser(config), "projects")
+    if not os.path.isdir(projects):
+        sys.exit(f"No transcripts at {projects}: CLAUDE_CONFIG_DIR is {config!r}. "
+                 "Run this from inside a Claude Code session, or set CLAUDE_CONFIG_DIR to the account's config folder.")
+    for folder in os.listdir(projects):
+        if root and not folder.startswith(encode(root)):
+            continue
+        for path in glob.glob(f"{projects}/{folder}/**/*.jsonl", recursive=True):
+            try:
+                if os.path.getmtime(path) >= cutoff:
+                    yield path
+            except OSError:
                 continue
-            for path in glob.glob(f"{projects}/{folder}/**/*.jsonl", recursive=True):
-                try:
-                    if os.path.getmtime(path) >= cutoff:
-                        yield path
-                except OSError:
-                    continue
 
 
 def main():
