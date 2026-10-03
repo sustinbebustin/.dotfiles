@@ -5,9 +5,9 @@
 # ///
 """Per-skill cost and reach, for audits scoped to skills.
 
-For each skill in ~/.claude/skills (or the names given), reports from the
-transcripts: listing tokens and their cost, body tokens, loads split into
-model (Skill tool) and slash (typed /name), distinct sessions, median
+For each skill in $CLAUDE_CONFIG_DIR/skills (or the names given), reports
+from the transcripts: listing tokens and their cost, body tokens, loads split
+into model (Skill tool) and slash (typed /name), distinct sessions, median
 requests after load (how long the body rides in context), the body's
 carrying cost, skills loaded together, and reads of supporting files with
 how many of those calls errored.
@@ -29,7 +29,7 @@ from collections import Counter, defaultdict
 from itertools import combinations
 from pathlib import Path
 
-from usage import billing, cost, parse_prices, read_jsonl, subagent_transcripts
+from usage import CONFIG_DIR, billing, cost, parse_prices, read_jsonl, subagent_transcripts
 
 SLASH = re.compile(r"<command-name>/?([^<\s]+)</command-name>")
 SKILL_PATH = re.compile(r"skills/([\w.:-]+)/([\w./-]+)")
@@ -160,13 +160,13 @@ def main():
     ap.add_argument("--project", default="", help="substring filter on the project slug")
     ap.add_argument("--prices", default="", help="override ratios, e.g. out=5,read=0.1")
     ap.add_argument("--top", type=int, default=25)
-    ap.add_argument("--root", default=str(Path.home() / ".claude/projects"))
-    ap.add_argument("--skills-dir", default=str(Path.home() / ".claude/skills"))
+    ap.add_argument("--root", default=str(CONFIG_DIR / "projects"))
+    ap.add_argument("--skills-dir", default=str(CONFIG_DIR / "skills"))
     args = ap.parse_args()
     prices = parse_prices(args.prices)
     cutoff = time.time() - args.days * 86400
 
-    settings = Path.home() / ".claude/settings.json"
+    settings = CONFIG_DIR / "settings.json"
     overrides = json.loads(settings.read_text()).get("skillOverrides", {}) if settings.exists() else {}
     known = load_skills(Path(args.skills_dir), overrides)
 

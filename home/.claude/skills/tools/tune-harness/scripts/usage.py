@@ -5,9 +5,10 @@
 # ///
 """Price-weighted token baseline from Claude Code transcripts.
 
-Reads ~/.claude/projects/<slug>/<session>.jsonl plus each session's
-subagents/agent-*.jsonl, and reports cost by billing type, model, skill,
-subagent type and tool, per session (task) rather than per request.
+Reads $CLAUDE_CONFIG_DIR/projects/<slug>/<session>.jsonl (default ~/.claude)
+plus each session's subagents/agent-*.jsonl, and reports cost by billing type,
+model, skill, subagent type and tool, per session (task) rather than per
+request.
 
 Cost is in relative units: 1 unit = one uncached input token. Override the
 ratios with --prices when the price page says otherwise.
@@ -15,11 +16,15 @@ ratios with --prices when the price page says otherwise.
 
 import argparse
 import json
+import os
 import statistics
 import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
+
+# The running account's config folder, as Claude Code itself resolves it.
+CONFIG_DIR = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser()
 
 # Anthropic ratios relative to base input price: 5m cache write 1.25x,
 # 1h cache write 2x, cache read 0.1x, output 5x (Opus-tier). Verify against
@@ -134,7 +139,7 @@ def main():
     ap.add_argument("--project", default="", help="substring filter on the project slug")
     ap.add_argument("--prices", default="", help="override ratios, e.g. out=5,read=0.1")
     ap.add_argument("--top", type=int, default=15)
-    ap.add_argument("--root", default=str(Path.home() / ".claude/projects"))
+    ap.add_argument("--root", default=str(CONFIG_DIR / "projects"))
     args = ap.parse_args()
     prices = parse_prices(args.prices)
     cutoff = time.time() - args.days * 86400
