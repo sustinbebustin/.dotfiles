@@ -15,7 +15,7 @@ Two sources of ideas, kept apart on purpose: **evidence** (friction the user's o
 
 ## Steps
 
-1. **Scope.** `global` covers every session and the global setup (`~/.claude/`). `project` covers one project: the given path, or the working directory. With no scope in the arguments, ask with `AskUserQuestion` and wait.
+1. **Scope.** `global` covers every session and the global setup (`~/.claude/`). `project` covers one project: the given path, or the working directory. With no scope in the arguments, ask with `AskUserQuestion` and wait. Also ask whether the evidence agent may count the user's shell history: only command names are counted and nothing else of a line is shown, but it is their private history. A project's history comes from atuin, when installed.
 
 2. **Profile.** Write a short profile of the user for the inventor. Keep it to what they are, not what they struggle with:
    - The stack: project manifests (`go.mod`, `package.json`, ...) for a project, or the languages across `~/dev` for global.
@@ -25,7 +25,7 @@ Two sources of ideas, kept apart on purpose: **evidence** (friction the user's o
    Done when the profile fits in about 20 lines.
 
 3. **Mine and invent.** Dispatch two `general-purpose` agents in one message, so they run in parallel.
-   - **Evidence agent.** Brief: run `python3 ~/.claude/skills/brainstorm-mods/scripts/mine-sessions.py` (with `--root <project>` for project scope), read the existing setup, and return each recurring friction: what keeps happening, how often, a quoted example, and which existing tool, if any, already touches it. Return frictions, not solutions.
+   - **Evidence agent.** Brief: run `python3 ~/.claude/skills/brainstorm-mods/scripts/mine-sessions.py` (with `--root <project>` for project scope, and `--history` when the user allowed it), read the existing setup, and return each recurring friction: what keeps happening, how often, a quoted example, and which existing tool, if any, already touches it. Return frictions, not solutions.
    - **Inventor agent.** Brief: the profile from step 2 and nothing about their sessions. Read `~/.claude/context/plugins__mods__overview.md`, `plugins__mods__reference.md`, `plugins__mods__api.md`, and `plugins__mods__interface.md` for everything a mod can do (run `bash ~/.claude/skills/claude-docs/scripts/refresh-if-outdated.sh` first). Invent at least 15 mods across different kinds of value: ambient awareness, delight and play, the model working in the background, memory across sessions, guarding and steering, things the user will not think to ask for. Each: one scenario of the user's day with it, and the capabilities it rests on. Every idea must be buildable with what the docs describe; wild is wanted, impossible is not.
 
 4. **Cross-pollinate.** Once both have returned, send the evidence agent's frictions to the inventor with `SendMessage`. Its own list is already written, so the evidence can no longer anchor it. Brief: for each friction, the boldest fix a mod allows, not the obvious one, and which of its earlier ideas already answer one.
