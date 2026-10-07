@@ -597,6 +597,27 @@
         "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
+    "show-me": {
+      "author": "humanlayer",
+      "source": {
+        "repo": "humanlayer/skills",
+        "ref": "main",
+        "path": "plugins/show-me/skills/show-me"
+      },
+      "localPath": "productivity/show-me",
+      "sync": {
+        "commit": "ca7c8088db69e315a8b2deea43820270457f8f3c",
+        "tree": "362200ac2fb3c17b765049444e88de73767e6d08",
+        "at": "2026-10-07"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Replaced the 'Bash(open ...)' step for HTML files with handing the user the file path: the user doesn't want files auto-opened, and 'open' is macOS-only on this Linux host.",
+        "Dropped agents/openai.yaml: Codex-only invocation policy; we only run this skill under Claude Code."
+      ]
+    },
     "tdd": {
       "author": "mattpocock",
       "source": {
