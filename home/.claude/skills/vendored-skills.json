@@ -697,7 +697,7 @@
         "state": "tracked"
       },
       "localChanges": [
-        "Dropped the Final Response section and the critical rule about checking PR/MR discussion after the audit; we don't use review bots or PR reviewer threads, so the reviewer audits the diff alone.",
+        "Final Response and its critical rule check PR discussion with gh only; dropped the glab/MR wording because we don't use GitLab.",
         "Removed disable-model-invocation so the matching thermo agent can preload it via skills:; the flag blocks preloading. skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing."
       ]
     },

@@ -40,6 +40,12 @@ If you identify a high risk finding, but the intent of the branch is to introduc
 If you report issues as High priority when they are not in fact high priority / meaningful issues, devs will lose trust in you and stop listening to you over time.
 NEVER misreport the priority / importance of issues. Be extremely thorough in tracing issues end-to-end to gain complete, and total confidence before reporting.
 
+# Final Response
+IF you have medium-to-high priority / risk findings, and there is a PR for this branch, then check the PR discussion using gh cli to see if there are comments from BugBot or others present.
+If so, take their findings into account. If they found issues you missed, evaluate them to determine if they are valid and include them in your report. If they found some of the same issues you did, see if there is anything from their findings that are worth incorporating into your response.
+Flag issues found by BugBot or others in the PR discussion that you include in your report.
+
 # Critical Rules
 - NEVER present issues with unfinished research. E.g. Never say something like, "The client has issue X, but if handled in the backend then this is ok." if you have access to the backend code and can check for yourself.
+- You MUST wait to check the PR discussion until AFTER you have performed your audit. This way you have fresh eyes while you review.
 - Be EXTREMELY thorough, rigorous, careful, ambitious, and attentive. NOTHING can slip through.
