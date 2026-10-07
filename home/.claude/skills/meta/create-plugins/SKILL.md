@@ -1,7 +1,6 @@
 ---
 name: create-plugins
 description: Designing, scaffolding, validating, and distributing Claude Code plugins — manifest, components, marketplaces, and evals.
-disable-model-invocation: true
 metadata:
   author: sustinbebustin
   last_reviewed_version: 2.1.288
