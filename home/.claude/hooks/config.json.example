@@ -3,5 +3,10 @@
     "allowedRoots": [
       "~/dev/example-project"
     ]
+  },
+  "credentialFiles": {
+    "relaxedRoots": [
+      "~/dev/example-project"
+    ]
   }
 }

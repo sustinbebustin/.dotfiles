@@ -21,6 +21,7 @@ package credfiles
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -46,13 +47,56 @@ const (
 // Check inspects whichever surface the tool exposes: a path for the file tools,
 // the whole command for Bash.
 func Check(req *hook.Request) hook.Verdict {
+	relaxed := relaxedIn(req)
 	switch req.ToolName {
 	case "Read", "Edit", "Write", "Grep":
-		return checkPath(req.ToolName, req.FilePath)
+		return checkPath(req.ToolName, req.FilePath, relaxed(req.FilePath))
 	case "Bash":
-		return checkBash(req)
+		return checkBash(req, relaxed)
 	}
 	return hook.Allowed()
+}
+
+// relaxedIn returns whether a path named in req lies under one of the
+// configured relaxed roots, where the name-word heuristics are skipped (see
+// classifyIn). A relative path is resolved against the tool's working
+// directory; one that cannot be resolved is never relaxed.
+func relaxedIn(req *hook.Request) func(string) bool {
+	roots := req.Config.RelaxedCredRoots
+	if len(roots) == 0 {
+		return func(string) bool { return false }
+	}
+	home, _ := os.UserHomeDir()
+	return func(p string) bool {
+		abs, ok := resolve(strings.TrimSpace(p), req.Cwd, home)
+		if !ok {
+			return false
+		}
+		for _, root := range roots {
+			if abs == root || strings.HasPrefix(abs, root+"/") {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// resolve turns p into an absolute, cleaned path: "~" expands to home and a
+// relative path joins cwd. ok is false when the needed base is unknown.
+func resolve(p, cwd, home string) (string, bool) {
+	switch {
+	case p == "~" || strings.HasPrefix(p, "~/"):
+		if home == "" {
+			return "", false
+		}
+		p = home + p[1:]
+	case path.IsAbs(p):
+	case cwd == "":
+		return "", false
+	default:
+		p = path.Join(cwd, p)
+	}
+	return path.Clean(p), true
 }
 
 // verbs describes what each tool would do to the file, so the reason names the
@@ -64,12 +108,12 @@ var verbs = map[string]string{
 	"Grep":  "Searching",
 }
 
-func checkPath(tool, p string) hook.Verdict {
+func checkPath(tool, p string, relaxed bool) hook.Verdict {
 	verb, ok := verbs[tool]
 	if !ok {
 		verb = "Accessing"
 	}
-	switch classify(p) {
+	switch classifyIn(p, relaxed) {
 	case tierSecret:
 		return hook.Denied(fmt.Sprintf("%s credential files is blocked for security. Use the .example/.sample/.template variant, or load the value through your secret manager. (path: %s)", verb, p))
 	case tierSensitive:
@@ -82,7 +126,16 @@ func checkPath(tool, p string) hook.Verdict {
 // components. Directory components matter because the filename alone is often
 // innocuous -- `credentials`, `config` -- and only the enclosing `.aws` or
 // `.ssh` makes it a secret.
-func classify(p string) tier {
+func classify(p string) tier { return classifyIn(p, false) }
+
+// classifyIn is classify with the name-word heuristics optionally relaxed. In
+// a relaxed root the words a file is named after -- secret, credential, token,
+// id_*, a bare `credentials` -- no longer make it a secret, because there they
+// are the project's own vocabulary (an AWS emulator's Secrets Manager models,
+// an SDK's credentials package). Everything that is credential material by
+// location or format stays denied: the secret directories, env files, key
+// extensions and the unambiguous dotfile names.
+func classifyIn(p string, relaxed bool) tier {
 	if p == "" {
 		return tierNone
 	}
@@ -106,7 +159,14 @@ func classify(p string) tier {
 	if isSafeVariant(base) {
 		return tierNone
 	}
-	if looksLikeEnv(base) || isSecretName(base) || hasSecretExt(base) || globNamesSecret(base) {
+	if looksLikeEnv(base) || hasSecretExt(base) {
+		return tierSecret
+	}
+	if relaxed {
+		if isUnambiguousSecretName(base) || globNamesSecret(base, unambiguousSecretNames) {
+			return tierSecret
+		}
+	} else if isSecretName(base) || globNamesSecret(base, secretNames) {
 		return tierSecret
 	}
 	if isSensitiveName(base) || touchesAnyDir(cleaned, sensitiveDirs) {
@@ -150,7 +210,7 @@ const minGlobPrefix = 3
 // Only secretNames are measured against. The other secret checks already handle
 // their own patterns: a `.env*` or `id_*` pattern still carries the prefix they
 // match on, and an extension pattern like `*.pem` still ends in the extension.
-func globNamesSecret(base string) bool {
+func globNamesSecret(base string, names map[string]bool) bool {
 	i := strings.IndexAny(base, "*?[")
 	if i < 0 {
 		return false
@@ -159,7 +219,7 @@ func globNamesSecret(base string) bool {
 	if len(prefix) < minGlobPrefix {
 		return false
 	}
-	for name := range secretNames {
+	for name := range names {
 		if strings.HasPrefix(name, prefix) {
 			return true
 		}
@@ -195,6 +255,30 @@ var secretNames = map[string]bool{
 	".s3cfg":           true,
 	".boto":            true,
 	".rclone.conf":     true,
+}
+
+// vocabularyNames are the secretNames that double as ordinary domain words, so
+// a relaxed root stops treating them as secrets (see classifyIn).
+var vocabularyNames = map[string]bool{
+	"credentials":      true,
+	"credentials.json": true,
+	"credentials.yml":  true,
+	"credentials.yaml": true,
+}
+
+// unambiguousSecretNames are the secretNames still denied in a relaxed root.
+var unambiguousSecretNames = func() map[string]bool {
+	m := make(map[string]bool, len(secretNames))
+	for name := range secretNames {
+		if !vocabularyNames[name] {
+			m[name] = true
+		}
+	}
+	return m
+}()
+
+func isUnambiguousSecretName(base string) bool {
+	return unambiguousSecretNames[strings.ToLower(base)]
 }
 
 // secretWords name a file after what it holds. They only count on data-ish
@@ -336,7 +420,7 @@ func isPublicMaterial(base string) bool {
 // intentionally no allowlist of "reader" commands: enumerating every binary
 // that can read a file is a losing game, and there is no benign reason for a
 // command to name a secret.
-func checkBash(req *hook.Request) hook.Verdict {
+func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		if req.Shell.Status() != shellast.Unparseable {
@@ -354,7 +438,7 @@ func checkBash(req *hook.Request) hook.Verdict {
 	found := tierNone
 	var foundPath string
 	consider := func(lit string) {
-		if t := classify(lit); t > found {
+		if t := classifyIn(lit, relaxed(lit)); t > found {
 			found, foundPath = t, lit
 		}
 	}

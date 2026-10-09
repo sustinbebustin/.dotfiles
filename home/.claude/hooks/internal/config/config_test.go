@@ -75,6 +75,9 @@ func TestParseRejects(t *testing.T) {
 		{"filesystem root", `{"dangerousRm":{"allowedRoots":["/"]}}`, "deep"},
 		{"one directory deep", `{"dangerousRm":{"allowedRoots":["/home"]}}`, "deep"},
 		{"climbs to one directory deep", `{"dangerousRm":{"allowedRoots":["/home/tester/.."]}}`, "deep"},
+		{"relative relaxed credential root", `{"credentialFiles":{"relaxedRoots":["dev/app"]}}`, "credentialFiles.relaxedRoots[0]"},
+		{"shallow relaxed credential root", `{"credentialFiles":{"relaxedRoots":["/home"]}}`, "deep"},
+		{"unknown credentialFiles field", `{"credentialFiles":{"roots":[]}}`, "roots"},
 	}
 
 	for _, tc := range cases {
@@ -103,6 +106,19 @@ func TestParseRejectsWholeFile(t *testing.T) {
 	}
 	if len(got.AllowedRmRoots) != 0 {
 		t.Errorf("AllowedRmRoots = %v, want none", got.AllowedRmRoots)
+	}
+}
+
+func TestParseRelaxedCredRoots(t *testing.T) {
+	got, err := parse([]byte(`{"credentialFiles":{"relaxedRoots":["~/dev/emu/","/tmp/x/y"]}}`), testHome)
+	if err != nil {
+		t.Fatalf("parse() error = %v, want nil", err)
+	}
+	if want := []string{"/home/tester/dev/emu", "/tmp/x/y"}; !slices.Equal(got.RelaxedCredRoots, want) {
+		t.Errorf("RelaxedCredRoots = %v, want %v", got.RelaxedCredRoots, want)
+	}
+	if len(got.AllowedRmRoots) != 0 {
+		t.Errorf("AllowedRmRoots = %v, want none: the settings are independent", got.AllowedRmRoots)
 	}
 }
 

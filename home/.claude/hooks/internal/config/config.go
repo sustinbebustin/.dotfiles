@@ -43,6 +43,12 @@ type Config struct {
 	// rm needs no approval. Membership is decided in dangerousrm; see
 	// underAllowedRoot there for what "under" means.
 	AllowedRmRoots []string
+	// RelaxedCredRoots are absolute, cleaned directories where credfiles skips
+	// its name-word heuristics (secret, credential, token, id_*): projects whose
+	// own domain vocabulary trips them, such as an AWS emulator with a Secrets
+	// Manager service. Credential material proper stays denied there too; see
+	// credfiles.classify for the split.
+	RelaxedCredRoots []string
 }
 
 // file mirrors config.json on the wire. It is kept separate from Config so the
@@ -52,6 +58,9 @@ type file struct {
 	DangerousRm struct {
 		AllowedRoots []string `json:"allowedRoots"`
 	} `json:"dangerousRm"`
+	CredentialFiles struct {
+		RelaxedRoots []string `json:"relaxedRoots"`
+	} `json:"credentialFiles"`
 }
 
 // Load reads and validates the configuration.
@@ -99,15 +108,29 @@ func parse(raw []byte, home string) (Config, error) {
 		return Config{}, fmt.Errorf("decoding JSON: %w. Compare against config.json.example", err)
 	}
 
-	roots := make([]string, 0, len(f.DangerousRm.AllowedRoots))
-	for i, raw := range f.DangerousRm.AllowedRoots {
+	rmRoots, err := normalizeRoots(f.DangerousRm.AllowedRoots, "dangerousRm.allowedRoots", home)
+	if err != nil {
+		return Config{}, err
+	}
+	credRoots, err := normalizeRoots(f.CredentialFiles.RelaxedRoots, "credentialFiles.relaxedRoots", home)
+	if err != nil {
+		return Config{}, err
+	}
+	return Config{AllowedRmRoots: rmRoots, RelaxedCredRoots: credRoots}, nil
+}
+
+// normalizeRoots normalizes every root of one setting, naming the setting and
+// index of the first one that cannot be used.
+func normalizeRoots(raws []string, setting, home string) ([]string, error) {
+	roots := make([]string, 0, len(raws))
+	for i, raw := range raws {
 		root, err := normalizeRoot(raw, home)
 		if err != nil {
-			return Config{}, fmt.Errorf("dangerousRm.allowedRoots[%d]: %w", i, err)
+			return nil, fmt.Errorf("%s[%d]: %w", setting, i, err)
 		}
 		roots = append(roots, root)
 	}
-	return Config{AllowedRmRoots: roots}, nil
+	return roots, nil
 }
 
 // minRootDepth is the shallowest root that is accepted. A one-directory root

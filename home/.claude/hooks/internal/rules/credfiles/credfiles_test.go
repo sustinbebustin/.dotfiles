@@ -3,6 +3,7 @@ package credfiles
 import (
 	"testing"
 
+	"claude-hooks/internal/config"
 	"claude-hooks/internal/hook"
 )
 
@@ -162,9 +163,51 @@ func TestCheckPath(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if got := checkPath(tc.tool, tc.path).Decision.String(); got != tc.decision {
+		if got := checkPath(tc.tool, tc.path, false).Decision.String(); got != tc.decision {
 			t.Errorf("checkPath(%s, %q) = %s, want %s", tc.tool, tc.path, got, tc.decision)
 		}
+	}
+}
+
+// TestRelaxedRoots pins what a configured relaxed root does and does not
+// relax: the name-word heuristics go, credential material proper stays.
+func TestRelaxedRoots(t *testing.T) {
+	const root = "/home/tester/dev/emu"
+	cases := []struct {
+		name     string
+		tool     string
+		cwd      string
+		input    string
+		decision string
+	}{
+		{"model named after secrets manager", "Read", "", root + "/models/secrets-manager-2017-10-17.json", "allow"},
+		{"fixture named credentials", "Write", "", root + "/testdata/credentials.json", "allow"},
+		{"relative sdk credentials package from inside the root", "Bash", root, `rg -n x aws-sdk-go-v2/credentials`, "allow"},
+		{"regex mentioning id_ from inside the root", "Bash", root, `rg -n "id_string|Exception" moto.py`, "allow"},
+		{"shape named Credentials from inside the root", "Bash", root, `python3 -I shape.py sts.json AssumeRoleResponse Credentials`, "allow"},
+		{"the .credentials dotfile stays denied", "Bash", root, `cat .credentials`, "deny"},
+		{"env file in the root stays denied", "Read", "", root + "/.env", "deny"},
+		{"key file in the root stays denied", "Read", "", root + "/tls/server.key", "deny"},
+		{"netrc in the root stays denied", "Bash", root, `cat .netrc`, "deny"},
+		{"aws credentials outside the root stay denied", "Bash", root, `cat ~/.aws/credentials`, "deny"},
+		{"climbing out of the root is not relaxed", "Bash", root, `cat ../secrets.json`, "deny"},
+		{"a neighbouring directory is not relaxed", "Read", "", root + "-old/secrets.json", "deny"},
+		{"relative path with no cwd is not relaxed", "Bash", "", `cat secrets.json`, "deny"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var req *hook.Request
+			if tc.tool == "Bash" {
+				req = hook.NewRequest("Bash", "", "", tc.input)
+			} else {
+				req = hook.NewRequest(tc.tool, tc.input, "", "")
+			}
+			req.Cwd = tc.cwd
+			req.Config = config.Config{RelaxedCredRoots: []string{root}}
+			if got := Check(req).Decision.String(); got != tc.decision {
+				t.Errorf("Check(%s %q, cwd %q) = %s, want %s", tc.tool, tc.input, tc.cwd, got, tc.decision)
+			}
+		})
 	}
 }
 
