@@ -11,9 +11,7 @@ Actively build and sharpen the project's domain model as you design. This is the
 
 ## File structure
 
-**If the project configures domain doc locations, that config wins over everything below.** Look for a domain doc config -- typically `docs/agents/domain.md`, and pointed at from the `Agent skills` section of `CLAUDE.md` / `AGENTS.md`. It defines where the glossary and ADRs live, which tier to write to, and any promotion step. Read it before creating or editing a single file. The layouts below are the fallback for projects that configure nothing.
-
-Some projects split domain docs into two tiers -- a canonical shared one and a provisional one scoped to the current working copy. When they do, the config says so: read both tiers (provisional wins on conflict, since it reflects work in progress), write only to the provisional one, and leave promotion to the moment the work ships. Never write to the canonical tier mid-flight.
+Some projects split domain docs into two tiers -- a canonical shared one and a provisional one scoped to the current working copy. They declare this in a domain doc config -- typically `docs/agents/domain.md`, pointed at from the `Agent skills` section of `CLAUDE.md` / `AGENTS.md` -- which names each tier's root, where ADRs live, and the promotion step. Read it before creating or editing a single file. Each tier uses the layout below, so its glossary is always a `GLOSSARY.md` (or `GLOSSARY-MAP.md`). Read both tiers (provisional wins on conflict, since it reflects work in progress), write only to the provisional one, and leave promotion to the moment the work ships. Never write to the canonical tier mid-flight. Projects with no config have one tier at the repo root.
 
 Most repos have a single context:
 

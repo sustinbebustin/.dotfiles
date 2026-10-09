@@ -13,7 +13,7 @@ Surface architectural friction and propose **deepening opportunities**: refactor
 This command is _informed_ by the project's domain model and built on a shared design vocabulary:
 
 - Call the Skill tool with "codebase-design" for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion, and don't drift into "component," "service," "API," or "boundary."
-- The domain language in `GLOSSARY.md` gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate. If the project has a domain doc config (typically `docs/agents/domain.md`), it says where the glossary and ADRs actually live; read it first, and read every `GLOSSARY.md` and `docs/adr/` below as those locations.
+- The domain language in `GLOSSARY.md` gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate. If the project has a domain doc config (typically `docs/agents/domain.md`), read it first: it may declare a provisional tier, whose `GLOSSARY.md` you also read, and a different ADR location.
 
 ## Process
 

@@ -31,7 +31,7 @@ _Avoid_: Client, buyer, account
 
 ## Single vs multi-context repos
 
-If the project's domain doc config names where the glossary lives, follow it and skip the inference below.
+In a two-tier project (see the domain doc config), apply the rules below within each tier's root instead of the repo root.
 
 **Single context (most repos):** One `GLOSSARY.md` at the repo root.
 

@@ -13,7 +13,7 @@ Three-axis review of the diff between `HEAD` and a fixed point the user supplies
 
 Each axis runs as a **parallel sub-agent** (`standards-reviewer`, `spec-reviewer`, `doc-comment-reviewer`) so they don't pollute each other's context. Their reports arrive later, on their own; aggregation happens once they have.
 
-The issue tracker should have been provided to you. If `docs/agents/issue-tracker.md` is missing, tell the user to run `/setup-matt-pocock-skills`.
+The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
 ## Process
 
@@ -29,14 +29,14 @@ Before going further, confirm the fixed point resolves (`git rev-parse <fixed-po
 
 Look for the originating spec, in this order:
 
-1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in `docs/agents/issue-tracker.md`.
+1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in the tracker doc.
 2. A path the user passed as an argument.
 3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
 4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
 
 ### 3. Identify the standards sources
 
-Anything in the repo that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`. Collect the paths; `standards-reviewer` reads them itself.
+Search the repo for every file that documents how code should be written. When `CODING_STANDARDS.md` or `CONTRIBUTING.md` exists, it must be on the list. Collect the paths; `standards-reviewer` reads them itself.
 
 The Fowler smell baseline that the Standards axis always carries on top of the repo's own rules lives in the `standards-reviewer` agent, which is its single source of truth.
 
