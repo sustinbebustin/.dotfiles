@@ -370,6 +370,80 @@
         "checkout.sh exits when parse_repo fails; upstream runs it in a process substitution, so set -e never fired and the script went on with an empty path."
       ]
     },
+    "plannotator": {
+      "author": "backnotprop",
+      "source": {
+        "repo": "backnotprop/plannotator",
+        "ref": "main",
+        "path": "apps/skills/core/plannotator"
+      },
+      "localPath": "tools/plannotator",
+      "sync": {
+        "commit": "ea171ddfeddf4f8896ad5085c2800a0967a1a476",
+        "tree": "2811b23beb8259233a9a66362c46177b85cd4712",
+        "at": "2026-10-09"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Removed agents/openai.yaml: it only configures Codex/OpenAI agents, which we don't use (user decision)."
+      ]
+    },
+    "plannotator-annotate": {
+      "author": "backnotprop",
+      "source": {
+        "repo": "backnotprop/plannotator",
+        "ref": "main",
+        "path": "apps/skills/claude/plannotator-annotate"
+      },
+      "localPath": "tools/plannotator-annotate",
+      "sync": {
+        "commit": "ea171ddfeddf4f8896ad5085c2800a0967a1a476",
+        "tree": "11d75bc18022e76898958465d1087e0b8f955b24",
+        "at": "2026-10-09"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
+    "plannotator-last": {
+      "author": "backnotprop",
+      "source": {
+        "repo": "backnotprop/plannotator",
+        "ref": "main",
+        "path": "apps/skills/claude/plannotator-last"
+      },
+      "localPath": "tools/plannotator-last",
+      "sync": {
+        "commit": "ea171ddfeddf4f8896ad5085c2800a0967a1a476",
+        "tree": "221b66c13e1e9a71a660005e28cd82488b58a581",
+        "at": "2026-10-09"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
+    "plannotator-review": {
+      "author": "backnotprop",
+      "source": {
+        "repo": "backnotprop/plannotator",
+        "ref": "main",
+        "path": "apps/skills/claude/plannotator-review"
+      },
+      "localPath": "tools/plannotator-review",
+      "sync": {
+        "commit": "ea171ddfeddf4f8896ad5085c2800a0967a1a476",
+        "tree": "774cc7cf2f05257b29583b88348614df7cb9be3f",
+        "at": "2026-10-09"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
     "pr": {
       "author": "mattpocock",
       "source": {
