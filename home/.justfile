@@ -31,3 +31,21 @@ serve path='.' port='8765':
     fi
     echo "open: http://$ip:$2/$page"
     exec python3 -m http.server "$2" -d "$root"
+
+# Kill whatever is listening on the given TCP port(s), e.g. `just kill 3000` or `just kill 3000 3001`
+kill +ports:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    for port in {{ports}}; do
+        pids=$(ss -ltnpH "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | sort -u)
+        if [ -z "$pids" ]; then
+            echo "port $port: nothing listening"
+            continue
+        fi
+        kill $pids 2>/dev/null
+        sleep 0.5
+        # Escalate if any survived.
+        alive=$(for p in $pids; do kill -0 "$p" 2>/dev/null && echo "$p"; done)
+        [ -n "$alive" ] && kill -9 $alive 2>/dev/null
+        echo "port $port: killed $(echo $pids | tr '\n' ' ')"
+    done
