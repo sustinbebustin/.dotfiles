@@ -44,7 +44,6 @@ The Go hooks in `home/.claude/hooks/` (PreToolUse guards, PostToolUse format/lin
 │       ├── zsh/                     # shell (ZDOTDIR)
 │       ├── starship.toml            # prompt
 │       ├── git/                     # git config + aliases
-│       ├── ghostty/                 # terminal
 │       ├── tmux/                    # tmux + TPM (submodule)
 │       ├── ripgrep/                 # rg defaults
 │       └── karabiner/               # key remapping (macOS)

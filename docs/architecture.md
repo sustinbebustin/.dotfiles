@@ -19,7 +19,6 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow packa
 │       ├── zsh/                 # shell config (ZDOTDIR)
 │       ├── starship.toml        # prompt
 │       ├── git/                 # git config + aliases
-│       ├── ghostty/             # terminal emulator
 │       ├── tmux/                # tmux + TPM
 │       ├── pnpm/                # pnpm settings
 │       ├── ripgrep/             # rg defaults
