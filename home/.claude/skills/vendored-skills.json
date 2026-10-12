@@ -464,6 +464,26 @@
       },
       "localChanges": []
     },
+    "plannotator-tui": {
+      "author": "plannotator",
+      "source": {
+        "repo": "plannotator/herdr-annotate",
+        "ref": "main",
+        "path": "skills/plannotator-tui"
+      },
+      "localPath": "tools/plannotator-tui",
+      "sync": {
+        "commit": "ceab050b77bea07bbeabdfda5c138be8c9c5c517",
+        "tree": "67049f537385f57c19c75bb759f9d19362853ccf",
+        "at": "2026-10-12"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Added disable-model-invocation: true; reviews in plannotator-tui should open only when the user asks, not whenever the agent writes a plan (user decision)."
+      ]
+    },
     "pr": {
       "author": "mattpocock",
       "source": {
