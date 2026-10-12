@@ -7,23 +7,17 @@ brew "atuin"
 brew "gawk"
 brew "gcc"
 brew "git"
-brew "go" # Go toolchain; one consumer is the guard hooks in home/.claude/hooks
-brew "golangci-lint" # Go linter/formatter; hooks run it via `make check`
+brew "go"
+brew "golangci-lint"
 brew "just"
 brew "protobuf"
 brew "shellcheck"
 brew "stow"
 brew "zsh"
-
-# Shell
 brew "starship"
 brew "zsh-autosuggestions"
 brew "zsh-syntax-highlighting"
-
-# Terminal
 brew "tmux"
-
-# CLI tools
 brew "ast-grep"
 brew "direnv"
 brew "eza"
@@ -32,15 +26,9 @@ brew "jq"
 brew "lazygit"
 brew "ripgrep"
 brew "tree"
-
-# Media
 brew "exiftool"
 brew "imagemagick"
-
-# Cloud + data
 brew "awscli"
-brew "pspg" # pager for psql
+brew "pspg"
 brew "supabase/tap/supabase"
-
-# Personal
 brew "sustinbebustin/tap/mws"
