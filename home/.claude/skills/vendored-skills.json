@@ -260,6 +260,26 @@
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
     },
+    "herdr": {
+      "author": "herdrdev",
+      "source": {
+        "repo": "herdrdev/herdr",
+        "ref": "master",
+        "path": "skills/herdr"
+      },
+      "localPath": "tools/herdr",
+      "sync": {
+        "commit": "2563803dca97c040beaf3dc3acdcb5a3221b4238",
+        "tree": "67042ed7910d4177a9000e0679e78b0346060927",
+        "at": "2026-10-09"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Added a CLAUDE_CONFIG_DIR passthrough (pane split --env) before agent start: we run several Claude accounts via CLAUDE_CONFIG_DIR, and Herdr panes inherit the server's env, so a started Claude agent otherwise falls back to the default account instead of the caller's (user decision)."
+      ]
+    },
     "how": {
       "author": "cursor",
       "source": {
