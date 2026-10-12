@@ -1,6 +1,7 @@
 # Taps
 tap "sustinbebustin/tap"
 tap "supabase/tap"
+tap "plannotator/tap"
 
 # Core
 brew "atuin"
@@ -26,6 +27,7 @@ brew "jq"
 brew "lazygit"
 brew "ripgrep"
 brew "tree"
+brew "plannotator-tui"
 brew "exiftool"
 brew "imagemagick"
 brew "awscli"

@@ -1,0 +1,9 @@
+# Plannotator TUI configuration
+# Managed in ~/.dotfiles and stowed to ~/.config/plannotator-tui/config.toml.
+
+[herdr]
+# Vertical split beside the agent's pane. Alternatives: "overlay" (full tab) or "popup".
+placement = "split"
+split_direction = "right"
+popup_width = "90%"
+popup_height = "85%"
