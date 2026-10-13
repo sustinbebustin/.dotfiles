@@ -4,7 +4,7 @@ description: Set up and run an autonomous experiment loop for any optimization t
 argument-hint: "[haiku|sonnet|opus|fable] [-- notes]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 disable-model-invocation: true
-effort: max
+effort: medium
 hooks:
   Stop:
     - hooks:
