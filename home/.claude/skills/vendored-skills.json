@@ -367,7 +367,8 @@
         "state": "tracked"
       },
       "localChanges": [
-        "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
+        "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code.",
+        "Integration and ticket branches are named <type>/<short-description> per the commit skill's Branch Naming, inlined via an awk include (plus allowed-tools Bash(awk *)); keeps branch names consistent with commit-push-pr and implement-with-subagents."
       ]
     },
     "improve-codebase-architecture": {

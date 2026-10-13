@@ -2,6 +2,7 @@
 name: implement-spec
 description: "Implement the result of /to-spec and /to-tickets in code."
 disable-model-invocation: true
+allowed-tools: Bash(awk *)
 metadata:
   author: mattpocock
 ---
@@ -24,9 +25,9 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration.
 
-3. Create the integration branch. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
+3. Create the integration branch as `<type>/<short-description>`, named per [Branch Naming](#branch-naming) below: the type matches the dominant change across the spec, and the description names the spec's subject. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
 
-4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. Each implementer subagent:
+4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch, named per [Branch Naming](#branch-naming) for that ticket's change. Each implementer subagent:
    - confirms its worktree is based on the integration branch before starting, and resets onto it if not;
    - calls the Skill tool with `tdd` to build the ticket;
    - merges the integration branch tip into its own branch before reporting done
@@ -40,3 +41,7 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
 9. Clean up all **implementer subagent** worktrees.
+
+```!
+awk '/^### /{p=($0=="### Branch Naming")} p' "$HOME/.claude/skills/commit/references/conventions.md"
+```
