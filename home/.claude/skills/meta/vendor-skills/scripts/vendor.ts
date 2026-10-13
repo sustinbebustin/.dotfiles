@@ -936,7 +936,7 @@ const USAGE = `usage: node vendor.ts <command> [args]
   author <skill-dir> <login>                set metadata.author in SKILL.md
   catalog list | show <name> | remove <name> | mark-removed <name> | trust <author> | untrust <author>
   catalog upsert <name> --fetch <out> --local <path> [--note text]... [--clear-notes]
-                                            --notes replace every note; --clear-notes empties them;
+                                            --note values replace every note; --clear-notes empties them;
                                             neither keeps them
                                             (catalog commands take [--catalog file]; default <root>/${CATALOG_FILE})`;
 
