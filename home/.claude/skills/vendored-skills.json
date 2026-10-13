@@ -172,9 +172,9 @@
       },
       "localPath": "git/gh-stack",
       "sync": {
-        "commit": "2bd699a544a09cb5c45a013d03416e0894b0454e",
-        "tree": "6bfe555e89a6b264e09d5ece7c4040226458c8e5",
-        "at": "2026-09-28"
+        "commit": "29a36d314be664583705f18e41cebdf2b61ad514",
+        "tree": "bde7bcf5a96697d31aa55b33565fa0ff002167ca",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
@@ -272,9 +272,9 @@
       },
       "localPath": "tools/herdr",
       "sync": {
-        "commit": "2563803dca97c040beaf3dc3acdcb5a3221b4238",
-        "tree": "67042ed7910d4177a9000e0679e78b0346060927",
-        "at": "2026-10-09"
+        "commit": "ee731a221e12d6d2e3358dfd487b2d87171640de",
+        "tree": "2be0d86d481d1bb29c62e11ef37b78d27d01b478",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
@@ -292,9 +292,9 @@
       },
       "localPath": "engineering/how",
       "sync": {
-        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
-        "tree": "12b9ed018673a72573574ca5304fc1503a7d16d7",
-        "at": "2026-10-02"
+        "commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
+        "tree": "e99dbaba46aeac710d371fcac9c2de93f5b6b133",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
@@ -314,9 +314,9 @@
       },
       "localPath": "engineering/impeccable",
       "sync": {
-        "commit": "114ea1d3838fca73b253af45f873b9c4f5f213c8",
-        "tree": "323b327763a945ccb53063b34ac59601c9d3ad4a",
-        "at": "2026-09-28"
+        "commit": "2f98774f86bc05563876643db37e6c37c322850f",
+        "tree": "d2b5d6c5bba2f0690d94c94b63e861cba11cda86",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
@@ -443,9 +443,9 @@
       },
       "localPath": "tools/plannotator",
       "sync": {
-        "commit": "ea171ddfeddf4f8896ad5085c2800a0967a1a476",
-        "tree": "2811b23beb8259233a9a66362c46177b85cd4712",
-        "at": "2026-10-09"
+        "commit": "456bc212ae2934cc4a2389251be20919bfa19c39",
+        "tree": "9eb4f4c22a43d4966b1b874855c0a4fb98a2f218",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
@@ -575,9 +575,9 @@
       },
       "localPath": "engineering/principle-type-system-discipline",
       "sync": {
-        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
-        "tree": "88836c25807833f4f8bc79b8c8542fc1c8c558b3",
-        "at": "2026-10-02"
+        "commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
+        "tree": "d7369475f3516094c0a3509cb9e37c6ad5200d07",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
@@ -679,9 +679,9 @@
       },
       "localPath": "tools/sentry-cli",
       "sync": {
-        "commit": "30f92db5da32b51d4a607f5a4f4e783777a3c623",
-        "tree": "c5ca4276c8c117427d6e5a93d7c7598a9871bfc0",
-        "at": "2026-09-28"
+        "commit": "3567c3c937b5cc06667d5b023bda0b2d3f472c54",
+        "tree": "6f17d214c6bec6f9c81fd7d6f99e4ddaf432278a",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
@@ -739,18 +739,18 @@
       },
       "localPath": "tools/shadcn",
       "sync": {
-        "commit": "98a1fe67b439324ddc857f47fbdce056600a4329",
-        "tree": "b5791523e07794a4deb201e78eab3f3adbd022c0",
-        "at": "2026-09-21"
+        "commit": "30a58d4498f270af1c1e981a7d78a15cf5740841",
+        "tree": "58cbb5c7712d2f1ba359892c8c693d0efe96c829",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
       },
       "localChanges": [
-        "Short description plus disable-model-invocation (user-invoked only); removed user-invocable: false.",
+        "Short description plus disable-model-invocation (user-invoked only); removed user-invocable: false. The description keeps upstream's design-system/DESIGN.md scope.",
         "Workflow step 9 Overwrite/Merge options say when each fits (uncustomized vs customized components).",
         "cli.md preset-switching text defers to SKILL.md Workflow step 9 to avoid duplicated guidance.",
-        "Dropped agents/openai.yaml, assets/*.png and evals/evals.json: Codex UI metadata and eval fixtures, unused at runtime.",
+        "Dropped agents/openai.yml, assets/shadcn*.png and evals/evals.json: Codex UI metadata, logos and eval fixtures, unused at runtime. assets/showcase/ stays; design-system.md uses it.",
         "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
@@ -992,9 +992,9 @@
       },
       "localPath": "engineering/typescript-best-practices",
       "sync": {
-        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
-        "tree": "924cb1d5fee20dc4028a10bf98b26dec8cbdfd83",
-        "at": "2026-10-02"
+        "commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
+        "tree": "319e39dfd8c0da0602db8d50ce6e48b0945bbf3a",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
@@ -1052,9 +1052,9 @@
       },
       "localPath": "productivity/why",
       "sync": {
-        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
-        "tree": "95da26ff7fe7b8fe70022d19064bd1a9f9e27127",
-        "at": "2026-10-02"
+        "commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
+        "tree": "bdd4a66d20d0ad4492e2fc643e95d6ca83ea43a3",
+        "at": "2026-10-13"
       },
       "status": {
         "state": "tracked"
