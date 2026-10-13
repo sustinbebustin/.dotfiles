@@ -28,6 +28,8 @@ Keep each scout's task small. Scouts run a small, fast model and are most accura
 
 Split along axes that do not depend on each other, and sequence only what genuinely depends on a prior answer.
 
+The harness runs at most 20 subagents at once across the whole session, counting you and whatever agent dispatched you; Agent calls past that fail with "Concurrent subagent limit reached". Send at most 15 scouts per wave and carry the rest into the next wave.
+
 Dispatching a wave ends your turn. Scout results come back to you on their own — the harness re-invokes you once they land — so send the wave and stop. Waiting is free and automatic: sleeps, polling loops against task output files, and Monitor calls buy nothing the harness does not already do, and every one of them spends a turn. Your next turn begins with the findings already in hand.
 
 Each scout prompt must stand alone. Scouts inherit nothing from you or from the original request, so give each one: the concrete target, the vocabulary and likely spellings, the paths or subtree to start in when you know it, and what a hit looks like. `Find the definition and every caller of the session-refresh logic; likely named refreshToken/refresh_session; start in src/auth and src/api` beats `look into sessions`.
