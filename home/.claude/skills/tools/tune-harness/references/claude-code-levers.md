@@ -30,7 +30,7 @@ Anything appended mid-session lands after the cached prefix and stays in history
 What you can read yourself:
 
 - Your own context: the rendered system prompt, system reminders, listings, and injected files are visible to you while running this skill. Read them for duplication, contradictions, and volatile values.
-- The transcripts, through `scripts/usage.py` and `scripts/skills.py`.
+- The transcripts, through `scripts/usage.py`, `scripts/skills.py`, and `scripts/cache_ttl.py` (subagent cache TTL replay).
 
 Interactive commands only the user can run (ask for the output when you need it):
 
