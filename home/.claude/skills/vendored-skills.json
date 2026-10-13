@@ -1005,7 +1005,8 @@
       "localChanges": [
         "Removed disable-model-invocation so paths auto-loads it on .ts/.tsx files and typescript-reviewer can preload it via skills:; upstream's flag blocks both.",
         "Principle-skill pointers (SKILL.md and references/patterns.md) say to call the Skill tool for principle-type-system-discipline / principle-boundary-discipline, by their exact installed names, instead of upstream's loose 'the type-system-discipline principle skill'.",
-        "Wrote the non-null assertion as words instead of a backticked ! (SKILL.md Simplest total type row, references/patterns.md strengthen paragraph); ! before a backtick span is load-time command syntax and the vendor scanner blocks it."
+        "Wrote the non-null assertion as words instead of a backticked ! (SKILL.md Simplest total type row, references/patterns.md strengthen paragraph); ! before a backtick span is load-time command syntax and the vendor scanner blocks it.",
+        "Aligned with the install-anti-slop Oxlint rules (user decision): boundary parsers take the raw transport type and delegate to the schema instead of taking unknown; no runtime typeof in the narrowing hierarchy or guards; SAFETY comment on casts (incl. the branded-type constructor); Record<string, unknown> never written; no bare object params or module mocking; Shape examples renamed Figure (SKILL.md table rows and references/patterns.md)."
       ]
     },
     "uv": {

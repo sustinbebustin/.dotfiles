@@ -11,6 +11,7 @@ type AgentId = string & { readonly __brand: "AgentId" };
 
 function parseAgentId(input: string): AgentId {
   if (!isUUID(input)) throw new Error(`Invalid agent id: ${input}`);
+  // SAFETY: isUUID verified the format; this is the only AgentId constructor.
   return input as AgentId;
 }
 
@@ -19,7 +20,7 @@ function focusAgent(id: AgentId): void {
 }
 ```
 
-Match the `readonly __brand: 'X'` shape. Don't invent a new convention.
+Match the `readonly __brand: 'X'` form. Don't invent a new convention. Keep the cast in one constructor with a `// SAFETY:` comment naming the checked invariant; if the repository's schema library brands (Zod `.brand<"AgentId">()`), let the schema construct it and skip the cast.
 
 ## Discriminated unions
 
@@ -109,23 +110,32 @@ Weakening the result to `Session | undefined` is the other total signature.
 
 ## `unknown` over `any`
 
-External data is always `unknown`. Narrow before use.
+External data is always `unknown` until a schema parses it. Hand-rolled `typeof` narrowing checks representation, not the contract, so don't write it; let the schema own the `unknown`.
 
 ```ts
-// Don't
+// Don't. any reaches into the payload unchecked.
 function handle(input: any) {
   return input.foo.bar;
 }
 
-// Do
+// Don't. unknown parameter plus hand-rolled typeof narrowing.
 function handle(input: unknown) {
   if (typeof input === "object" && input !== null && "foo" in input) {
-    // narrowed; compiler verifies access
+    /* ... */
   }
+}
+
+// Do. Take the raw transport type; the schema decodes it.
+const PayloadSchema = z.object({ foo: z.object({ bar: z.string() }) });
+
+function handle(body: string) {
+  return PayloadSchema.parse(JSON.parse(body)).foo.bar;
 }
 ```
 
 External sources include RPC payloads, `JSON.parse`, `postMessage`, IPC, file contents, environment variables, database results.
+
+Code you write never exposes `unknown`: no `unknown` parameters (type-predicate subjects and error `cause` excepted), return types, type aliases, or dictionary values such as `Record<string, unknown>`.
 
 ## Schemas before hand-rolled guards
 
@@ -141,16 +151,18 @@ const UserSchema = z.object({
 
 type User = z.infer<typeof UserSchema>;
 
-function parseUser(input: unknown): User {
-  return UserSchema.parse(input);
+function parseUser(body: string): User {
+  return UserSchema.parse(JSON.parse(body));
 }
 ```
+
+The parser takes the raw transport type (`string`, `Request`, `Buffer`, `process.env`), never `unknown`. When a type guard is unavoidable, back it with the schema: `(value: unknown): value is User => UserSchema.safeParse(value).success`.
 
 Use `safeParse` when failure is an expected branch. Use the equivalent inference helper when the repository uses another schema library. Do not add a new schema dependency for one guard. This rule prefers the schema system the codebase already trusts.
 
 ## No `as` casts
 
-Every `as` is a potential runtime crash. Cast only after the type system has verified the claim.
+Every `as` is a potential runtime crash. Cast only after the type system has verified the claim, and put a `// SAFETY:` comment stating that invariant immediately before the cast. `as const` is exempt. Never chain casts (`x as unknown as T`) or widen a binding and later re-assert it narrower.
 
 ```ts
 import { z } from "zod";
@@ -167,8 +179,8 @@ function isUser(data: unknown): data is User {
 const userSchema = z.object({ id: z.string(), name: z.string() });
 type User = z.infer<typeof userSchema>;
 
-function parseUser(data: unknown): User {
-  return userSchema.parse(data);
+function parseUser(body: string): User {
+  return userSchema.parse(JSON.parse(body));
 }
 ```
 
@@ -193,12 +205,14 @@ From best to last-resort:
 
 1. **Discriminated union switch / if.** Compiler narrows automatically.
 2. **`in` operator.** `"key" in obj` narrows to variants containing that key.
-3. **`typeof` / `instanceof`.** For primitives and class instances.
-4. **User-defined type guard.** When the above aren't enough.
-5. **`as` cast.** Only after validation.
+3. **`instanceof`.** For class instances.
+4. **Schema-backed type guard.** When the above aren't enough.
+5. **`as` cast.** Only after validation, with a `// SAFETY:` comment.
+
+No runtime `typeof`: a value whose primitive type is in doubt has not been parsed. Parse it at its boundary, then branch on the domain type. A `typeof x === "undefined"` existence probe is fine.
 
 ```ts
-function area(s: Shape): number {
+function area(s: Figure): number {
   if ("radius" in s) return Math.PI * s.radius ** 2; // narrowed to circle
   return s.width * s.height; // narrowed to rect
 }
@@ -209,7 +223,7 @@ function area(s: Shape): number {
 A guard must actually verify the claim. A lying guard is worse than `as`.
 
 ```ts
-function isCircle(s: Shape): s is Shape & { kind: "circle" } {
+function isCircle(s: Figure): s is Figure & { kind: "circle" } {
   return s.kind === "circle";
 }
 ```
@@ -222,7 +236,7 @@ In default arms, assign the discriminant to a `never`-typed local.
 
 ```ts
 // Value-returning switch
-function area(s: Shape): number {
+function area(s: Figure): number {
   switch (s.kind) {
     case "circle":
       return Math.PI * s.radius ** 2;
@@ -236,7 +250,7 @@ function area(s: Shape): number {
 }
 
 // Void switch
-function handle(s: Shape): void {
+function handle(s: Figure): void {
   switch (s.kind) {
     case "circle":
       drawCircle(s);

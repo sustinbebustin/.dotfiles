@@ -83,6 +83,7 @@ Never leave broken windows -- bad designs, sloppy formatting, commented-out junk
 - `fast-check` for property testing -- parsers, validators, transformations, state transitions, combinator-heavy logic
 - `fast-check` arbitraries as source for mock data utils when practical
 - Standard Schema-compatible validation for input/boundary parsing
+- Schema is the parser: boundary functions take the raw transport type (`string`, `Request`, env) and delegate to the schema; no `unknown` params outside type predicates/`cause`, no runtime `typeof`, `// SAFETY:` comment on every non-`const` cast
 
 ## Tooling
 - Never hand-edit file *contents* through Bash -- no `sed -i`, `tee`, heredoc redirects, or inline `python`/`node` scripts that rewrite repo files. Use Edit or Write; bash edits are invisible to checkpointing and bypass Edit deny rules. This holds in auto mode

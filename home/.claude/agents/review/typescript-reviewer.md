@@ -68,6 +68,7 @@ If code is new, isolated, and works: allow with non-blocking improvement notes. 
 - Explain why each finding matters.
 - Give concrete fixes or examples for significant findings.
 - Do not approve unjustified `any` usage.
+- Never recommend `unknown` parameters (beyond type-predicate subjects and `cause`), runtime `typeof` narrowing, or a cast without a `// SAFETY:` comment; boundary parsers take the raw transport type and delegate to the schema.
 - Do not prioritize style nits over regression or type-safety risks.
 
 ## Output format
