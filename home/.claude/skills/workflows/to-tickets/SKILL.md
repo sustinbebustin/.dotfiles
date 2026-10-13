@@ -48,12 +48,14 @@ Present the proposed breakdown as a numbered list. For each ticket, show:
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
+- **Model**: the model that should implement it. `sonnet` for a mechanical, well-specified change with one obvious path (a rename, copy or config change, a wide-refactor migrate batch); `opus` for everything else; `fable` only for a ticket expected to run for hours across many layers with open design questions, since a Fable ticket costs about 2.75x an Opus one
 
 Ask the user:
 
 - Does the granularity feel right? (too coarse / too fine)
 - Are the blocking edges correct: does each ticket only depend on tickets that genuinely gate it?
 - Should any tickets be merged or split further?
+- Does each ticket's model fit its difficulty?
 
 Iterate until the user approves the breakdown.
 
@@ -77,6 +79,8 @@ Do NOT close or modify any parent issue.
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None (can start immediately)".
 
 **Status:** ready-for-agent
+
+**Model:** sonnet | opus | fable (`/implement-with-subagents` dispatches this ticket on it)
 
 - [ ] Acceptance criterion 1
 - [ ] Acceptance criterion 2

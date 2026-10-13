@@ -18,11 +18,11 @@ Arguments: $ARGUMENTS
 
 Everything after the first `--` token is **notes**: free-form instructions to you about how to run this dispatch -- which tickets to start from or skip, what to check in a report, when to stop. They are yours alone. Never forward them to a subagent; the prompt below goes out unchanged. Absent when there is no `--`. Read what precedes it as an unordered set of tokens:
 
-- A token that is exactly `haiku`, `sonnet`, `opus`, or `fable` is the **implementation model**. Default `opus` when absent.
+- A token that is exactly `haiku`, `sonnet`, `opus`, or `fable` is the **run model**. Default `opus` when absent.
 - The token `plan` turns on the planning step: each ticket gets a plan written onto it before its subagent starts. Absent, tickets go out as they are.
 - Any other token is the **issues directory**. Default `.scratch/*/issues/` when absent.
 
-Every implementation subagent you spawn runs on the implementation model. Below, `<MODEL>` means that model name. It governs only the subagents you spawn; the agents they reach in turn pin their own model.
+Each ticket's implementation model is the value of its `**Model:**` line when that is `haiku`, `sonnet`, `opus`, or `fable`, and the run model otherwise. Read it with `awk '/^\*\*Model:\*\*/{sub(/^\*\*Model:\*\* */, ""); print $1; exit}' <TICKET-PATH>`; that one line is the only part of a ticket you read. Below, `<MODEL>` means that model name. It governs only the subagents you spawn; the agents they reach in turn pin their own model.
 
 Start now. Do no exploration, no planning, no reading of the tickets yourself.
 
@@ -53,7 +53,7 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
 6. Check the subagent's report before dispatching the next ticket: it must name tdd (or state why the ticket had no behavioural seam), name code-review, and account for every finding. If any is missing, send the same subagent back to finish that part before moving on.
 7. Repeat from step 3 until every ticket file has been implemented.
 
-Report each ticket as it completes: its number, title, the skills the subagent invoked, and the code-review outcome.
+Report each ticket as it completes: its number, title, the model it ran on, the skills the subagent invoked, and the code-review outcome.
 
 ```!
 awk '/^### /{p=($0=="### Branch Naming")} p' "$HOME/.claude/skills/commit/references/conventions.md"

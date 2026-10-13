@@ -912,7 +912,8 @@
       },
       "localChanges": [
         "Local-file tickets use the path from the tracker config and report created paths.",
-        "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
+        "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code.",
+        "Each ticket carries a Model (sonnet/opus/fable) proposed in the quiz and written as a **Model:** line in the local template; /implement-with-subagents dispatches the ticket on it (user decision, from tune-harness cost-per-ticket data)."
       ]
     },
     "triage": {
