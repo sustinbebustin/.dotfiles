@@ -69,7 +69,24 @@ func decide(stdin string) hook.Verdict {
 	return rules.Apply(rules.All(), req)
 }
 
+// unsetAWSEnv removes every AWS_* variable for the test. block-aws-cli reads
+// the hook's own environment (AWS_PROFILE, endpoint and credential variables),
+// so without this the corpus would record whatever the developer's shell holds.
+func unsetAWSEnv(t *testing.T) {
+	t.Helper()
+	for _, kv := range os.Environ() {
+		k, _, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(k, "AWS_") {
+			t.Setenv(k, "") // registers the restore of the original value
+			if err := os.Unsetenv(k); err != nil {
+				t.Fatalf("unsetting %s: %v", k, err)
+			}
+		}
+	}
+}
+
 func TestDecisions(t *testing.T) {
+	unsetAWSEnv(t)
 	cases := loadGolden(t)
 
 	if *update {
