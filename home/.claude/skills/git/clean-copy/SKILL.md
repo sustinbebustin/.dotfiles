@@ -297,7 +297,7 @@ Every subject in the storyline follows this message format, and every commit thi
 rule (the storyline above replaces the `commit` skill's split rules here):
 
 ```!
-awk '/^### /{p=($0=="### Conventional Commit Format" || $0=="### Authorship")} p' "$HOME/.claude/skills/commit/references/conventions.md"
+awk '/^### /{p=/^### (Conventional Commit Format|Authorship)$/} p' "$HOME/.claude/skills/commit/references/conventions.md"
 ```
 
 ### Across repos

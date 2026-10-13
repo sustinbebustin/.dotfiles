@@ -15,8 +15,8 @@ Given a source index URL (llms.txt or sitemap.xml) and a destination directory, 
 ## Inputs
 
 Parse `$ARGUMENTS` as two whitespace-separated tokens:
-- `$1` — source URL (llms.txt, sitemap.xml, or similar index)
-- `$2` — destination directory (absolute path preferred)
+- first token — source URL (llms.txt, sitemap.xml, or similar index)
+- second token — destination directory (absolute path preferred)
 
 If either is missing or ambiguous, ask the user before proceeding.
 
@@ -66,7 +66,7 @@ mapfile -t urls < <(
 echo "Found ${#urls[@]} pages. Writing to $OUT_DIR (concurrency=$CONCURRENCY)"
 
 fetch_one() {
-  local url="$1"
+  local url="${1}"
   local rel="${url#<COMMON-URL-PREFIX>}"
   local out="$OUT_DIR/${rel}.md"
   mkdir -p "$(dirname "$out")"

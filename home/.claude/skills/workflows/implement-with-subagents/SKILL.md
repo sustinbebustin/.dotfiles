@@ -22,7 +22,7 @@ Everything after the first `--` token is **notes**: free-form instructions to yo
 - The token `plan` turns on the planning step: each ticket gets a plan written onto it before its subagent starts. Absent, tickets go out as they are.
 - Any other token is the **issues directory**. Default `.scratch/*/issues/` when absent.
 
-Each ticket's implementation model is the value of its `**Model:**` line when that is `haiku`, `sonnet`, `opus`, or `fable`, and the run model otherwise. Read it with `awk '/^\*\*Model:\*\*/{sub(/^\*\*Model:\*\* */, ""); print $1; exit}' <TICKET-PATH>`; that one line is the only part of a ticket you read. Below, `<MODEL>` means that model name. It governs only the subagents you spawn; the agents they reach in turn pin their own model.
+Each ticket's implementation model is the value of its `**Model:**` line when that is `haiku`, `sonnet`, `opus`, or `fable`, and the run model otherwise. Read it with `awk '/^\*\*Model:\*\*/{sub(/^\*\*Model:\*\* */, ""); sub(/[[:space:]].*/, ""); print; exit}' <TICKET-PATH>`; that one line is the only part of a ticket you read. Below, `<MODEL>` means that model name. It governs only the subagents you spawn; the agents they reach in turn pin their own model.
 
 Start now. Do no exploration, no planning, no reading of the tickets yourself.
 
@@ -56,5 +56,5 @@ Start now. Do no exploration, no planning, no reading of the tickets yourself.
 Report each ticket as it completes: its number, title, the model it ran on, the skills the subagent invoked, and the code-review outcome.
 
 ```!
-awk '/^### /{p=($0=="### Branch Naming")} p' "$HOME/.claude/skills/commit/references/conventions.md"
+awk '/^### /{p=/^### Branch Naming$/} p' "$HOME/.claude/skills/commit/references/conventions.md"
 ```

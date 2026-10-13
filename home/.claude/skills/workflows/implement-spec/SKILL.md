@@ -43,5 +43,5 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 9. Clean up all **implementer subagent** worktrees.
 
 ```!
-awk '/^### /{p=($0=="### Branch Naming")} p' "$HOME/.claude/skills/commit/references/conventions.md"
+awk '/^### /{p=/^### Branch Naming$/} p' "$HOME/.claude/skills/commit/references/conventions.md"
 ```
