@@ -1,9 +1,9 @@
 ---
 name: update-meta-skills
-description: Refresh the meta skills (create-skills, create-agents, create-plugins, create-mcp) against their upstream docs and packages.
-argument-hint: "[skills] [agents] [plugins] [codemode]"
+description: Refresh the meta skills (create-skills, create-agents, create-plugins, create-mcp) and the model routing reference against their upstream docs, packages, and model releases.
+argument-hint: "[skills] [agents] [plugins] [codemode] [models]"
 disable-model-invocation: true
-allowed-tools: Read, Edit, Skill, Agent, Bash(readlink -f ~/.claude/commands/update-meta-skills.md), Bash(claude --version), Bash(curl *), Bash(*/docs/vendor/codemode/scrape.sh)
+allowed-tools: Read, Edit, Skill, Agent, WebFetch, Bash(readlink -f ~/.claude/commands/update-meta-skills.md), Bash(claude --version), Bash(curl *), Bash(*/docs/vendor/codemode/scrape.sh)
 metadata:
   author: sustinbebustin
 ---
@@ -24,10 +24,11 @@ The dotfiles repo is that path with `/home/.claude/commands/update-meta-skills.m
 | `agents` | `home/.claude/skills/meta/create-agents/` | `claude --version` | `claude-docs` skill |
 | `plugins` | `home/.claude/skills/meta/create-plugins/` | `claude --version` | `claude-docs` skill |
 | `codemode` | `home/.claude/skills/meta/create-mcp/` | `@cloudflare/codemode` on npm | package tarball, upstream changelog, `docs/vendor/codemode/docs/` |
+| `models` | `home/.claude/skills/tools/tune-harness/references/model-routing.md` | model IDs on Anthropic's models overview | Anthropic model, effort, and pricing docs; independent benchmarks |
 
 Arguments: $ARGUMENTS
 
-Run the targets named in the arguments; with no arguments, run all four. If an argument matches no target, stop and list the valid targets.
+Run the targets named in the arguments; with no arguments, run all five. If an argument matches no target, stop and list the valid targets.
 
 ## Steps
 
@@ -39,13 +40,17 @@ You orchestrate; one subagent per target does the review.
    curl -fsSL https://registry.npmjs.org/@cloudflare/codemode/latest | jq -r .version
    ```
 
-   The recorded version is that target's cutoff — only changes released after it matter. A skill whose version already equals upstream is current; drop it from the run unless asked to review it.
+   For `models`, the cutoff is the `Lineup reviewed:` line in `model-routing.md`, and upstream is the current model lineup on https://platform.claude.com/docs/en/about-claude/models/overview (fetch it with WebFetch).
 
-2. **Refresh the docs cache.** If any of `skills`, `agents`, or `plugins` remain, invoke the `claude-docs` skill yourself, once, and wait for it to finish before step 3. It refetches its cache when the Claude Code version changes; doing that here means the subagents find a current cache and never run the fetch concurrently. Skip this step for a `codemode`-only run.
+   The recorded version is that target's cutoff — only changes released after it matter. A target whose version already equals upstream is current; drop it from the run unless asked to review it.
 
-3. **Dispatch one subagent per target.** Launch a `general-purpose` agent with `model: sonnet` for each remaining target — four targets, four agents — all in one message so they run in parallel. Give each its target, absolute skill path, cutoff, upstream version, its own scratchpad subdirectory, and the brief below. Each agent edits only its own skill.
+2. **Refresh the docs cache.** If any of `skills`, `agents`, or `plugins` remain, invoke the `claude-docs` skill yourself, once, and wait for it to finish before step 3. It refetches its cache when the Claude Code version changes; doing that here means the subagents find a current cache and never run the fetch concurrently. Skip this step when only `codemode` and `models` remain.
 
-4. **Report.** Per skill, from the agents' results: old -> new version, and what changed (or "no changes needed"). Delete the scratchpad subdirectories.
+3. **Dispatch one subagent per target.** Launch a `general-purpose` agent for each remaining target, all in one message so they run in parallel: `model: sonnet` for the doc-diff targets, `model: opus` for `models`, whose synthesis decides model choice everywhere. Give each its target, absolute path, cutoff, upstream version, its own scratchpad subdirectory, and the brief below. Each agent edits only its own target.
+
+4. **Fix stale model mentions.** When `models` ran, apply the stale mentions its agent returned, now that the other agents are done with their files.
+
+5. **Report.** Per target, from the agents' results: old -> new version, and what changed (or "no changes needed"). Delete the scratchpad subdirectories.
 
 ## Subagent brief
 
@@ -58,14 +63,16 @@ You orchestrate; one subagent per target does the review.
         ```
      2. **Changelog** — `https://raw.githubusercontent.com/cloudflare/agents/main/packages/codemode/CHANGELOG.md`; read every entry after the cutoff.
      3. **Docs** — the scraped pages are gitignored, so snapshot first: copy `docs/vendor/codemode/docs/` into the scratchpad, run `docs/vendor/codemode/scrape.sh`, then `diff -ru` the snapshot against the fresh tree to find changed pages.
+   - `models`: fetch every page in the file's Sources section (Anthropic's docs are authoritative for prices, defaults, and per-model effort guidance), then search for independent evals and cost-per-task data on each new model: Vals, Artificial Analysis, BenchLM, and practitioner write-ups. Anthropic's eval numbers are directional; independent numbers that conflict with them go in Evidence with both figures.
 
 2. **Diff against the skill.** Compare the sources against the skill's `SKILL.md` and its `references/`, `templates/`, and `workflows/`. Focus on what changed since the cutoff:
    - `skills` / `agents`: new or renamed frontmatter fields, changed defaults, new invocation/permission behavior, new built-in subagents, deprecations.
    - `plugins`: `plugin.json` and `marketplace.json` fields, component types and their default paths, source types, `userConfig` and path-variable rules, `experimental.*` promotions, `claude plugin` subcommands and flags, `validate`/`eval` behavior, reserved marketplace names, and every `vX.Y.Z+` gate in the skill's text.
    - `codemode`: `Executor` and `codeMcpServer` signatures, exports and entry points, peer dependency ranges, and every version pin or `0.x` claim in the skill's text — each must still hold for the new version.
+   - `models`: every row of the Models, Effort, and Routing defaults tables. A new model gets its price, cache-read rate, latency tier, default effort, per-model effort guidance, and a place in the routing table; a superseded one leaves the tables. Every routing pick must still be the cheapest per solved task at equal quality. Keep entries marked as the user's practitioner reports unless new evidence contradicts them; flag a contradiction in the return rather than deleting the report.
 
-3. **Apply needed changes.** Edit the skill to reflect additions and corrections, surgically, matching existing structure and tone. If nothing changed, leave content untouched.
+3. **Apply needed changes.** Edit the target to reflect additions and corrections, surgically, matching existing structure and tone. If nothing changed, leave content untouched.
 
-4. **Bump the version.** Set `metadata.last_reviewed_version` to the upstream version, edited or not, so the next run knows the new cutoff.
+4. **Bump the version.** Set `metadata.last_reviewed_version` to the upstream version, edited or not, so the next run knows the new cutoff. For `models`, update the `Lineup reviewed:` line to the current lineup and today's date.
 
-5. **Return** old -> new version and what changed (or "no changes needed").
+5. **Return** old -> new version and what changed (or "no changes needed"). The `models` agent also returns every stale model mention outside its file, as `path:line` plus the replacement text: search `home/.claude/skills/` and `home/.claude/agents/` for superseded model names and IDs, and the meta skills' model and effort tables (`create-agents/references/model-and-effort.md`, `create-agents/references/frontmatter.md`) for alias targets and supported effort levels.
