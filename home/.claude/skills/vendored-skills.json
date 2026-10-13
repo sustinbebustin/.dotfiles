@@ -347,6 +347,26 @@
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
     },
+    "implement-spec": {
+      "author": "mattpocock",
+      "source": {
+        "repo": "mattpocock/skills",
+        "ref": "main",
+        "path": "skills/engineering/implement-spec"
+      },
+      "localPath": "workflows/implement-spec",
+      "sync": {
+        "commit": "49dd158d1076134a641b33efb035946536778336",
+        "tree": "0cfefc751d0cb64f0c948ffcb17e13b94e778f08",
+        "at": "2026-10-13"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
+      ]
+    },
     "improve-codebase-architecture": {
       "author": "mattpocock",
       "source": {
