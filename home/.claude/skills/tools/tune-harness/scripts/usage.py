@@ -26,10 +26,11 @@ from pathlib import Path
 # The running account's config folder, as Claude Code itself resolves it.
 CONFIG_DIR = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser()
 
-# Anthropic ratios relative to base input price: 5m cache write 1.25x,
-# 1h cache write 2x, cache read 0.1x, output 5x (Opus-tier). Verify against
-# the current pricing page before quoting absolute figures.
-DEFAULT_PRICES = {"in": 1.0, "w5m": 1.25, "w1h": 2.0, "read": 0.1, "out": 5.0}
+# Anthropic ratios relative to base input price for Opus 5.5: 5m cache write
+# 1.25x, 1h cache write 2x, cache read 0.05x, output 5x. Cache reads differ by
+# model (Fable 5.1 0.025x, older models 0.1x). Verify against the current
+# pricing page before quoting absolute figures.
+DEFAULT_PRICES = {"in": 1.0, "w5m": 1.25, "w1h": 2.0, "read": 0.05, "out": 5.0}
 BILLING = ("in", "w5m", "w1h", "read", "out")
 
 
