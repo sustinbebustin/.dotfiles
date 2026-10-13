@@ -1,7 +1,7 @@
 ---
 name: standards-reviewer
 description: Reviews a diff against the repo's documented coding standards plus a fixed Fowler smell baseline. Dispatched by the code-review skill as the Standards axis. Reports findings only — no fixes, no spec judgement.
-model: opus
+model: sonnet
 effort: medium
 tools: Bash, Read, Glob, Grep, Skill
 disallowedTools: Edit, Write, NotebookEdit, Agent

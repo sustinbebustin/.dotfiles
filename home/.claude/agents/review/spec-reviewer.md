@@ -1,7 +1,7 @@
 ---
 name: spec-reviewer
 description: Reviews a diff against the issue or spec that originated it — missing requirements, scope creep, and requirements implemented wrongly. Dispatched by the code-review skill as the Spec axis. Reports findings only — no fixes, no style judgement.
-model: opus
+model: sonnet
 effort: medium
 tools: Bash, Read, Glob, Grep
 disallowedTools: Edit, Write, NotebookEdit, Agent
