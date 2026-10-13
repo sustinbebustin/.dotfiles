@@ -3,6 +3,7 @@
   "trustedAuthors": [
     "anthropics",
     "cursor",
+    "dmmulroy",
     "kitlangton",
     "mattpocock",
     "mitsuhiko",
@@ -386,6 +387,27 @@
       "localChanges": [
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code.",
         "Reads a project domain doc config first for a provisional-tier GLOSSARY.md and a non-default ADR location; glossary files are always GLOSSARY.md (CONTEXT.md overrides dropped, user decision)."
+      ]
+    },
+    "install-anti-slop": {
+      "author": "dmmulroy",
+      "source": {
+        "repo": "dmmulroy/anti-slop",
+        "ref": "main",
+        "path": "skills/install-anti-slop"
+      },
+      "localPath": "tools/install-anti-slop",
+      "sync": {
+        "commit": "c44ef22ca116d0ba62a3ff663a0bd13a3f3fa40b",
+        "tree": "89044d21c75a367eac1ddbaf208e650b1a7d5820",
+        "at": "2026-10-13"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Added disable-model-invocation: true; the skill runs only when invoked by hand as /install-anti-slop.",
+        "Rewrote npm view commands to pnpm view: npm and npx are not installed here."
       ]
     },
     "librarian": {
