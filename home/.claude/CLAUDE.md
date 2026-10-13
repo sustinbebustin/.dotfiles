@@ -33,9 +33,9 @@
 
 ## Code Quality
 - Minimal surgical changes -- minimal in scope, not in care; broken windows in touched area still in scope
-- **Never compromise type safety**: no `any`, no `!`, no unsafe assertions
+- Type safety is not traded away: no `any`, no `!`, no unsafe assertions
 - Parse/validate at boundaries; internal state typed + explicit
-- **Make illegal states unrepresentable**; ADTs/discriminated unions over boolean flags + loose optionals
+- Make illegal states unrepresentable; ADTs/discriminated unions over boolean flags + loose optionals
 - Prefer existing helpers/patterns over new abstractions
 - Abstractions: consciously constrained, pragmatically parameterised, documented when non-obvious
 
@@ -68,7 +68,7 @@ Never leave broken windows -- bad designs, sloppy formatting, commented-out junk
 - Work incomplete until deliverables done or explicitly blocked
 - Before finishing: verify correctness/grounding/formatting/safety with smallest relevant check (test/typecheck/lint/build)
 - Tests verify semantically correct behavior
-- **Failing tests are acceptable** when they expose a real bug and test is correct
+- Failing tests are acceptable when they expose a real bug and test is correct
 - Don't change/delete tests to make suite pass
 - If you can't verify, say what wasn't run and why
 
@@ -89,9 +89,6 @@ Never leave broken windows -- bad designs, sloppy formatting, commented-out junk
 - Bash remains correct for: formatters, linters, codemods, and code generators (`gofmt -w`, `eslint --fix`, `jscodeshift`, `sqlc generate`); file operations (`git mv`, `mkdir`, `rm`); and any file outside the repo. For repo-wide renames prefer a codemod or LSP rename over `sed`
 - Read to read; Edit and Write to modify
 - Search is the exception -- this build has no Grep or Glob tool: `rg` for file contents, `find` for filenames
-- Batch independent reads/searches; parallelize when safe
-- Read enough context before editing; avoid thrashing
-- Lightweight verification after edits when relevant
 - Delegate to subagents for wide independent fan-out (multi-area search, parallel review) -- not for work you can do directly in a few tool calls
 - Don't delegate work whose result you need to reason over line by line; the summary loses what you need
 
@@ -115,5 +112,5 @@ Never leave broken windows -- bad designs, sloppy formatting, commented-out junk
 
 ## Git/PRs/Commits
 - Never create commits, PRs, or push unless explicitly requested
-- **Never** add AI/Agent attribution or contributor status
+- No AI/Agent attribution or contributor status
 - `gh` CLI available for GitHub ops
