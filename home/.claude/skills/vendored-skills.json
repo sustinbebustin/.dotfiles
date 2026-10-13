@@ -368,7 +368,8 @@
       },
       "localChanges": [
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code.",
-        "Integration and ticket branches are named <type>/<short-description> per the commit skill's Branch Naming, inlined via an awk include (plus allowed-tools Bash(awk *)); keeps branch names consistent with commit-push-pr and implement-with-subagents."
+        "Integration and ticket branches are named <type>/<short-description> per the commit skill's Branch Naming, inlined via an awk include (plus allowed-tools Bash(awk *)); keeps branch names consistent with commit-push-pr and implement-with-subagents.",
+        "Step 5's merger subagent invokes fix-merge-conflicts first and writes the merge subject as a conventional commit per the commit skill's conventions.md; upstream left the message unspecified, producing 'merge: ticket X' subjects that say nothing about the change."
       ]
     },
     "improve-codebase-architecture": {
