@@ -53,7 +53,7 @@ A subagent transcript shared by several sessions appears in each as a symlink to
 
 ## Pricing and caching facts to verify
 
-- Relative prices on Anthropic's API: 5-minute cache write 1.25x base input, 1-hour cache write 2x, output 5x. Cache reads vary by model (0.025x on Fable 5.1, 0.05x on Opus 5.5 and Sonnet 5.5, 0.1x otherwise; per-model prices in [model-routing.md](model-routing.md)). Check the current price page before quoting absolute costs; pass the running model's ratios to `usage.py --prices`.
+- Relative prices on Anthropic's API: 5-minute cache write 1.25x base input, 1-hour cache write 2x, output 5x. Cache reads vary by model (0.025x on Fable 5.1, 0.05x on Opus 5.5 and Sonnet 5.5, 0.1x otherwise; per-model prices in [model-routing.md](model-routing.md)). Check the current price page before quoting absolute costs; `usage.py` prices each model from its `MODEL_RATES` table.
 - Which TTL a session uses shows in the usage split (`ephemeral_5m` vs `ephemeral_1h`). An idle gap longer than the TTL turns the next request's prefix into a full cache write.
 - Caches are per model: `/model` mid-session and a skill's `model:` override on the main thread both start a cold prefix. Changes to thinking or effort settings can also invalidate cached messages; confirm against the prompt-caching docs before relying on either behaviour.
 

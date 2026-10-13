@@ -15,7 +15,7 @@ Quality is the constraint, so every downgrade of existing config is a hypothesis
 | Sonnet 5.5 | $2 / $10 | 5% | Fast | Everyday coding and agent loops where latency matters, at low or medium effort |
 | Haiku 5.5 | from $0.10 / $0.50 | 10% | Fastest | High-volume checkable work: classification, extraction, routing, search subagents |
 
-Cache writes are 1.25x input (5-minute TTL) and 2x (1-hour). `usage.py` defaults to Opus 5.5's ratios; pass another model's with `--prices` (e.g. `read=0.025` for Fable 5.1).
+Cache writes are 1.25x input (5-minute TTL) and 2x (1-hour). `usage.py` prices each request at its model's base and cache-read rates (`MODEL_RATES`, in Opus 5.5 units); keep that table in step with this one. `--prices` overrides a ratio for every model.
 
 Claude Code runs the same models, effort levels, and defaults as the API. A subscription changes only usage per dollar (a fully used $200 Max plan is roughly $8,000/month at API prices), so API-price cost per task is still the measure.
 

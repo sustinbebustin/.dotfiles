@@ -61,7 +61,7 @@ uv run ${CLAUDE_SKILL_DIR}/scripts/usage.py --days 14 [--project <slug-substring
 uv run ${CLAUDE_SKILL_DIR}/scripts/skills.py --days 60 [skill ...]
 ```
 
-- `usage.py` is the whole-harness baseline: cost per session (the task unit), cost share by billing type, model, main thread vs subagent type, and active skill, the first-request prefix (static context proxy), cache hit rate, turns per session, and per tool: share of sessions calling it, calls, error rate, user-rejected rate, and result tokens.
+- `usage.py` is the whole-harness baseline, each request priced at its own model's rates: cost per session (the task unit), cost share by billing type (split main vs subagent), model, main thread vs subagent type, spawner (the skill or subagent that dispatched each subagent), and active skill, per-run medians for each subagent type and requested model, the first-request prefix (static context proxy), cache hit rate, turns per session, and per tool: share of sessions calling it, calls, error rate, user-rejected rate, and result tokens. `--errors N` groups each tool's most common error lines; `--compose <kind>` breaks down what fills one thread kind's context (tool results per tool, output, attachments).
 - `skills.py` isolates skills: listing tokens and cost, body tokens, loads split into model and slash invocations, distinct sessions, median requests after load, the body's own carrying cost, skills loaded together, reads of supporting files, and files `SKILL.md` never links. `usage.py`'s per-skill figure spreads whole-turn cost over the active skill; `skills.py`'s is what the skill's own text costs.
 
 Extend the scripts when the audit needs a cut they lack; don't hand-sum transcripts or write a throwaway parser.
