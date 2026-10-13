@@ -258,7 +258,9 @@ setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_VERIFY EXTENDED_HIS
 command -v atuin &>/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
 
 # ===== Direnv =====
-command -v direnv &>/dev/null && eval "$(direnv hook zsh)"
+# The hook bakes in direnv's resolved Cellar path, which `brew upgrade` deletes
+# out from under running shells; call it through PATH instead.
+command -v direnv &>/dev/null && eval "$(direnv hook zsh | sed "s|\$'[^']*/bin/direnv'|direnv|")"
 
 # ===== Zoxide =====
 command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
