@@ -79,7 +79,7 @@ Fix GitHub issue $ARGUMENTS following our coding standards.
 
 Skills stack at the start of a message: `/write-tests /fix-issue 123` loads both and passes `123` to each (v2.1.199+). Expansion covers the first skill plus five more and stops at the first token that isn't an inline user-invocable skill — a forked skill such as `/code-review`, or one whose args may start with a slash such as `/loop`, ends the run and becomes argument text.
 
-Access individual args: `$ARGUMENTS[0]` or shorthand `$0`, `$1`, `$2`. Indexed args use shell-style quoting — wrap multi-word values in quotes. With the `arguments` frontmatter set, use named placeholders (`$issue`, `$branch`) instead of indexes.
+Access individual args: `$ARGUMENTS[N]` or the shorthand `$` followed by the index, counting from zero. The shorthand is replaced anywhere in the body, including code blocks and `!` blocks, whenever that argument exists: awk's record and field variables, or a shell function's positional parameters, silently become argument text. In body scripts, match lines with a bare regex (`p=/^### X$/`) instead of comparing the record, brace positional parameters (`${1}`), or move the script into `scripts/`. Indexed args use shell-style quoting — wrap multi-word values in quotes. With the `arguments` frontmatter set, use named placeholders (`$issue`, `$branch`) instead of indexes.
 
 **Other substitutions:**
 
