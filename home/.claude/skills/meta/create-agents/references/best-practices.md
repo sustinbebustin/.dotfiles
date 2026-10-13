@@ -40,15 +40,9 @@ Default to an explicit allowlist. Read-only subagent: `Read, Glob, Grep, Bash`. 
 
 Inheriting all tools is rarely the right call. It pulls in any MCP server connected to the parent (Slack, Linear, your DB) and can cost a lot of context.
 
-### Right-Size The Model
+### Right-Size Model And Effort
 
-| Model | Use for |
-| --- | --- |
-| Haiku | High-volume read tasks (file discovery, log scanning) |
-| Sonnet | Most subagents (code review, refactoring, research) |
-| Opus | Hard reasoning (architecture, complex debugging) |
-
-Don't pick Opus by default. Subagents start fresh and don't share the parent's prompt cache - Opus subagents are expensive.
+Match `model` and `effort` to the role with the routing table in `~/.claude/skills/tune-harness/references/model-routing.md`: Haiku for search, classification, and extraction workers; Opus at medium for review, implementation, and debugging; Fable for long autonomous research. Tune effort before switching models, and compare cost per completed task, not per token.
 
 ## System Prompt Patterns
 
@@ -112,9 +106,9 @@ Add trigger keywords and context.
 
 Omitting `tools:` inherits everything, including MCP. Tighten unless you genuinely need it.
 
-### Picking Opus For Everything
+### Mis-Sized Model Or Effort
 
-Opus subagents are slow and expensive. Default to Sonnet or Haiku and escalate only when reasoning quality matters.
+Opus on a pure search or extraction worker pays for reasoning the role never uses; Haiku there is faster and far cheaper. The opposite mistake costs more: Sonnet at `high` or above burns enough tokens to cost more per task than Opus at `medium`, and `max` without an eval behind it often regresses.
 
 ### Using `bypassPermissions` Casually
 
@@ -152,7 +146,7 @@ If `.claude/agents/<name>.md` is shared with the team, commit it. Otherwise team
 - [ ] `name` is lowercase letters and hyphens only
 - [ ] `description` includes WHAT and WHEN, with trigger keywords
 - [ ] Tools restricted (allowlist OR denylist, not both casually)
-- [ ] `model` justified (Haiku/Sonnet/Opus picked deliberately)
+- [ ] `model` and `effort` match the role in model-routing.md
 - [ ] `permissionMode` set if subagent runs autonomously
 - [ ] `memory:` set with right scope if persistence is needed
 - [ ] `skills:` lists every skill the subagent depends on

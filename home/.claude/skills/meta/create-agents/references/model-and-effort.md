@@ -1,17 +1,17 @@
 # Model And Effort
 
-Picking the right model and effort level for a subagent.
+How the `model` and `effort` fields work for a subagent. Which model and effort a given role should get, with prices and the evidence behind each pick, lives in `~/.claude/skills/tune-harness/references/model-routing.md`; read it before choosing either field.
 
 ## The `model` Field
 
 Controls which AI model the subagent uses.
 
-| Value | When to use |
+| Value | Resolves to |
 | --- | --- |
-| `haiku` | High-volume, low-latency: codebase search, file discovery, log scanning, large-batch processing. Cheap. |
-| `sonnet` | Default workhorse: most code review, refactoring, implementation, research. |
-| `opus` | Hard reasoning: architecture decisions, complex debugging, deep code review, planning major refactors. |
-| `fable` | Fable model alias; resolves to Fable 5.1 as of v2.1.257. |
+| `haiku` | Haiku 5.5: fastest and cheapest; search, classification, extraction, routing subagents. |
+| `sonnet` | Sonnet 5.5: fast; latency-bound loops at low or medium effort. |
+| `opus` | Opus 5.5: the default for most roles, including review and implementation. |
+| `fable` | Fable 5.1 (alias as of v2.1.257): long autonomous runs and deep research. |
 | `claude-opus-4-8` | Pin a specific model ID. Same values as `--model` flag. |
 | `inherit` | Use the same model as the main conversation. |
 
@@ -45,49 +45,27 @@ A value your organization's `availableModels` allowlist blocks is substituted: a
 
 ## When To Pin A Model
 
-Pin (instead of `inherit`) when the subagent's job has a specific reasoning requirement:
-
-- A debugger that needs careful causal reasoning -> `opus`
-- A high-throughput "find references to X" agent -> `haiku`
-- A reviewer that needs to be the same regardless of who calls it -> `sonnet`
-
-Inherit when the subagent is a generic helper whose reasoning depth should match the parent.
+Pin (instead of `inherit`) when the subagent's role has a fixed reasoning requirement, so it behaves the same whoever calls it: a search or extraction worker on `haiku`, a reviewer or debugger on `opus`. Inherit when the subagent is a generic helper whose reasoning depth should match the parent.
 
 ## The `effort` Field
 
 Controls how hard the model thinks. Overrides the session effort while the subagent is active. Resets when the subagent finishes.
 
 ```yaml
-effort: xhigh
+effort: low
 ```
 
 Options: `low`, `medium`, `high`, `xhigh`, `max`. Available levels depend on the model:
 
-- Opus 5, Sonnet 5, Opus 4.8, Opus 4.7, Fable 5.1, Fable 5: all five levels
+- Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1, Opus 5, Sonnet 5, Opus 4.8, Opus 4.7, Fable 5: all five levels
 - Opus 4.6, Sonnet 4.6: `low`, `medium`, `high`, `max` — no `xhigh`
 
 A level the model doesn't support falls back to the highest supported level at or below it (`xhigh` runs as `high` on Opus 4.6). A `maxEffortLevel` cap in settings, global or per model under `modelSettings`, lowers the ceiling the same way (v2.1.267+).
 
-Use `xhigh` or `max` for one-shot deep analysis (oracle-style advisors). Don't use it for routine work; cost scales with effort.
-
-## Common Pairings
-
-| Subagent kind | Model | Effort |
-| --- | --- | --- |
-| File finder / grep wrapper | `haiku` | `low` |
-| Doc summarizer | `haiku` | `medium` |
-| Code reviewer | `sonnet` | `medium` |
-| Refactor implementer | `sonnet` | `high` |
-| Architecture advisor | `opus` | `xhigh` |
-| Race-condition debugger | `opus` | `xhigh` |
-| Quick research helper | `inherit` | inherit |
+Omitting `effort` uses the model's default (medium on Opus 5.5 and Haiku 5.5, high on Sonnet 5.5 and Fable 5.1). Tune effort before switching models: it often recovers the same savings. Pair `sonnet` only with `low` or `medium`; a role that needs more runs cheaper per task as `opus` at `medium`.
 
 ## Cost Awareness
 
-Subagents start fresh. They don't inherit the parent's prompt cache. Spawning Opus subagents repeatedly is expensive. If you're tempted to invoke an Opus subagent on every task, consider:
-
-- Switch to `inherit` so the parent decides
-- Switch to `sonnet` and add more guardrails in the system prompt
-- Use Haiku for the discovery phase, then escalate to a separate Opus subagent only when needed
+Subagents start fresh. They don't inherit the parent's prompt cache, so each dispatch pays its own cache write. Compare models per completed task, not per token: a cheaper model that burns more tokens or turns can cost more overall.
 
 For agent teams (multiple long-lived sessions), token costs scale linearly with active members. See [agent team token costs](https://code.claude.com/docs/en/costs#agent-team-token-costs).
