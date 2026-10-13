@@ -3,8 +3,8 @@ name: scout
 description: Locates code. Dispatched by scoutmaster with one narrow search task; returns exact files, line numbers, and symbol names. Reports findings only — no analysis, no recommendations.
 tools: Read, Bash, Grep, Glob
 disallowedTools: Edit, Write, Agent, NotebookEdit
-model: sonnet
-effort: low
+model: haiku
+effort: medium
 color: green
 ---
 
