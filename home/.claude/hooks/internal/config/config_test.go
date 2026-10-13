@@ -1,6 +1,7 @@
 package config
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -78,6 +79,11 @@ func TestParseRejects(t *testing.T) {
 		{"relative relaxed credential root", `{"credentialFiles":{"relaxedRoots":["dev/app"]}}`, "credentialFiles.relaxedRoots[0]"},
 		{"shallow relaxed credential root", `{"credentialFiles":{"relaxedRoots":["/home"]}}`, "deep"},
 		{"unknown credentialFiles field", `{"credentialFiles":{"roots":[]}}`, "roots"},
+		{"unknown aws policy", `{"awsCli":{"profiles":{"dev":"readonly"}}}`, `awsCli.profiles["dev"]`},
+		{"empty aws profile name", `{"awsCli":{"profiles":{"":"allow"}}}`, "empty profile name"},
+		{"padded aws profile name", `{"awsCli":{"profiles":{" dev":"allow"}}}`, "whitespace"},
+		{"aws policy that is not a string", `{"awsCli":{"profiles":{"dev":true}}}`, "decoding JSON"},
+		{"unknown awsCli field", `{"awsCli":{"profile":{}}}`, "profile"},
 	}
 
 	for _, tc := range cases {
@@ -119,6 +125,26 @@ func TestParseRelaxedCredRoots(t *testing.T) {
 	}
 	if len(got.AllowedRmRoots) != 0 {
 		t.Errorf("AllowedRmRoots = %v, want none: the settings are independent", got.AllowedRmRoots)
+	}
+}
+
+func TestParseAWSProfiles(t *testing.T) {
+	raw := `{"awsCli":{"profiles":{"a":"allow","r":"readOnly","q":"ask","d":"deny"}}}`
+	got, err := parse([]byte(raw), testHome)
+	if err != nil {
+		t.Fatalf("parse() error = %v, want nil", err)
+	}
+	want := map[string]AWSPolicy{"a": AWSAllow, "r": AWSReadOnly, "q": AWSAsk, "d": AWSDeny}
+	if !maps.Equal(got.AWSProfiles, want) {
+		t.Errorf("AWSProfiles = %v, want %v", got.AWSProfiles, want)
+	}
+}
+
+func TestAWSPolicyStringRoundTrips(t *testing.T) {
+	for _, p := range []AWSPolicy{AWSAsk, AWSReadOnly, AWSAllow, AWSDeny} {
+		if got, ok := parseAWSPolicy(p.String()); !ok || got != p {
+			t.Errorf("parseAWSPolicy(%q) = %v, %v; want %v, true", p.String(), got, ok, p)
+		}
 	}
 }
 

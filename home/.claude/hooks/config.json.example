@@ -8,5 +8,12 @@
     "relaxedRoots": [
       "~/dev/example-project"
     ]
+  },
+  "awsCli": {
+    "profiles": {
+      "sandbox": "allow",
+      "work": "readOnly",
+      "prod": "deny"
+    }
   }
 }

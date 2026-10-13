@@ -128,9 +128,12 @@ since the binary reads it from `~/.claude/hooks/`. Today it holds
 `dangerousRm.allowedRoots`, absolute (or `~/`-prefixed) directories under which
 a recursive `rm` runs without prompting -- strictly under, so the root itself
 still asks. Roots must be at least two directories deep, and one bad entry
-rejects the whole file: the config only ever widens what runs unprompted, so a
-half-applied allowlist would be worse than none. A broken file is reported on
-stderr and the guards run with no exemptions rather than blocking the session.
+rejects the whole file: a half-applied allowlist would be worse than none.
+`awsCli.profiles` maps an AWS CLI profile to `allow`, `readOnly`, `ask` or
+`deny`; a profile it does not name, or one `block-aws-cli` cannot determine,
+asks. A broken file is reported on stderr and the guards run with no exemptions
+rather than blocking the session -- which also drops any `deny`, so those calls
+fall back to asking.
 `$CLAUDE_HOOKS_CONFIG` overrides the location.
 
 The same module builds a second binary, `claude-quality-bin`, registered as a
@@ -157,7 +160,7 @@ the `gofumpt`/`gci` formatters `make fmt` applies.
 | Rule | Applies to | Purpose |
 |------|-----------|---------|
 | `block-credential-files` | Read, Edit, Write, Bash, Grep | Deny access to credential files |
-| `block-aws-cli` | Bash | Ask before any `aws` CLI invocation |
+| `block-aws-cli` | Bash | Ask before an `aws` call that could reach real AWS, unless the config's per-profile policy allows it (all calls, or reads only) or denies it |
 | `block-supabase-remote` | Bash | Deny Supabase CLI commands that wipe a remote database or delete a project; ask before other remote writes |
 | `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands; deny outward-facing gh operations (`pr close`, `repo delete`, writing `gh api`) |
 | `block-dangerous-rm` | Bash | Ask before a recursive `rm` |

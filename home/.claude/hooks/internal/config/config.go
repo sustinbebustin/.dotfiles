@@ -10,10 +10,15 @@
 // then run exactly as they did before this package existed.
 //
 // Everything is validated here rather than where it is used, so a rule only
-// ever sees absolute, cleaned paths. Validation rejects the whole file rather
-// than dropping the offending entry, and unknown fields are an error too: this
-// file only ever *widens* what runs unprompted, so a typo that silently
-// half-applied an allowlist is the wrong kind of surprise.
+// ever sees absolute, cleaned paths and known policies. Validation rejects the
+// whole file rather than dropping the offending entry, and unknown fields are an
+// error too: a typo that silently half-applied an allowlist is the wrong kind of
+// surprise.
+//
+// Almost everything here widens what runs unprompted. The one exception is an
+// awsCli profile policy of deny, which narrows it: a broken file drops such a
+// deny along with everything else, and the affected calls fall back to asking.
+// That is a lost block, never a gained allow.
 package config
 
 import (
@@ -21,8 +26,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -49,6 +56,47 @@ type Config struct {
 	// Manager service. Credential material proper stays denied there too; see
 	// credfiles.classify for the split.
 	RelaxedCredRoots []string
+	// AWSProfiles maps an AWS CLI profile name to what block-aws-cli does with a
+	// call made under it. A profile missing from the map gets AWSAsk.
+	AWSProfiles map[string]AWSPolicy
+}
+
+// AWSPolicy is what block-aws-cli does with an aws call that would reach real
+// AWS under one profile. The zero value is AWSAsk, the rule's behaviour for any
+// profile the config does not name.
+type AWSPolicy int
+
+const (
+	// AWSAsk prompts for every call.
+	AWSAsk AWSPolicy = iota
+	// AWSReadOnly runs read-only operations unprompted and asks for the rest.
+	AWSReadOnly
+	// AWSAllow runs every call unprompted.
+	AWSAllow
+	// AWSDeny blocks every call.
+	AWSDeny
+)
+
+// awsPolicyNames are the spellings config.json accepts, in the order the error
+// for an unknown one lists them.
+var awsPolicyNames = []struct {
+	name   string
+	policy AWSPolicy
+}{
+	{"allow", AWSAllow},
+	{"readOnly", AWSReadOnly},
+	{"ask", AWSAsk},
+	{"deny", AWSDeny},
+}
+
+// String returns the policy as config.json spells it.
+func (p AWSPolicy) String() string {
+	for _, n := range awsPolicyNames {
+		if n.policy == p {
+			return n.name
+		}
+	}
+	return fmt.Sprintf("AWSPolicy(%d)", int(p))
 }
 
 // file mirrors config.json on the wire. It is kept separate from Config so the
@@ -61,6 +109,9 @@ type file struct {
 	CredentialFiles struct {
 		RelaxedRoots []string `json:"relaxedRoots"`
 	} `json:"credentialFiles"`
+	AWSCli struct {
+		Profiles map[string]string `json:"profiles"`
+	} `json:"awsCli"`
 }
 
 // Load reads and validates the configuration.
@@ -116,7 +167,47 @@ func parse(raw []byte, home string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	return Config{AllowedRmRoots: rmRoots, RelaxedCredRoots: credRoots}, nil
+	awsProfiles, err := parseAWSProfiles(f.AWSCli.Profiles)
+	if err != nil {
+		return Config{}, err
+	}
+	return Config{AllowedRmRoots: rmRoots, RelaxedCredRoots: credRoots, AWSProfiles: awsProfiles}, nil
+}
+
+// parseAWSProfiles validates the awsCli.profiles map. Keys are checked in sorted
+// order so the error for a file with several bad entries is stable.
+func parseAWSProfiles(raw map[string]string) (map[string]AWSPolicy, error) {
+	out := make(map[string]AWSPolicy, len(raw))
+	for _, profile := range slices.Sorted(maps.Keys(raw)) {
+		if strings.TrimSpace(profile) == "" {
+			return nil, errors.New("awsCli.profiles has an empty profile name. Use the name as it appears " +
+				"in ~/.aws/config, such as \"default\" or \"dev\"")
+		}
+		if strings.TrimSpace(profile) != profile {
+			return nil, fmt.Errorf("awsCli.profiles[%q] has surrounding whitespace. Profile names match "+
+				"exactly, so this entry would never apply; remove the spaces", profile)
+		}
+		policy, ok := parseAWSPolicy(raw[profile])
+		if !ok {
+			names := make([]string, len(awsPolicyNames))
+			for i, n := range awsPolicyNames {
+				names[i] = n.name
+			}
+			return nil, fmt.Errorf("awsCli.profiles[%q] is %q, which is not a policy. Use one of: %s",
+				profile, raw[profile], strings.Join(names, ", "))
+		}
+		out[profile] = policy
+	}
+	return out, nil
+}
+
+func parseAWSPolicy(s string) (AWSPolicy, bool) {
+	for _, n := range awsPolicyNames {
+		if n.name == s {
+			return n.policy, true
+		}
+	}
+	return AWSAsk, false
 }
 
 // normalizeRoots normalizes every root of one setting, naming the setting and

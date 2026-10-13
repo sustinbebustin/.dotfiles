@@ -176,31 +176,31 @@
     "name": "aws-s3",
     "stdin": "{\"tool_input\":{\"command\":\"aws s3 ls\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow?"
+    "reason": "AWS CLI call with profile \"default\", which has no policy in the hook config. Allow?"
   },
   {
     "name": "aws-piped",
     "stdin": "{\"tool_input\":{\"command\":\"echo x | aws sts get-caller-identity\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow?"
+    "reason": "AWS CLI call with profile \"default\", which has no policy in the hook config. Allow?"
   },
   {
     "name": "aws-env-prefix",
     "stdin": "{\"tool_input\":{\"command\":\"AWS_PROFILE=x aws s3 ls\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow?"
+    "reason": "AWS CLI call with profile \"x\", which has no policy in the hook config. Allow?"
   },
   {
     "name": "aws-abs-path",
     "stdin": "{\"tool_input\":{\"command\":\"/usr/local/bin/aws s3 ls\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow?"
+    "reason": "AWS CLI call with profile \"default\", which has no policy in the hook config. Allow?"
   },
   {
     "name": "aws-in-subshell",
     "stdin": "{\"tool_input\":{\"command\":\"(aws s3 ls)\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow?"
+    "reason": "AWS CLI call with profile \"default\", which has no policy in the hook config. Allow?"
   },
   {
     "name": "aws-word-not-cmd",
@@ -602,7 +602,7 @@
     "name": "multi-push-and-aws",
     "stdin": "{\"tool_input\":{\"command\":\"git push \\u0026\\u0026 aws s3 ls\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow? git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
+    "reason": "AWS CLI call with profile \"default\", which has no policy in the hook config. Allow? git push without an explicit branch pushes whatever is checked out, which could be main - allow?"
   },
   {
     "name": "multi-cred-and-ghclose",
@@ -622,7 +622,7 @@
     "name": "multi-rm-and-aws",
     "stdin": "{\"tool_input\":{\"command\":\"rm -rf /repo/src \\u0026\\u0026 aws s3 ls\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow? recursive rm detected - permanently deletes files/directories. Allow?"
+    "reason": "AWS CLI call with profile \"default\", which has no policy in the hook config. Allow? recursive rm detected - permanently deletes files/directories. Allow?"
   },
   {
     "name": "read-cred",
@@ -787,7 +787,7 @@
     "name": "aws-sudo",
     "stdin": "{\"tool_input\":{\"command\":\"sudo -u deploy aws s3 ls\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "AWS CLI command detected. Allow?"
+    "reason": "AWS CLI call, and the profile it uses cannot be determined: sudo may reset the environment and home directory the profile comes from. Allow?"
   },
   {
     "name": "cd-quoted",
@@ -895,7 +895,7 @@
     "name": "nested-aws-bundled-flags",
     "stdin": "{\"tool_input\":{\"command\":\"bash -lc 'aws s3 ls'\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: AWS CLI command detected. Allow?"
+    "reason": "Inside a script passed to a nested shell: AWS CLI call with profile \"default\", which has no policy in the hook config. Allow?"
   },
   {
     "name": "nested-git-force-push",

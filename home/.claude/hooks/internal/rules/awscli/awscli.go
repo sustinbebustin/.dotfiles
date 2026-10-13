@@ -1,15 +1,17 @@
-// Package awscli prompts before an `aws` CLI invocation that could reach real
-// AWS. Instead of a hard deny it returns ask, so the user approves each such
-// command case by case. The whole shell tree is walked, so `aws` nested in
-// pipelines, subshells, command substitutions, and && / || chains is still
-// caught.
+// Package awscli decides whether an `aws` CLI invocation that could reach real
+// AWS runs unprompted, asks, or is blocked. The whole shell tree is walked, so
+// `aws` nested in pipelines, subshells, command substitutions, and && / ||
+// chains is still caught, and every call in a command is judged: the strictest
+// verdict wins.
 //
 // A call that provably targets a loopback endpoint runs unprompted: local
 // emulators (moto, LocalStack, understudy) see a stream of such calls, and none
-// of them can touch an AWS account. "Provably" means the endpoint is a literal
-// loopback URL the CLI will actually use:
+// of them can touch an AWS account. "Provably" means the endpoint is a loopback
+// URL the CLI will actually use:
 //
-//   - an --endpoint-url flag, which outranks every other endpoint setting;
+//   - an --endpoint-url flag, which outranks every other endpoint setting. Its
+//     value may come through a variable the same command sets to one literal
+//     value (`E=http://127.0.0.1:4566; aws --endpoint-url $E ...`; see vars.go);
 //   - otherwise AWS_ENDPOINT_URL, set on the call itself (`AWS_ENDPOINT_URL=...
 //     aws`, `env AWS_ENDPOINT_URL=... aws`) or exported by an earlier top-level
 //     statement of the same command (`export AWS_ENDPOINT_URL=...; aws ...`).
@@ -19,11 +21,17 @@
 // global variable) that is not loopback, AWS_IGNORE_CONFIGURED_ENDPOINT_URLS,
 // an unset, or any non-literal or non-loopback assignment of an endpoint
 // variable anywhere in the command or in the hook's own environment.
-// `aws --version` and `aws [service [command]] help` make no requests and are
-// allowed too.
+// `aws --version`, `aws [service [command]] help`, `aws configure list` and
+// `aws configure list-profiles` make no requests and are allowed too.
+//
+// Any other call is judged by the policy the machine-local config gives its
+// profile (config.AWSPolicy): allow, readOnly (see readonly.go), ask or deny.
+// A profile the config does not name, or one the hook cannot determine (see
+// profile.go), asks.
 package awscli
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -31,6 +39,7 @@ import (
 
 	"mvdan.cc/sh/v3/syntax"
 
+	"claude-hooks/internal/config"
 	"claude-hooks/internal/hook"
 	"claude-hooks/internal/shellast"
 )
@@ -45,20 +54,38 @@ const (
 	endpointFlag      = "--endpoint-url"
 )
 
-// Check asks for approval when req invokes the aws CLI against anything that
-// is not provably a loopback endpoint.
+// Check judges every aws call in req and returns the strictest verdict.
 func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		return hook.Allowed()
 	}
-	env := scanEnv(file, os.Environ())
-	if v, hit := shellast.FirstCall(file, func(c *syntax.CallExpr) (hook.Verdict, bool) {
-		return checkAWS(c, env)
-	}); hit {
-		return v
+	environ := os.Environ()
+	c := takeCensus(file)
+	s := scope{
+		env:      scanEnv(file, environ),
+		census:   c,
+		profiles: newProfileEnv(c, environ),
+		policies: req.Config.AWSProfiles,
 	}
-	return hook.Allowed()
+	var verdicts []hook.Verdict
+	syntax.Walk(file, func(n syntax.Node) bool {
+		if call, isCall := n.(*syntax.CallExpr); isCall {
+			if v, hit := s.checkAWS(call); hit {
+				verdicts = append(verdicts, v)
+			}
+		}
+		return true
+	})
+	return hook.Merge(verdicts)
+}
+
+// scope is everything a single call's check needs from the whole command.
+type scope struct {
+	env      endpointEnv
+	census   census
+	profiles profileEnv
+	policies map[string]config.AWSPolicy
 }
 
 // endpointEnv is what the command's environment says about AWS_ENDPOINT_URL.
@@ -74,36 +101,76 @@ type endpointEnv struct {
 	exported     bool
 }
 
-// checkAWS returns an "ask" verdict when c invokes the aws CLI and the call is
-// not provably local. Environment assignments preceding the command and
-// wrappers such as sudo and env are stepped over (see shellast.Invocation).
-func checkAWS(c *syntax.CallExpr, env endpointEnv) (hook.Verdict, bool) {
+// checkAWS judges c when it invokes the aws CLI; hit is false for any other
+// command. Environment assignments preceding the command and wrappers such as
+// sudo and env are stepped over (see shellast.Invocation).
+func (s *scope) checkAWS(c *syntax.CallExpr) (v hook.Verdict, hit bool) {
 	name, rest := shellast.Invocation(c.Args, shellast.WordLit)
 	if shellast.CommandName(name) != "aws" {
 		return hook.Verdict{}, false
 	}
 	if makesNoRequest(rest) {
-		return hook.Verdict{}, false
+		return hook.Allowed(), true
 	}
-	if local, found := flagEndpoint(rest); found {
-		if local {
-			return hook.Verdict{}, false
-		}
-		return asked(), true
-	}
+	toks := s.census.expand(rest, c.Pos())
 	wrapperArgs := len(c.Args) - len(rest) - 1
-	if !env.poisoned && (callSetsLocalEndpoint(c, wrapperArgs) || (env.exported && c.Pos().After(env.exportedFrom))) {
-		return hook.Verdict{}, false
+	if local, found := flagEndpoint(toks); found {
+		if local {
+			return hook.Allowed(), true
+		}
+	} else if !s.env.poisoned && (callSetsLocalEndpoint(c, wrapperArgs) ||
+		(s.env.exported && c.Pos().After(s.env.exportedFrom))) {
+		return hook.Allowed(), true
 	}
-	return asked(), true
+
+	profile, err := s.profiles.resolve(c, c.Args[:wrapperArgs], toks)
+	if err != nil {
+		return hook.Asked(fmt.Sprintf("AWS CLI call, and %v. Allow?", err)), true
+	}
+	return s.applyPolicy(profile, toks), true
 }
 
-func asked() hook.Verdict { return hook.Asked("AWS CLI command detected. Allow?") }
+// applyPolicy turns the profile's configured policy into a verdict for a call
+// with arguments toks.
+func (s *scope) applyPolicy(profile string, toks []token) hook.Verdict {
+	policy, configured := s.policies[profile]
+	switch {
+	case !configured:
+		return hook.Asked(fmt.Sprintf("AWS CLI call with profile %q, which has no policy in the hook config. Allow?",
+			profile))
+	case policy == config.AWSAllow:
+		return hook.Allowed()
+	case policy == config.AWSDeny:
+		return hook.Denied(fmt.Sprintf("AWS CLI call with profile %q, which the hook config denies "+
+			"(awsCli.profiles policy deny). Run it yourself if it is needed, or change the policy.", profile))
+	case policy == config.AWSReadOnly:
+		op, err := findOperation(toks)
+		if err != nil {
+			return hook.Asked(fmt.Sprintf("AWS CLI call with profile %q, which only runs reads unprompted, "+
+				"and %s. Allow?", profile, err))
+		}
+		if isReadOnly(op) {
+			return hook.Allowed()
+		}
+		return hook.Asked(fmt.Sprintf("AWS CLI call with profile %q, which only runs reads unprompted, "+
+			"and %q is not one. Allow?", profile, op))
+	}
+	return hook.Asked(fmt.Sprintf("AWS CLI call with profile %q (policy ask). Allow?", profile))
+}
+
+// localCommands are aws commands that read only the local configuration, make
+// no request, and print no secret.
+var localCommands = map[string]bool{"configure list": true, "configure list-profiles": true}
 
 // makesNoRequest reports whether the aws arguments only print the version or
-// help: `aws --version`, `aws help`, `aws s3 help`, `aws s3 cp help`.
+// help (`aws --version`, `aws help`, `aws s3 help`, `aws s3 cp help`) or are one
+// of localCommands.
 func makesNoRequest(args []*syntax.Word) bool {
 	if len(args) == 1 && shellast.WordLit(args[0]) == "--version" {
+		return true
+	}
+	if len(args) == 2 && shellast.IsLiteral(args[0]) && shellast.IsLiteral(args[1]) &&
+		localCommands[shellast.WordLit(args[0])+" "+shellast.WordLit(args[1])] {
 		return true
 	}
 	if len(args) == 0 || len(args) > 3 {
@@ -122,21 +189,18 @@ func makesNoRequest(args []*syntax.Word) bool {
 }
 
 // flagEndpoint finds an --endpoint-url flag in the aws arguments. found reports
-// whether one is present; local whether its value is a literal loopback URL.
-func flagEndpoint(args []*syntax.Word) (local, found bool) {
-	for i, a := range args {
-		w := shellast.WordLit(a)
+// whether one is present; local whether its value is a known loopback URL.
+func flagEndpoint(toks []token) (local, found bool) {
+	for i, t := range toks {
 		switch {
-		case w == endpointFlag:
-			if i+1 >= len(args) {
+		case t.text == endpointFlag:
+			if i+1 >= len(toks) {
 				return false, true
 			}
-			return literalLoopback(args[i+1]), true
-		case strings.HasPrefix(w, endpointFlag+"="):
-			if !shellast.IsLiteral(a) {
-				return false, true
-			}
-			return isLoopbackURL(strings.TrimPrefix(w, endpointFlag+"=")), true
+			next := toks[i+1]
+			return next.known && isLoopbackURL(next.text), true
+		case strings.HasPrefix(t.text, endpointFlag+"="):
+			return t.known && isLoopbackURL(strings.TrimPrefix(t.text, endpointFlag+"=")), true
 		}
 	}
 	return false, false
