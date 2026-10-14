@@ -292,9 +292,9 @@
       },
       "localPath": "engineering/how",
       "sync": {
-        "commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
-        "tree": "e99dbaba46aeac710d371fcac9c2de93f5b6b133",
-        "at": "2026-10-13"
+        "commit": "1e5c90a4b6f249917bd21fe361b3a2a7deb741b8",
+        "tree": "3fd1c05ec675e7225d51e19e8ec80b92217adfbf",
+        "at": "2026-10-14"
       },
       "status": {
         "state": "tracked"
@@ -1058,9 +1058,9 @@
       },
       "localPath": "productivity/why",
       "sync": {
-        "commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
-        "tree": "bdd4a66d20d0ad4492e2fc643e95d6ca83ea43a3",
-        "at": "2026-10-13"
+        "commit": "1e5c90a4b6f249917bd21fe361b3a2a7deb741b8",
+        "tree": "ba549f92c3a8dc1506b21674e8794eb980019bf3",
+        "at": "2026-10-14"
       },
       "status": {
         "state": "tracked"
