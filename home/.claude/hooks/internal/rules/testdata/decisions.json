@@ -273,8 +273,18 @@
   {
     "name": "git-rebase",
     "stdin": "{\"tool_input\":{\"command\":\"git rebase main\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-rebase-continue",
+    "stdin": "{\"tool_input\":{\"command\":\"GIT_EDITOR=true git -C backend rebase --continue\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-rebase-exec",
+    "stdin": "{\"tool_input\":{\"command\":\"git rebase -x 'make test' main\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git rebase detected - allow?"
+    "reason": "git rebase -x runs shell commands per commit - allow?"
   },
   {
     "name": "git-reset-hard",

@@ -1,6 +1,10 @@
 // Package dangerousgit guards git and gh invocations. Commands that publish
-// work or discard it (push, merge, rebase, reset --hard, clean, branch/tag
-// delete) return `ask`, so the user approves each case by case.
+// work or discard it (push, merge, reset --hard, clean, branch/tag delete)
+// return `ask`, so the user approves each case by case.
+//
+// A rebase runs unprompted, as do its --continue, --abort, and --skip steps,
+// unless it can run commands the guard never sees (--exec, --interactive). See
+// checkRebase.
 //
 // The exception is a plain push of a literally named feature branch (`git push
 // -u origin feat/x`), which runs unprompted so a branch and its PR can be
@@ -95,7 +99,7 @@ func checkGit(args []string, literal bool) (hook.Verdict, bool) {
 	case "merge":
 		return hook.Asked("git merge detected - allow?"), true
 	case "rebase":
-		return hook.Asked("git rebase detected - allow?"), true
+		return checkRebase(rest, literal)
 	case "reset":
 		if hasFlag(rest, "--hard") {
 			return hook.Asked("git reset --hard discards uncommitted changes - allow?"), true
@@ -113,6 +117,58 @@ func checkGit(args []string, literal bool) (hook.Verdict, bool) {
 			if a == "-d" || a == "--delete" {
 				return hook.Asked("git tag delete detected - allow?"), true
 			}
+		}
+	}
+	return hook.Verdict{}, false
+}
+
+// checkRebase lets a rebase run unprompted: it rewrites only local history,
+// `git reset --hard ORIG_HEAD` or the reflog undoes it, and publishing the
+// result is a force push, which checkPush still guards. Two forms still ask.
+// --exec (-x) runs shell commands this guard never parses, and --interactive
+// (-i) hands the plan to an editor. Arguments the guard cannot read literally
+// ask too, since they could hide either flag.
+//
+// rest are the tokens following `rebase`.
+func checkRebase(rest []string, literal bool) (hook.Verdict, bool) {
+	if !literal {
+		return hook.Asked("git rebase with a shell expansion in its arguments - allow?"), true
+	}
+	for _, a := range rest {
+		if a == "--" {
+			break
+		}
+		name, _, _ := strings.Cut(a, "=")
+		switch {
+		case name == "--exec":
+			return hook.Asked("git rebase --exec runs shell commands per commit - allow?"), true
+		case name == "--interactive":
+			return hook.Asked("git rebase --interactive detected - allow?"), true
+		case strings.HasPrefix(a, "--"):
+		case strings.HasPrefix(a, "-"):
+			if v, hit := checkRebaseShorthands(a[1:]); hit {
+				return v, true
+			}
+		}
+	}
+	return hook.Verdict{}, false
+}
+
+// rebaseValueShorthands are the `git rebase` shorthands that take a value. Git
+// bundles shorthands, and the rest of the token after one of these is its
+// value, so `-Xignore-space-change` is a strategy option, not `-i`.
+const rebaseValueShorthands = "sXCS"
+
+// checkRebaseShorthands reads one bundle of shorthand flags for -x or -i.
+func checkRebaseShorthands(bundle string) (hook.Verdict, bool) {
+	for _, flag := range bundle {
+		switch {
+		case flag == 'x':
+			return hook.Asked("git rebase -x runs shell commands per commit - allow?"), true
+		case flag == 'i':
+			return hook.Asked("git rebase -i detected - allow?"), true
+		case strings.ContainsRune(rebaseValueShorthands, flag):
+			return hook.Verdict{}, false
 		}
 	}
 	return hook.Verdict{}, false

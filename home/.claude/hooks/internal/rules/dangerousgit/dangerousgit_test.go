@@ -136,6 +136,26 @@ func TestDecide(t *testing.T) {
 		{"git reset --soft", `git reset --soft HEAD~1`, "allow"},
 		{"git checkout branch", `git checkout main`, "allow"},
 
+		// git rebase: local and reflog-recoverable, so it runs unprompted unless
+		// it can run commands the guard never sees.
+		{"rebase onto trunk", `git rebase main`, "allow"},
+		{"rebase -C", `git -C backend rebase main`, "allow"},
+		{"rebase --onto", `git -C r rebase --onto main abc123 feat/child`, "allow"},
+		{"rebase --continue", `git add -A && GIT_EDITOR=true git -C backend rebase --continue`, "allow"},
+		{"rebase --abort", `git rebase --abort`, "allow"},
+		{"rebase --skip", `git rebase --skip`, "allow"},
+		{"rebase strategy option", `git rebase -Xignore-space-change main`, "allow"},
+		{"rebase attached strategy", `git rebase -srecursive main`, "allow"},
+		{"rebase --exec", `git rebase --exec 'make test' main`, "ask"},
+		{"rebase --exec=", `git rebase --exec='rm -rf x' main`, "ask"},
+		{"rebase -x", `git rebase -x 'make test' main`, "ask"},
+		{"rebase -x attached", `git rebase -xmake main`, "ask"},
+		{"rebase -x in a bundle", `git rebase -qx make main`, "ask"},
+		{"rebase -i", `git rebase -i HEAD~3`, "ask"},
+		{"rebase --interactive", `git rebase --interactive main`, "ask"},
+		{"rebase -i in a bundle", `git rebase -ri main`, "ask"},
+		{"rebase variable args", `git rebase $FLAGS main`, "ask"},
+
 		// Discarding uncommitted work is unguarded, including behind `git -C`.
 		{"git checkout --", `git checkout -- a.php`, "allow"},
 		{"git restore", `git restore a.php`, "allow"},
