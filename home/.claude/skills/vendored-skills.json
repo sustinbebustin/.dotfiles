@@ -402,9 +402,9 @@
       },
       "localPath": "tools/install-anti-slop",
       "sync": {
-        "commit": "c44ef22ca116d0ba62a3ff663a0bd13a3f3fa40b",
-        "tree": "89044d21c75a367eac1ddbaf208e650b1a7d5820",
-        "at": "2026-10-13"
+        "commit": "13909c9e07590f5a85d93c62712259fe14a883f7",
+        "tree": "97962dc9fad565ca7695bf57805d9d0138ce1def",
+        "at": "2026-10-14"
       },
       "status": {
         "state": "tracked"
