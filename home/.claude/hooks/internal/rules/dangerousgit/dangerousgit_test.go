@@ -155,6 +155,7 @@ func TestDecide(t *testing.T) {
 		{"rebase --interactive", `git rebase --interactive main`, "ask"},
 		{"rebase -i in a bundle", `git rebase -ri main`, "ask"},
 		{"rebase variable args", `git rebase $FLAGS main`, "ask"},
+		{"rebase variable -C path", `git -C $F -c rerere.enabled=false rebase --continue`, "allow"},
 
 		// Discarding uncommitted work is unguarded, including behind `git -C`.
 		{"git checkout --", `git checkout -- a.php`, "allow"},

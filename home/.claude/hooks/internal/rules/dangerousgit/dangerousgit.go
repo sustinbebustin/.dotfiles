@@ -58,22 +58,24 @@ func Check(req *hook.Request) hook.Verdict {
 func checkCall(c *syntax.CallExpr) (hook.Verdict, bool) {
 	name, operands := shellast.Invocation(c.Args, shellast.WordLit)
 	args := make([]string, len(operands))
-	literal := true
+	literals := make([]bool, len(operands))
 	for i, a := range operands {
 		args[i] = shellast.WordLit(a)
-		literal = literal && shellast.IsLiteral(a)
+		literals[i] = shellast.IsLiteral(a)
 	}
 
 	switch shellast.CommandName(name) {
 	case "git":
-		return checkGit(args, literal)
+		return checkGit(args, literals)
 	case "gh":
 		return checkGh(args)
 	}
 	return hook.Verdict{}, false
 }
 
-func checkGit(args []string, literal bool) (hook.Verdict, bool) {
+// checkGit judges one git call. literals[i] reports whether args[i] was plain
+// text, with no expansion the guard cannot read.
+func checkGit(args []string, literals []bool) (hook.Verdict, bool) {
 	sub, rest := subcommand(args, gitTopLevelFlags)
 	var prefix []string
 	if sub != "" {
@@ -89,7 +91,7 @@ func checkGit(args []string, literal bool) (hook.Verdict, bool) {
 
 	switch sub {
 	case "push":
-		return checkPush(prefix, rest, literal)
+		return checkPush(prefix, rest, allLiteral(literals))
 	case "send-pack", "http-push":
 		return hook.Asked(fmt.Sprintf("git %s pushes refs to a remote - allow?", sub)), true
 	case "subtree":
@@ -99,7 +101,7 @@ func checkGit(args []string, literal bool) (hook.Verdict, bool) {
 	case "merge":
 		return hook.Asked("git merge detected - allow?"), true
 	case "rebase":
-		return checkRebase(rest, literal)
+		return checkRebase(rest, allLiteral(literals[len(args)-len(rest):]))
 	case "reset":
 		if hasFlag(rest, "--hard") {
 			return hook.Asked("git reset --hard discards uncommitted changes - allow?"), true
@@ -126,10 +128,12 @@ func checkGit(args []string, literal bool) (hook.Verdict, bool) {
 // `git reset --hard ORIG_HEAD` or the reflog undoes it, and publishing the
 // result is a force push, which checkPush still guards. Two forms still ask.
 // --exec (-x) runs shell commands this guard never parses, and --interactive
-// (-i) hands the plan to an editor. Arguments the guard cannot read literally
-// ask too, since they could hide either flag.
+// (-i) hands the plan to an editor. Rebase arguments the guard cannot read
+// literally ask too, since they could hide either flag. Expansions before the
+// subcommand (`git -C "$dir" rebase`) cannot, so they do not count.
 //
-// rest are the tokens following `rebase`.
+// rest are the tokens following `rebase`; literal reports whether all of them
+// were plain text.
 func checkRebase(rest []string, literal bool) (hook.Verdict, bool) {
 	if !literal {
 		return hook.Asked("git rebase with a shell expansion in its arguments - allow?"), true
@@ -391,6 +395,15 @@ func subcommand(args []string, flagsWithValue map[string]bool) (name string, res
 		i++
 	}
 	return "", nil
+}
+
+func allLiteral(literals []bool) bool {
+	for _, l := range literals {
+		if !l {
+			return false
+		}
+	}
+	return true
 }
 
 func hasFlag(args []string, want string) bool {
