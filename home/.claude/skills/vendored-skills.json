@@ -742,9 +742,9 @@
       },
       "localPath": "tools/shadcn",
       "sync": {
-        "commit": "30a58d4498f270af1c1e981a7d78a15cf5740841",
-        "tree": "58cbb5c7712d2f1ba359892c8c693d0efe96c829",
-        "at": "2026-10-13"
+        "commit": "4233ed1caded8c38f4bc14b14afe1f93ebcaf966",
+        "tree": "900e3dff4bc1b341db90a147bee6dbed4c2add3c",
+        "at": "2026-10-14"
       },
       "status": {
         "state": "tracked"
