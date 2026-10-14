@@ -27,13 +27,14 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 3. Create the integration branch as `<type>/<short-description>`, named per [Branch Naming](#branch-naming) below: the type matches the dominant change across the spec, and the description names the spec's subject. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
 
-4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch, named per [Branch Naming](#branch-naming) for that ticket's change. Each implementer subagent:
+4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. Create worktrees the way the project's instructions prescribe (a project worktree command, or `isolation: worktree` on the Agent call); never improvise a layout. Keep the branch the tooling names, and name it per [Branch Naming](#branch-naming) for that ticket's change only when the tooling leaves naming to you. Each implementer subagent reports its worktree path, its branch, and which acceptance criteria passed. Each implementer subagent:
    - confirms its worktree is based on the integration branch before starting, and resets onto it if not;
    - calls the Skill tool with `tdd` to build the ticket;
    - merges the integration branch tip into its own branch before reporting done
 
 5. Once an **implementer subagent** completes, merge its work to the integration branch with a **merger subagent**. Its prompt tells it to:
    - call the Skill tool with `fix-merge-conflicts` before anything else;
+   - merge the reported branch; never read or modify the implementer's worktree directory. The merger, not the implementer, closes work in the issue tracker;
    - read `~/.claude/skills/commit/references/conventions.md` and write the merge commit subject as a conventional commit naming what the merged work changes (e.g. `feat(auth): add token refresh`), not which ticket merged. A ticket reference, if any, goes in the footer.
 
 6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
@@ -42,7 +43,7 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
-9. Clean up all **implementer subagent** worktrees.
+9. Clean up all **implementer subagent** worktrees. Remove them with the project's worktree removal command when it has one (it must refuse to discard uncommitted work and keep branches holding unmerged commits); otherwise `git worktree remove`.
 
 ```!
 awk '/^### /{p=/^### Branch Naming$/} p' "$HOME/.claude/skills/commit/references/conventions.md"
