@@ -101,6 +101,8 @@ The block:
 [one-line summary of layout: "single-context" or "multi-context"]. See `docs/agents/domain.md`.
 ```
 
+For a local-markdown tracker, the `### Issue tracker` summary also carries the working rule inline, so agents follow it without opening the file: when work comes from a ticket, tick each acceptance checkbox as it passes and set `Status: resolved` at the end.
+
 Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, only when `triage` is installed and Section B ran. When it isn't, both are omitted.
 
 When Section B ran on GitHub or GitLab, create each configured label the tracker lacks (`gh label create` / `glab label create`).

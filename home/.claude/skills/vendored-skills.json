@@ -709,7 +709,8 @@
         "state": "tracked"
       },
       "localChanges": [
-        "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
+        "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code.",
+        "Local-markdown ticket lifecycle: issue-tracker-local.md requires Type:/Status:/Blocked by: header lines, treats acceptance checkboxes as the definition of done, adds the terminal Status: resolved, and adds a 'Working a ticket' section (tick each criterion as it passes, resolve when all pass, deviations under ## Comments). SKILL.md has the Agent skills issue-tracker summary restate that rule; triage-labels.md notes that completion is the tracker's closed/resolved state, not a triage role."
       ]
     },
     "setup-ts-deep-modules": {

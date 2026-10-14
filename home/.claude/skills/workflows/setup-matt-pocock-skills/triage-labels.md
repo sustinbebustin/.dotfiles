@@ -12,4 +12,6 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
+These roles record what triage decided, not whether the work has happened. Finished work leaves the triage queue through the tracker's completion state: a closed issue on GitHub or GitLab, `Status: resolved` on a local-markdown tracker (see `issue-tracker.md`).
+
 Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
