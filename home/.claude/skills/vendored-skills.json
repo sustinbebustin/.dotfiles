@@ -828,17 +828,18 @@
       },
       "localPath": "engineering/test-audit",
       "sync": {
-        "commit": "eacc8dcd118c9264bdade3418cb9a8f6116f954c",
-        "tree": "8015421942bcd215db0e73a13ec944d50ce01ec5",
-        "at": "2026-10-02"
+        "commit": "c26671a4b173e362aba14b348702d96c41f7ff79",
+        "tree": "c03e9e2763b288bae6ab3af5475b4e7a89fe8905",
+        "at": "2026-10-14"
       },
       "status": {
         "state": "tracked"
       },
       "localChanges": [
-        "Replaced openclaw validation tooling ($openclaw-testing, $crabbox, scripts/run-vitest.mjs, scripts/check-changed.mjs, $autoreview) with the repo's own test/typecheck/lint gates and /code-review: we run it in Claude Code across arbitrary repos, not the openclaw checkout.",
-        "Generalized openclaw layout wording (provider/receipt/plugin-SDK/prompt-byte, AGENTS.md-only) to repo-neutral terms, reading CLAUDE.md alongside AGENTS.md: same reason, repo-agnostic use.",
-        "Moved orchestration out to our workflows/test-audit-stack skill: dropped the discovery lanes, the Landing and continuation section ($openclaw-pr-maintainer, scripts/pr), PR/merge state in the Handoff, and CAMPAIGN.md (rewritten there as stacked-PR campaign mode). This skill keeps only the rules each batch subagent applies; branching, PRs, and stacking are the orchestrator's job."
+        "Replaced openclaw validation tooling ($openclaw-testing proof policy, $crabbox, scripts/run-vitest.mjs, scripts/check-changed.mjs, $autoreview) and the docs/help/testing/writing-tests.md link with the repo's own test/typecheck/lint gates, its CLAUDE.md/AGENTS.md testing guide, and /code-review: we run it in Claude Code across arbitrary repos, not the openclaw checkout.",
+        "Generalized openclaw layout wording (provider-local, receipts, plugin-SDK, prompt-byte, root AGENTS.md only) to repo-neutral terms, reading CLAUDE.md alongside AGENTS.md: same reason, repo-agnostic use.",
+        "Moved orchestration out to our workflows/test-audit-stack skill: dropped CAMPAIGN.md and links to it (rewritten there as stacked-PR campaign mode), parallel discovery lanes, landing/maintainer workflow, and PR state in the handoff. This skill keeps only the rules each batch subagent applies.",
+        "Split upstream's 'Validation and handoff' in references/audit.md into Edit shape, Validation and Handoff sections: test-audit-stack's batch prompt cites those section names."
       ]
     },
     "thermo-nuclear-code-quality-review": {
