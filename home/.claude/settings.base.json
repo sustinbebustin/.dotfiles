@@ -102,7 +102,7 @@
     "create-mod": "name-only",
     "create-plugins": "name-only",
     "create-skills": "name-only",
-    "doc-generator": "user-invocable-only",
+    "doc-generator": "name-only",
     "domain-modeling": "name-only",
     "fix-merge-conflicts": "name-only",
     "gh-fix-ci": "name-only",
@@ -122,6 +122,8 @@
     "test-audit": "name-only",
     "thermo-nuclear-code-quality-review": "name-only",
     "thermo-nuclear-review": "name-only",
+    "to-spec": "name-only",
+    "to-tickets": "name-only",
     "watch-ci": "name-only",
     "wizard": "name-only",
     "writing-for-agents": "name-only"
