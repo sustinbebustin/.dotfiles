@@ -27,7 +27,7 @@ Create accurate, task-oriented documentation that matches the repo style and hel
 
 ### 4. Write or update files
 - Update existing docs when present; create new docs only when missing.
-- Keep README under ~2 screens; move depth to docs/.
+- For a README, pick the archetype first; keep it ~2 screens when a docs site or `docs/` holds the depth, otherwise add a Contents list.
 - Use ASCII characters unless the repo already uses Unicode.
 
 ### 5. Report back
