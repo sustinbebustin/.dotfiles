@@ -183,6 +183,8 @@ Plugin skills are not affected by `skillOverrides` — manage those through `/pl
 
 Keep SKILL.md under 500 lines. Link each supporting file from SKILL.md (`For API details, see [reference.md](reference.md).`) and keep links one level deep: a file reached only through another supporting file, or not linked at all, is effectively invisible. Scripts in `scripts/` are executed, not loaded.
 
+Before writing any supporting script, call the Skill tool for "uv". It governs how the script declares its dependencies and how the skill body tells Claude to run it.
+
 ## Creating a New Skill or Command
 
 ### Step 1: Choose Invocation
@@ -255,7 +257,7 @@ Invoke it directly with `/skill-name`, then check auto-triggering with a request
 - [ ] `disable-model-invocation: true` if it has side effects
 - [ ] `allowed-tools` set for the tools it runs without prompting
 - [ ] A default given where there are options, with an escape hatch
-- [ ] Scripts handle their own errors and say how to recover
+- [ ] Scripts follow the `uv` skill, handle their own errors, and say how to recover
 - [ ] No `context: fork` on a reference-only skill (the fork gets no task and returns nothing)
 
 ## Troubleshooting
