@@ -1,7 +1,7 @@
 ---
 name: autoresearch
-description: Set up and run an autonomous experiment loop for any optimization target, one subagent per experiment.
-argument-hint: "[haiku|sonnet|opus|fable] [-- notes]"
+description: Run an autonomous experiment loop that optimizes any measurable target, one subagent per experiment, optionally in parallel worktree lanes.
+argument-hint: "[single|worktree[:N]] [haiku|sonnet|opus|fable] [-- notes]"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 disable-model-invocation: true
 effort: medium
@@ -10,221 +10,160 @@ hooks:
     - hooks:
         - type: command
           command: 'bash "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/autoresearch/hooks/stop-guard.sh"'
-  PreCompact:
-    - matcher: "auto"
+  SessionStart:
+    - matcher: "compact"
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/autoresearch/hooks/pre-compact.sh"'
+          command: 'bash "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/autoresearch/hooks/post-compact.sh"'
 metadata:
   author: sustinbebustin
 ---
 
 # Autoresearch
 
-Autonomous experiment loop: try ideas, keep what works, discard what doesn't, never stop.
+An autonomous research loop on one measurable target: form a hypothesis, test it, keep what wins, record the lesson, repeat until stopped.
 
-You are the **orchestrator**. You own the strategy and the record: which hypothesis runs next, keep or discard, the ASI, `session.md`. Subagents do the legwork: an **experimenter** implements and measures one hypothesis, an **analyst** refills the ideas backlog, a **reviewer** vets every `keep`. Your context holds their reports, never their file reads or benchmark logs, so it lasts hundreds of iterations.
+You are the **orchestrator**. You own the strategy and the record: which hypotheses run, what is kept, the lessons, `session.md`. Subagents do the legwork: **experimenters** each test one hypothesis, an **analyst** models the system and refills the backlog, a **reviewer** vets every keep. Your context holds their reports, never their file reads or benchmark logs, so it lasts hundreds of runs.
 
 ## Arguments
 
 Arguments: $ARGUMENTS
 
-Everything after the first `--` token is **notes**: the goal, command, metric, scope, or constraints for this session, or instructions on how to run it. They are yours alone; subagent prompts below go out unchanged. Before the `--`, a token that is exactly `haiku`, `sonnet`, `opus`, or `fable` is the **experiment model**. Default `opus` when absent. Below, `<MODEL>` means that model name.
+Everything after the first `--` is **notes**: goal, workload, metric, scope, constraints, or how to run the session. They are yours alone; the subagent prompts below go out unchanged. Before the `--`:
 
-## Session Directory
+- **Mode**: `single` (default) runs one experiment at a time in the working directory. `worktree` runs experiments in parallel **lanes**, `worktree:N` sets their count (default 3). Worktree mode pays when an experimenter's thinking and editing outweigh the benchmark, or when the metric ignores machine load. Wall-clock metrics pick up noise from other lanes' builds, so keep them to 2 lanes or measure something load-proof.
+- **Experiment model**: `haiku`, `sonnet`, `opus`, or `fable`; default `opus`. Below, `<MODEL>` is that name.
 
-Every session file lives in `.scratch/autoresearch/` under the working directory: `session.md`, `bench.sh`, `checks.sh`, `log.jsonl`, `ideas.md`, `config.json`. Bare file names below mean files in this directory. Write every session file, note, and artifact here and nowhere else. The scripts never stage, commit, or revert it.
+On resume the session keeps its recorded mode unless the arguments name one; then set `lanes` in `config.json`.
 
-## Scripts
+## Model
 
-Three helper scripts handle all experiment infrastructure. Always call them via Bash:
+- **Trunk**: the working directory's checkout of each session repo, on branch `autoresearch/<name>`. Only kept changes land there, one commit each, so trunk HEAD is the **current** result.
+- **Lane** (worktree mode): a persistent detached worktree of every session repo under `.scratch/autoresearch/lanes/<k>`, mirroring the working directory's layout. An experimenter screens its hypothesis in a lane; a win is then **integrated** onto trunk and **confirmed** there, because the lane measured against an older trunk.
+- **Noise floor**: the spread of repeated measurements, in sigma. Every comparison is judged against it; a gain inside the noise is not a gain.
+- **Lesson**: what a run taught, recorded as its ASI (actionable side information). Discards are reverted, so the lesson is all that survives them.
 
-- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-init.py <name> <metric_name> [unit] [direction] [repo...]`** -- configure session; creates the session directory. Repos are the git repos experiments change, relative to the working directory (default `.`); name each repo itself, never a repo that contains another listed one. Call again to re-initialize with a new baseline when the optimization target or repo set changes.
-- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.py [command] [timeout]`** -- runs command (default: `bash .scratch/autoresearch/bench.sh`, 600s timeout), captures output, extracts `METRIC` lines, runs `checks.sh` if present.
-- **`uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-log.py <status> <metric_value> <description> [options]`** -- records result in `log.jsonl`. `keep` commits each repo's changes. `discard`/`crash`/`checks_failed` reverts every uncommitted change in each repo. Options: `--metrics '{"k":v}'`, `--asi '{"k":"v"}'`.
+## Session Files and CLI
+
+Session files live in `.scratch/autoresearch/` under the working directory: `session.md`, `bench.sh`, `checks.sh`, `setup.sh`, `config.json`, `ideas.md`, `log.jsonl`, `summary.md`, with `lanes/` and `runs/` managed by the CLI. Write session notes and artifacts there and nowhere else; git ignores the directory. Before writing or changing any of them, read [references/session-files.md](references/session-files.md).
+
+All infrastructure goes through one CLI, below called `AR`:
+
+```
+uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch.py
+```
+
+| Command | Effect |
+|---|---|
+| `init <name> <metric> [--unit U] [--direction lower\|higher] [--repos R...] [--lanes N]` | Start a session or a new segment with its own baseline; refuses dirty repos, creates the branch. |
+| `run [--lane K] [--repeat N]` | Run `bench.sh` (median of N), guards, then `checks.sh`; ends with a `--- Summary ---` whose `COMPARE` line judges the result against current in sigma. |
+| `log <status> "<description>" [--lane K] [--asi JSON]` | Record the last measurement. `keep` commits trunk; other statuses revert trunk, or with `--lane` reset that lane. |
+| `lane K` | Create lane K, or reset it to trunk HEAD; prints its `ROOT`. |
+| `integrate K` | Apply lane K's change to trunk, uncommitted, and free the lane. |
+| `report [--asi] [--all]` | Session state: best, noise, trunk and lane status, recent runs. |
+| `finish` | Remove lanes and write `summary.md`. |
+
+Statuses are `keep`, `discard`, `crash`, `checks_failed`. The CLI refuses a `keep` without a passing trunk measurement, failing checks, or a guard violation; each command's `--help` has the details.
 
 ## Setup
 
-1. Take **Goal**, **Command**, **Metric** (+ direction), **Files in scope**, **Constraints** from the notes; infer or ask for the rest.
-2. In each repo in scope, start clean and `git checkout -b autoresearch/<goal>-<date>`. A discard reverts every uncommitted change in a listed repo, so anything uncommitted at start is lost.
-3. Read the source files. Understand the workload deeply before writing anything.
-4. Run `autoresearch-init.py`, then write `session.md` and `bench.sh` (see below).
-5. Run the baseline with `autoresearch-run.py` -> log with `autoresearch-log.py` -> start looping immediately.
+1. From the notes, take the goal, primary metric and direction, workload, files in scope, and constraints. Infer what the repo answers; ask only for what it cannot.
+2. Read the code in scope and profile the workload. Know where the metric comes from before writing anything.
+3. `AR init <name> <metric> --unit ... --direction ... --repos ... --lanes <0 for single, N for worktree>`.
+4. Write `session.md` and `bench.sh`, plus `checks.sh`, `setup.sh`, and `config.json` as the session needs them.
+5. Baseline: `AR run --repeat 5`, then `AR log keep "baseline"`. Done when `AR report` shows a noise sigma. If that sigma rivals the gains you expect, tighten `bench.sh` and re-init before looping: on a noisy benchmark every later decision is a coin flip.
+6. Dispatch the analyst to seed `ideas.md`, then start the loop.
 
-### `session.md`
+## Deciding
 
-This is the heart of the session: every experimenter starts cold and reads only this file, so it is the whole briefing. A fresh agent with no context should be able to read it and run an experiment effectively. Invest time making it excellent.
+Judge each measurement by its `COMPARE` line:
 
-```markdown
-# Autoresearch: <goal>
+- **clear win** (2+ sigma, or any gain on a deterministic metric): a **candidate**.
+- **marginal win** (1-2 sigma): confirm with `AR run --repeat 3` on trunk; a candidate only if it holds.
+- **within noise** or **worse**: discard. The exception is simplification: less code at an equal metric is a keep.
+- An experimenter that measured several variants reports the best of several draws, which flatters it. Confirm its win with `--repeat 3` as if marginal.
 
-## Objective
-<Specific description of what we're optimizing and the workload.>
+`GUARDS_STATUS: fail` or `CHECKS_STATUS: fail` is `checks_failed`; a crash or timeout is `crash`. The primary metric decides; secondaries inform lessons. Every candidate goes to the reviewer before `keep`: a `gamed` verdict or a correctness finding turns it into a `discard`, with the finding in the ASI.
 
-## Metrics
-- **Primary**: <name> (<unit>, lower/higher is better) -- the optimization target
-- **Secondary**: <name>, <name>, ... -- independent tradeoff monitors
+Every `log` carries `--asi` with at least `hypothesis` and `lesson`; a discard or crash adds `rollback_reason` and `next_action_hint`. Record what was learned, not what was done.
 
-## How to Run
-`bash .scratch/autoresearch/bench.sh` -- outputs `METRIC name=number` lines.
+## Loop: Single Mode
 
-## Files in Scope
-<Every file the agent may modify, with a brief note on what it does.>
+1. Take the top hypothesis from `ideas.md` and move it to **In flight**.
+2. Dispatch the experimenter with `<ROOT>` the working directory's absolute path and `<RUN>` `AR run`. End your turn; its completion notification wakes you.
+3. Decide; on a candidate, dispatch the reviewer and wait.
+4. `AR log <status> "<description>" --asi '...'`. Trunk is clean for the next run.
 
-## Off Limits
-<What must NOT be touched.>
+## Loop: Worktree Mode
 
-## Constraints
-<Hard rules: tests must pass, no new deps, etc.>
+Keep every lane busy, each on a different hypothesis. Track which lane holds which hypothesis in `ideas.md`'s **In flight** section. Whenever nothing is actionable, end your turn: every report arrives as a notification, so there is nothing to poll.
 
-## What's Been Tried
-<Update this section as experiments accumulate. Note key wins, dead ends,
-and architectural insights so the agent doesn't repeat failed approaches.>
-```
-
-Update `session.md` periodically -- especially the "What's Been Tried" section -- so experimenters and resuming agents have full context.
-
-### `bench.sh`
-
-Bash script (`set -euo pipefail`) that: pre-checks fast (syntax errors in <1s), runs the benchmark, and outputs structured lines to stdout. It runs from the working directory, not the session directory. Keep the script fast -- every second is multiplied by hundreds of runs.
-
-**For fast, noisy benchmarks** (< 5s), run the workload multiple times inside the script and report the median. This produces stable data points and makes the confidence score reliable from the start. Slow workloads (ML training, large builds) don't need this -- single runs are fine.
-
-#### Structured output
-
-- `METRIC name=value` -- primary metric (must match `autoresearch-init.py`'s `metric_name`) and any secondary metrics. Parsed automatically by `autoresearch-run.py`.
-
-#### Design the script to inform optimization
-
-The script should output **whatever data helps you make better decisions in the next iteration.** Think about what you'll need to see after each run to know where to focus:
-
-- Phase timings when the workload has distinct stages
-- Error counts, failure categories, or test names when checks can fail in different ways
-- Memory usage, cache hit rates, or other runtime diagnostics when relevant
-- Anything domain-specific that would help localize regressions or identify bottlenecks
-
-The script runs the same code every iteration -- but you can **update it during the loop** if you discover you need more signal. Add instrumentation as you learn what matters.
-
-#### Agent-supplied ASI
-
-Use `autoresearch-log.py`'s `--asi` option to annotate each run with **whatever would help the next iteration make a better decision.** Free-form key/value JSON -- you decide what's worth recording. Don't repeat the description or raw output; capture what you'd lose after a context reset.
-
-**Annotate failures and crashes heavily.** Discarded and crashed runs are reverted -- the code changes are gone. The only record that survives is the description and ASI in `log.jsonl`. If you don't capture what was tried and why it failed, future iterations will waste time re-discovering the same dead ends.
-
-### `config.json` (optional)
-
-Supported fields:
-
-- **`maxIterations`** (number) -- maximum experiments before auto-stopping. When set, check the run count from `autoresearch-log.py` output and stop when reached.
-
-```json
-{
-  "maxIterations": 50
-}
-```
-
-### `checks.sh` (optional)
-
-Bash script (`set -euo pipefail`) for backpressure/correctness checks: tests, types, lint, etc. **Only create this file when the user's constraints require correctness validation** (e.g., "tests must pass", "types must check").
-
-When this file exists:
-- Runs automatically after every **passing** benchmark in `autoresearch-run.py`.
-- If checks fail, `autoresearch-run.py` reports it clearly -- log as `checks_failed`.
-- Its execution time does **NOT** affect the primary metric.
-- You cannot `keep` a result when checks have failed.
-- Has a separate timeout (default 300s).
-
-When this file does **not** exist, everything behaves exactly as before -- no changes to the loop.
-
-**Keep output minimal.** Only the last 80 lines of checks output are fed back on failure. Suppress verbose progress/success output and let only errors through. This keeps context lean and helps pinpoint what broke.
-
-```bash
-#!/bin/bash
-set -euo pipefail
-# Example: run tests and typecheck -- suppress success output, only show errors
-pnpm test --run --reporter=dot 2>&1 | tail -50
-pnpm typecheck 2>&1 | grep -i error || true
-```
+- **Dispatch to lane K**: `AR lane K`, then the experimenter with `<ROOT>` the printed root and `<RUN>` `AR run --lane K`.
+- **Report from lane K, not a candidate**: `AR log <status> "<description>" --lane K --asi '...'`, then dispatch the next hypothesis to lane K.
+- **Report from lane K, a candidate**: `AR integrate K`, which frees the lane, so dispatch to it at once. Then confirm on trunk: `AR run` (`--repeat 3` if the lane's win was marginal), decide on trunk's `COMPARE`, send a win to the reviewer, and `AR log keep|discard "<description>" --asi '...'` with the lane's figure as `lane_screen`.
+- **Trunk busy**: `integrate` refuses while another candidate awaits its trunk log. Finish that one first; lane K holds its change meanwhile.
+- **Conflict**: the change was built on an older trunk. `AR log discard ... --lane K` with the conflict in the ASI, and requeue the hypothesis at the top of `ideas.md` to be rebuilt on current trunk.
 
 ## Dispatching
 
-One subagent in flight at a time: experiments share one working tree, and concurrent benchmarks corrupt each other's timings. While a subagent runs, end your turn: its completion notification wakes you, and the Stop hook lets a turn end while background work is in flight.
-
-Send each prompt below exactly, with only its placeholder filled in.
+Send each prompt exactly, with only its placeholders filled. Spell `AR` out in full inside a prompt.
 
 ### Experimenter
 
-Agent tool, `subagent_type: "general-purpose"`, `model: "<MODEL>"`. `<HYPOTHESIS>` is one change, stated specifically enough to implement: what to change, where, and why it should move the metric.
+Agent tool, `subagent_type: "general-purpose"`, `model: "<MODEL>"`. `<HYPOTHESIS>` is one change stated specifically enough to implement: what to change, where, and the mechanism by which it should move the metric.
 
 ```
 Read .scratch/autoresearch/session.md, then test this hypothesis: <HYPOTHESIS>
 
-Edit only the files session.md lists under Files in Scope, and write nothing into .scratch/autoresearch/. Measure with `uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch-run.py`. If the run crashes or checks fail for a trivial reason (typo, missing import), fix it and rerun; any deeper failure is the result. Leave your changes uncommitted in the working tree: logging, committing, and reverting belong to the orchestrator.
+Your workspace is <ROOT>. Paths in session.md are relative to it. Edit files only under it and only those session.md lists in Files in Scope; write nothing into .scratch/autoresearch/. Measure with `<RUN>`, giving the Bash call a 600000 ms timeout; on `STATUS: busy`, rerun it. If a run crashes or checks fail for a trivial reason (typo, missing import), fix it and rerun; a deeper failure is the result.
+
+You may measure up to three variants of this one idea, such as parameter values. Leave the best in place, uncommitted, and make your last measurement of exactly that code. Logging, committing, and reverting belong to the orchestrator.
 
 The change must win on the real workload: the benchmark measures the work, it is not the target. Code that special-cases benchmark inputs or skips work the real workload does is a failed experiment.
 
 Your final message reports, in this order:
-1. The final run's `--- Metrics ---` and `--- Summary ---` blocks verbatim, or its crash/timeout block.
-2. What you changed: one line per file.
-3. What you learned: why the metric moved or didn't, and the most promising follow-up.
+1. The last run's `--- Summary ---` block verbatim, or its crash or timeout block.
+2. Each variant measured, with its primary metric.
+3. What you changed: one line per file.
+4. The lesson: why the metric moved or didn't, and the most promising follow-up.
 ```
 
 ### Analyst
 
-Agent tool, `subagent_type: "Plan"`, no `model` (it inherits yours). Dispatch when `ideas.md` holds fewer than three untried ideas, or after five consecutive runs without a `keep`.
+Agent tool, `subagent_type: "Plan"`, no `model`. Dispatch at setup; when `ideas.md` holds fewer untried hypotheses than lanes plus two (three in single mode); and on a **plateau**, five consecutive runs without a keep.
 
 ```
-Read session.md, log.jsonl, and ideas.md (if present) in .scratch/autoresearch/, then study the source files in scope and any profiling data the benchmark emits. Work out where the workload actually spends its time and why.
+Read session.md and ideas.md in .scratch/autoresearch/, and the output of `uv run ${CLAUDE_SKILL_DIR}/scripts/autoresearch.py report --asi --all`. Study the source files in scope and profile the workload with your own commands; never run that script's run, log, lane, or integrate commands. Work out where the primary metric actually comes from: which phases, costs, or failure modes dominate, and why.
 
-Return five to ten untried hypotheses, ranked by expected gain. Each names the change, the files it touches, the mechanism by which it moves the primary metric, and the evidence behind it. Structurally different ideas outrank variations of past runs; a hypothesis log.jsonl shows was already tried needs a stated reason it would land differently now.
+Return:
+1. That system model in a few lines, citing the evidence.
+2. Five to ten untried hypotheses, ranked by expected gain per unit of effort. Each names the change, the files it touches, the mechanism by which it moves the primary metric, the evidence, and a family: a short tag shared by hypotheses that work through the same mechanism. Structurally different ideas outrank variations of past runs; a hypothesis the log shows was tried needs a stated reason it would land differently now.
 ```
 
-Append its hypotheses to `ideas.md`.
+Fold its system model into `session.md` and its hypotheses into `ideas.md`.
 
 ### Reviewer
 
-Agent tool, `subagent_type: "general-review"`, no `model`. Dispatch before every `keep`.
+Agent tool, `subagent_type: "general-review"`, no `model`. Dispatch for every candidate, once it sits uncommitted on trunk.
 
 ```
-Review the uncommitted diff (`git diff`) against the objective and constraints in .scratch/autoresearch/session.md. Judge whether the change wins on the real workload or games the benchmark: special-cased inputs, skipped work, cached results the real workload cannot reuse, measurement changes, or behaviour the constraints forbid. Report a verdict of sound or gamed, then each finding with its file and line.
+Review the uncommitted change on trunk against the objective and constraints in .scratch/autoresearch/session.md. In each repo session.md lists, read `git status` and `git diff HEAD`, and any new untracked files. Judge whether the change wins on the real workload or games the benchmark: special-cased inputs, skipped work, cached results the real workload cannot reuse, changes to measurement, or behaviour the constraints forbid. Report a verdict of sound or gamed, then each finding with its file and line.
 ```
 
-A `gamed` verdict or a correctness finding turns the `keep` into a `discard`; record the finding in the ASI.
+## Steering
 
-## Loop
+`ideas.md` has two sections. **In flight** maps each running experiment (and its lane) to its hypothesis. **Backlog** is the ranked list of untried hypotheses, each tagged with its family. Follow-ups from experimenter reports go in with the analyst's; an idea that only lives in a report is lost.
 
-Each iteration:
+- **Exploit, then explore.** After a keep, queue its most promising follow-up near the top. Keep at least one lane (in single mode, every third run) on a family that has not won yet.
+- **Retire dead ends.** A family that fails three times is parked until new evidence (an analyst model, a profile) gives a reason it would land differently.
+- **Ablate.** After every fifth keep, queue one ablation per earlier keep: revert its commit (`git revert --no-commit <sha>` in the workspace) and measure. Kept changes interact; one whose removal costs less than the noise is dead weight, and removing it is a simplification keep.
+- **Keep the briefing current.** After every keep, and every five runs, update `session.md`'s System Model and What's Been Tried. Experimenters read nothing else.
+- **Simpler is better.** Ugly complexity for a gain near the noise is a discard.
 
-1. Pick the next hypothesis from `ideas.md` (remove it from the file) or from what the last reports suggest.
-2. Dispatch the experimenter and wait for its report.
-3. Decide the status from the reported blocks. On a candidate `keep`, dispatch the reviewer first.
-4. Log with `autoresearch-log.py`, folding the experimenter's lessons into `--asi`. The tree is clean again for the next iteration.
+## Running
 
-**LOOP FOREVER.** Never ask "should I continue?" -- the user expects autonomous work.
+**Loop until stopped.** Never ask whether to continue: the user may be away for hours and expects autonomous work. The Stop hook blocks ending a turn while the session is active and nothing is in flight.
 
-- **Primary metric is king.** Improved -> `keep`. Worse/equal -> `discard`. Secondary metrics rarely affect this.
-- **Annotate every run with `--asi`.** Record what was learned -- not what was done. What would help the next iteration or a fresh agent resuming this session? At minimum `{"hypothesis": "what was tried"}`. On discard/crash: also `rollback_reason` and `next_action_hint`.
-- **Watch the confidence score.** After 3+ runs, `autoresearch-log.py` reports a confidence score (best improvement as a multiple of the session noise floor). >=2.0x means the improvement is likely real. <1.0x means it's within noise -- consider re-running to confirm before keeping. The score is advisory -- it never auto-discards.
-- **Simpler is better.** Removing code for equal perf = keep. Ugly complexity for tiny gain = probably discard.
-- **Don't thrash.** Repeatedly reverting the same idea? Dispatch the analyst for something structurally different.
-- **Crashes:** the experimenter fixes trivial ones; log the rest and move on.
-- **Resuming:** if `session.md` exists, read it + `log.jsonl` + each repo's git log, continue looping.
-
-**NEVER STOP.** The user may be away for hours. Keep going until interrupted.
-
-## Ideas Backlog
-
-`ideas.md` is a bullet list of hypotheses not yet tried: the analyst's output, plus follow-ups from experimenter reports worth more than the next iteration. Don't let good ideas get lost.
-
-On resume (context limit, crash), prune stale/tried entries, then experiment with the rest. When all paths are exhausted and a fresh analyst pass finds nothing new, delete the file and write a final summary.
-
-## User Messages During Experiments
-
-If the user sends a message while an experiment is running, wait for the experimenter's report and log it first, then incorporate their feedback in the next iteration. Don't abandon a running experiment.
-
-## How to Stop
-
-The user can stop the loop by:
-- Saying "stop autoresearch" or "stop the loop" -- finish the current run+log cycle, then stop.
-- Pressing Ctrl+C to interrupt immediately.
-- The Stop hook will automatically allow stopping after 20 auto-resumes.
+- **User messages**: let in-flight experiments finish and log them, then fold the feedback into the next dispatches. Abandon no running experiment.
+- **Resuming** (`session.md` exists): run `AR report --asi`, then read `session.md` and `ideas.md`. An uncommitted trunk means a candidate was mid-confirmation: measure and decide it. A lane with unlogged changes whose experimenter is gone: `AR run --lane K` and decide. Then continue the loop.
+- **Stopping**: on the user's request, `LIMIT REACHED`, or a fresh analyst pass that finds nothing new. Stop dispatching, let in-flight experiments finish and log them, then `AR finish`. Append to `summary.md`: the keeps in order with their commits, best against baseline, the strongest lessons, and the most promising untried directions. Report the branch to the user; merging it is theirs.

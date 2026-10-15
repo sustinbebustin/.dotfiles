@@ -8,9 +8,15 @@ set -euo pipefail
 INPUT=$(cat)
 CWD=$(jq -r '.cwd // empty' <<<"$INPUT")
 SESSION_ID=$(jq -r '.session_id // "unknown"' <<<"$INPUT")
+DIR="${CWD:-.}/.scratch/autoresearch"
 
 # Only active when an autoresearch session exists in Claude's working directory
-if [ ! -f "${CWD:-.}/.scratch/autoresearch/log.jsonl" ]; then
+if [ ! -f "$DIR/log.jsonl" ]; then
+  exit 0
+fi
+
+# `finish` wrote summary.md and nothing was logged since: the session ended.
+if [ -f "$DIR/summary.md" ] && [ "$DIR/summary.md" -nt "$DIR/log.jsonl" ]; then
   exit 0
 fi
 
@@ -36,5 +42,5 @@ echo $((COUNT + 1)) > "$COUNTER_FILE"
 
 # Block stop and instruct continuation
 cat <<'EOF'
-{"decision": "block", "reason": "Autoresearch loop active. Read .scratch/autoresearch/session.md and git log for context, then continue the experiment loop. Check .scratch/autoresearch/ideas.md for promising paths to explore. Do not overfit to benchmarks."}
+{"decision": "block", "reason": "Autoresearch loop active and nothing is in flight. Run the autoresearch `report` command, reread .scratch/autoresearch/session.md and ideas.md, then dispatch the next experiments. To end the session, run `finish` instead."}
 EOF
