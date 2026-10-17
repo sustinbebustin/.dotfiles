@@ -157,6 +157,14 @@ func TestDecide(t *testing.T) {
 		{"rebase variable args", `git rebase $FLAGS main`, "ask"},
 		{"rebase variable -C path", `git -C $F -c rerere.enabled=false rebase --continue`, "allow"},
 
+		// git merge: local and undone by `git reset --hard ORIG_HEAD`, so it
+		// runs unprompted. Publishing the result is a push, still guarded.
+		{"merge branch", `git merge --no-ff feat/x -m "feat(x): add y"`, "allow"},
+		{"merge --no-commit", `git merge --no-ff --no-commit worktree-agent-ab12`, "allow"},
+		{"merge -C variable", `git -C $B merge --no-ff fix/y -m "fix: z" && git -C $B log --oneline -1`, "allow"},
+		{"merge --abort", `git merge --abort`, "allow"},
+		{"merge then push main", `git merge feat/x && git push origin main`, "ask"},
+
 		// Discarding uncommitted work is unguarded, including behind `git -C`.
 		{"git checkout --", `git checkout -- a.php`, "allow"},
 		{"git restore", `git restore a.php`, "allow"},

@@ -267,8 +267,7 @@
   {
     "name": "git-merge",
     "stdin": "{\"tool_input\":{\"command\":\"git merge main\"},\"tool_name\":\"Bash\"}",
-    "decision": "ask",
-    "reason": "git merge detected - allow?"
+    "decision": "allow"
   },
   {
     "name": "git-rebase",

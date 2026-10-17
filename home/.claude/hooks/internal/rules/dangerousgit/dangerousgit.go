@@ -1,6 +1,10 @@
 // Package dangerousgit guards git and gh invocations. Commands that publish
-// work or discard it (push, merge, reset --hard, clean, branch/tag delete)
-// return `ask`, so the user approves each case by case.
+// work or discard it (push, reset --hard, clean, branch/tag delete) return
+// `ask`, so the user approves each case by case.
+//
+// A merge runs unprompted: it changes only the local branch, `git merge
+// --abort` or `git reset --hard ORIG_HEAD` undoes it, and publishing the result
+// is a push, which checkPush still guards.
 //
 // A rebase runs unprompted, as do its --continue, --abort, and --skip steps,
 // unless it can run commands the guard never sees (--exec, --interactive). See
@@ -98,8 +102,6 @@ func checkGit(args []string, literals []bool) (hook.Verdict, bool) {
 		if len(rest) > 0 && rest[0] == "push" {
 			return hook.Asked("git subtree push detected - allow?"), true
 		}
-	case "merge":
-		return hook.Asked("git merge detected - allow?"), true
 	case "rebase":
 		return checkRebase(rest, allLiteral(literals[len(args)-len(rest):]))
 	case "reset":
