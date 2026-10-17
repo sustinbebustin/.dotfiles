@@ -28,7 +28,7 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 3. Create the integration branch as `<type>/<short-description>`, named per [Branch Naming](#branch-naming) below: the type matches the dominant change across the spec, and the description names the spec's subject. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
 
 4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. Create worktrees the way the project's instructions prescribe (a project worktree command, or `isolation: worktree` on the Agent call); never improvise a layout. Keep the branch the tooling names, and name it per [Branch Naming](#branch-naming) for that ticket's change only when the tooling leaves naming to you. Each implementer subagent reports its worktree path, its branch, which acceptance criteria passed, and any check its worktree skipped or refused. Each implementer subagent:
-   - confirms its worktree is based on the integration branch before starting, and resets onto it if not;
+   - confirms its worktree is based on the integration branch before starting, and resets onto it with `git reset --keep <integration-branch>` if not (never `--hard`);
    - calls the Skill tool with `tdd` to build the ticket;
    - merges the integration branch tip into its own branch before reporting done
 
