@@ -144,7 +144,7 @@ prefix = ["ctrl+b", "ctrl+alt+shift+cmd+b"]
 
 # Rename the selected workspace.
 # Default: "prefix+shift+w".
-# rename_workspace = "prefix+shift+w"
+rename_workspace = ["prefix+$", "prefix+shift+w"]
 
 # Close the selected workspace.
 # Default: "prefix+shift+d".
@@ -196,11 +196,11 @@ reload_config = "prefix+r"
 
 # Select the previous workspace.
 # Default: unset.
-# previous_workspace = ""
+previous_workspace = "prefix+("
 
 # Select the next workspace.
 # Default: unset.
-# next_workspace = ""
+next_workspace = "prefix+)"
 
 # Focus the previous agent shown in the Agent panel.
 # Default: unset.
@@ -313,7 +313,7 @@ focus_pane_right = ["prefix+right", "prefix+l"]
 
 # Focus the last-focused pane across workspaces and tabs.
 # Default: unset.
-# last_pane = ""
+last_pane = "prefix+;"
 
 # Split the focused pane vertically (side by side / split right).
 # Default: "prefix+v".
@@ -339,19 +339,19 @@ resize_mode = "prefix+shift+r"
 # Unlike tmux's `bind -r`, each step needs the prefix again; use resize mode
 # for repeated steps.
 # Default: unset.
-resize_pane_left = "prefix+["
+resize_pane_left = ["prefix+[", "prefix+alt+left"]
 
 # Resize the focused pane downward without entering resize mode.
 # Default: unset.
-resize_pane_down = "prefix+minus"
+resize_pane_down = ["prefix+minus", "prefix+alt+down"]
 
 # Resize the focused pane upward without entering resize mode.
 # Default: unset.
-resize_pane_up = "prefix+="
+resize_pane_up = ["prefix+=", "prefix+alt+up"]
 
 # Resize the focused pane toward the right without entering resize mode.
 # Default: unset.
-resize_pane_right = "prefix+]"
+resize_pane_right = ["prefix+]", "prefix+alt+right"]
 
 # Toggle sidebar collapse.
 # Default: "prefix+b".
@@ -367,6 +367,12 @@ resize_pane_right = "prefix+]"
 # command = "lazygit"
 # width = "80%"
 # height = "80%"
+
+# tmux break-pane: move the focused pane into a new tab.
+[[keys.command]]
+key = "prefix+!"
+type = "shell"
+command = "herdr pane move \"$(herdr pane list | jq -r '[.result.panes[] | select(.focused)][0].pane_id')\" --new-tab --focus"
 
 # Legacy indexed shortcuts are parsed for compatibility. Prefer switch_tab,
 # switch_workspace, and focus_agent in new configurations.
