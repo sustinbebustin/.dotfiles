@@ -1,0 +1,7 @@
+{
+  "name": "waiting-on-you",
+  "displayName": "Waiting on You",
+  "version": "0.1.0",
+  "description": "Toasts in every Claude Code session when another session is blocked on a permission prompt, a question, or an MCP form.",
+  "author": { "name": "sustinbebustin" }
+}
