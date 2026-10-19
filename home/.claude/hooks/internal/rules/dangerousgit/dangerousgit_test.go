@@ -172,8 +172,21 @@ func TestDecide(t *testing.T) {
 		{"git stash clear", `git stash clear`, "allow"},
 		{"git -C checkout --", `git -C frontend checkout -- a.php`, "allow"},
 		{"git -C restore", `git -C frontend restore a.php`, "allow"},
-		{"git branch -D", `git branch -D feat`, "ask"},
 		{"git status", `git status`, "allow"},
+
+		// git branch delete: -d runs unprompted, since git itself refuses to
+		// delete an unmerged branch. Forcing past that check still asks.
+		{"git branch -d", `git branch -d feat/x`, "allow"},
+		{"git branch --delete", `git branch --delete feat/x`, "allow"},
+		{"git branch -d several", `git -C backend branch -d feat/a feat/b`, "allow"},
+		{"git branch -d variable", `wt=.claude/worktrees/a && b=$(git -C $wt branch --show-current) && git worktree remove $wt && git branch -d $b`, "allow"},
+		{"git branch -D", `git branch -D feat`, "ask"},
+		{"git branch -d -f", `git branch -d -f feat`, "ask"},
+		{"git branch -df", `git branch -df feat`, "ask"},
+		{"git branch --delete --force", `git branch --delete --force feat`, "ask"},
+		{"git branch -D after --", `git branch -D -- feat`, "ask"},
+		{"git branch -d then -D", `git branch -d a && git branch -D b`, "ask"},
+		{"git branch -f without delete", `git branch -f feat main`, "allow"},
 
 		// Spellings of the command name that are still git.
 		{"absolute path", `/usr/bin/git push`, "ask"},

@@ -1,6 +1,8 @@
 // Package dangerousgit guards git and gh invocations. Commands that publish
-// work or discard it (push, reset --hard, clean, branch/tag delete) return
-// `ask`, so the user approves each case by case.
+// work or discard it (push, reset --hard, clean, forced branch delete, tag
+// delete) return `ask`, so the user approves each case by case. A plain `git
+// branch -d` runs unprompted, since git refuses it for an unmerged branch; see
+// checkBranch.
 //
 // A merge runs unprompted: it changes only the local branch, `git merge
 // --abort` or `git reset --hard ORIG_HEAD` undoes it, and publishing the result
@@ -111,17 +113,46 @@ func checkGit(args []string, literals []bool) (hook.Verdict, bool) {
 	case "clean":
 		return hook.Asked("git clean removes untracked files - allow?"), true
 	case "branch":
-		for _, a := range rest {
-			if a == "-d" || a == "-D" || a == "--delete" {
-				return hook.Asked("git branch delete detected - allow?"), true
-			}
-		}
+		return checkBranch(rest)
 	case "tag":
 		for _, a := range rest {
 			if a == "-d" || a == "--delete" {
 				return hook.Asked("git tag delete detected - allow?"), true
 			}
 		}
+	}
+	return hook.Verdict{}, false
+}
+
+// checkBranch lets `git branch -d` run unprompted: git refuses to delete a
+// branch that is not merged, and the reflog keeps its tip. Forcing past that
+// check (-D, or a delete flag with -f/--force, bundled or not) still asks.
+//
+// rest are the tokens following `branch`.
+func checkBranch(rest []string) (hook.Verdict, bool) {
+	var del, force bool
+	for _, a := range rest {
+		switch {
+		case a == "--delete":
+			del = true
+		case a == "--force":
+			force = true
+		case strings.HasPrefix(a, "--"):
+		case strings.HasPrefix(a, "-"):
+			for _, flag := range a[1:] {
+				switch flag {
+				case 'd':
+					del = true
+				case 'D':
+					del, force = true, true
+				case 'f':
+					force = true
+				}
+			}
+		}
+	}
+	if del && force {
+		return hook.Asked("git branch -D deletes a branch even if it is unmerged - allow?"), true
 	}
 	return hook.Verdict{}, false
 }

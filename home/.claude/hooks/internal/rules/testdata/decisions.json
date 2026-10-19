@@ -306,7 +306,7 @@
     "name": "git-branch-delete",
     "stdin": "{\"tool_input\":{\"command\":\"git branch -D feature\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git branch delete detected - allow?"
+    "reason": "git branch -D deletes a branch even if it is unmerged - allow?"
   },
   {
     "name": "git-branch-list",
