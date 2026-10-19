@@ -345,7 +345,7 @@
       },
       "localChanges": [
         "Removed disable-model-invocation so other skills and the model can hand off to it.",
-        "Lists optional best-practice skills (go, react, typescript, supabase, clean-architecture-and-ddd) to load when relevant.",
+        "Lists optional best-practice skills (go, react, typescript, supabase, ddd) to load when relevant.",
         "Commits via /commit so our commit conventions apply.",
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
@@ -436,6 +436,27 @@
         "checkout.sh quotes the inner expansions in trim_repo_input (shellcheck SC2295) so glob characters in the input match literally.",
         "checkout.sh rejects '.', '..', empty and leading-'-' segments in host/org/repo, keeping checkouts inside the cache root and out of git's option parser (upstream let 'github.com/../../x/y' escape and ff-merge an existing repo).",
         "checkout.sh exits when parse_repo fails; upstream runs it in a process substitution, so set -e never fired and the script went on with an empty path."
+      ]
+    },
+    "opentui": {
+      "author": "anomalyco",
+      "source": {
+        "repo": "anomalyco/opentui",
+        "ref": "main",
+        "path": "packages/web/src/content"
+      },
+      "localPath": "tools/opentui",
+      "sync": {
+        "commit": "f8f608e2b9a41685d613a1156708ff06c826c3ce",
+        "tree": "d57ee197c8dc82393274115ae418285a149945a9",
+        "at": "2026-10-17"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Folder named opentui instead of upstream's content; the upstream path is the docs site's content dir, not a skill name.",
+        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
       ]
     },
     "plannotator": {
