@@ -11,7 +11,7 @@ If the user passes a ticket reference, fetch it from the issue tracker and state
 
 Call the Skill tool with "tdd" where possible, at pre-agreed seams.
 
-Optional, where their descriptions fit the work: /go-best-practices, /react-best-practices, /typescript-best-practices, /supabase, /clean-architecture-and-ddd.
+Optional, where their descriptions fit the work: /go-best-practices, /react-best-practices, /typescript-best-practices, /supabase, /ddd.
 
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.
 

@@ -272,3 +272,6 @@ export QLTY_INSTALL="$HOME/.qlty"
 
 # bun completions
 [ -s "/home/austin/.bun/_bun" ] && source "/home/austin/.bun/_bun"
+# >>> mws shell-init >>>
+eval "$(mws shell-init zsh)"
+# <<< mws shell-init <<<
