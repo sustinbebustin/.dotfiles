@@ -95,6 +95,3 @@ docs/skills
 docs/vendor/**
 !docs/vendor/**/
 !docs/vendor/**/*.sh
-
-home/.plannotator/*
-!home/.plannotator/config.json
