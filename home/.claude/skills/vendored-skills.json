@@ -929,9 +929,9 @@
       },
       "localPath": "engineering/typescript-best-practices",
       "sync": {
-        "commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
-        "tree": "319e39dfd8c0da0602db8d50ce6e48b0945bbf3a",
-        "at": "2026-10-13"
+        "commit": "8b3326d99fd4b993cb33a24dad8af03175c642c5",
+        "tree": "1ccca3c7c0d358c0cd5edd313cd03a31fc75ee5f",
+        "at": "2026-10-23"
       },
       "status": {
         "state": "tracked"
