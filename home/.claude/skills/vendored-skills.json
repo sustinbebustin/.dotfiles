@@ -506,9 +506,9 @@
       },
       "localPath": "engineering/principle-type-system-discipline",
       "sync": {
-        "commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
-        "tree": "d7369475f3516094c0a3509cb9e37c6ad5200d07",
-        "at": "2026-10-13"
+        "commit": "8b3326d99fd4b993cb33a24dad8af03175c642c5",
+        "tree": "32850aaddd70478a6dacb153bbcef8532bf7d626",
+        "at": "2026-10-23"
       },
       "status": {
         "state": "tracked"
@@ -516,7 +516,8 @@
       "localChanges": [
         "Pointer to principle-boundary-discipline says to call the Skill tool for it by its installed name, instead of upstream's 'the boundary-discipline principle skill'.",
         "Dropped the pointer to the encode-lessons-in-structure principle skill; we do not vendor it.",
-        "Removed disable-model-invocation so typescript-best-practices and the other principle skill can invoke it with the Skill tool; skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing."
+        "Removed disable-model-invocation so typescript-best-practices and the other principle skill can invoke it with the Skill tool; skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing.",
+        "Kept the illegal-states, constructions, don't-lie, exhaustive-matching and strengthen-only-where-partial bullets and 'refuse to lie to the compiler' in the description, which upstream deleted in an unrelated merge commit (199d42e era) while its description still promises them; looks accidental, and they are core to how we type (user decision)."
       ]
     },
     "prototype": {
