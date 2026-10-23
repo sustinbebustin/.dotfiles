@@ -62,6 +62,9 @@ contract. Audit existing matches:
 - Removed source greps/plan assertions: exercise owning executable/dry-run.
 - Run targeted format, `git diff --check`, then the typecheck, lint, and test
   gates the repo requires for changed paths.
+- Before landing removal batches, run the repo's dead-code checks (unused
+  files, exports, dependencies) if it has them: removed tests orphan support
+  files/exports that ordinary PR CI may miss.
 - Inspect `git diff --numstat`; run `/code-review` after final edits.
 
 ## Handoff
