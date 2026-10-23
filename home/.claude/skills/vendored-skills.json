@@ -172,9 +172,9 @@
       },
       "localPath": "git/gh-stack",
       "sync": {
-        "commit": "29a36d314be664583705f18e41cebdf2b61ad514",
-        "tree": "bde7bcf5a96697d31aa55b33565fa0ff002167ca",
-        "at": "2026-10-13"
+        "commit": "199d42e945cdfd97d1fed0d860e93532d820c577",
+        "tree": "53018dd61238961f3aae77c6d369170ab4eb06f3",
+        "at": "2026-10-23"
       },
       "status": {
         "state": "tracked"
