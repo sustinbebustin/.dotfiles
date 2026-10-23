@@ -447,9 +447,9 @@
       },
       "localPath": "tools/opentui",
       "sync": {
-        "commit": "f8f608e2b9a41685d613a1156708ff06c826c3ce",
-        "tree": "d57ee197c8dc82393274115ae418285a149945a9",
-        "at": "2026-10-17"
+        "commit": "2017c76fea1bf3de3e32c025e30868fd638bd56d",
+        "tree": "f2e8a417d29c0c9f42b5113b9bbcdeceef69bdb3",
+        "at": "2026-10-23"
       },
       "status": {
         "state": "tracked"
