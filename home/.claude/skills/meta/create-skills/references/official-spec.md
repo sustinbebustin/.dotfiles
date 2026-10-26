@@ -87,13 +87,15 @@ Plugin skills use a `plugin-name:skill-name` namespace, so they cannot conflict 
 
 ### Live change detection
 
-Claude Code watches skill directories for file changes. Adding, editing, or removing a skill under `~/.claude/skills/`, the project `.claude/skills/`, or a `.claude/skills/` inside an `--add-dir` directory takes effect within the current session without restart. Creating a top-level skills directory that did not exist when the session started requires restarting Claude Code so the new directory can be watched.
+Claude Code watches skill directories for file changes. Adding, editing, or removing a skill under `~/.claude/skills/`, the project `.claude/skills/`, or a `.claude/skills/` inside an `--add-dir` directory takes effect within the current session without restart. Creating a top-level skills directory that did not exist when the session started requires `/reload-skills` (rerun after each later change there), since Claude Code isn't watching it yet.
 
 ### Nested directory discovery
 
-Project skills load from `.claude/skills/` in the session's starting directory and every parent up to the repo root, so starting in `packages/frontend/` still picks up root skills. Skills *below* the starting directory don't load at startup: they load the first time Claude reads or edits a file in that subdirectory and stay available for the rest of the session. Until then they're absent from the `/` menu and can't be invoked by name. `/add-dir <subdirectory>` loads them immediately (v2.1.257+). `/cd` adds the new directory's project skills (v2.1.246+).
+Project skills load from `.claude/skills/` in the session's starting directory and every parent up to the repo root, so starting in `packages/frontend/` still picks up root skills. Skills *below* the starting directory don't load at startup: they load the first time Claude reads or edits a file in that subdirectory and stay available for the rest of the session. Until then they're absent from the `/` menu and can't be invoked by name. `/add-dir <subdirectory>` loads them immediately (v2.1.257+). `/cd` adds the new directory's project skills (v2.1.246+). In a linked git worktree with no `.claude/skills` at its root, the main checkout's project skills load instead (v2.1.277+).
 
 ### Skills from `--add-dir`
+
+When an added directory's skill name clashes with an enterprise, personal, or project skill (or one from an earlier-added directory), it is prefixed with the added directory's folder name: `/cli:verify` for `--add-dir ../cli`. Two added directories with the same folder name start the prefix from the parent folder (`/b/cli:verify`). Requires v2.1.309+.
 
 The `--add-dir` flag and `/add-dir` command grant file access, not configuration discovery — but skills are an exception: `.claude/skills/` within an added directory is loaded automatically, along with its `.claude/commands/` and `.claude/agents/`. Only `.claude/skills/` is watched for live changes; restart after editing a file in the added directory's `commands/` or `agents/`. The exception covers only `--add-dir`/`/add-dir`; the `permissions.additionalDirectories` setting grants file access alone and loads no skills.
 
@@ -104,6 +106,8 @@ Claude Code ships with prompt-based bundled skills available in every session: `
 Claude auto-invokes some of them, but since v2.1.215 `/verify` and `/code-review` run only when you invoke them, and neither can be preloaded into a subagent. `disableBundledSkills` turns off every bundled skill except `/doctor` (hide that with `DISABLE_DOCTOR_COMMAND` or a `skillOverrides` entry of `"doctor": "off"`).
 
 `/code-review` (renamed from `/simplify` in v2.1.147) reports correctness bugs at a chosen effort level: e.g. `/code-review high`. Pass `--comment` to post findings as inline GitHub PR comments.
+
+A personal, project, or added-directory skill (or `.claude/commands/` file) named `verify` or `simplify`, invocable by Claude, makes Claude's commit instructions run it before each commit except for docs or test changes (v2.1.286+; off with `includeGitInstructions: false`). The bundled versions, plugin skills, and claude.ai-synced skills don't count.
 
 ## How Skills Work
 
@@ -182,6 +186,8 @@ Research $ARGUMENTS thoroughly...
 The skill content becomes the subagent's prompt. It won't have access to conversation history.
 
 **Background by default (v2.1.218+).** The forked subagent runs in the background and its result arrives in the conversation when it finishes; `background: false` waits for it in the invoking turn. Claude Code waits regardless in `-p`/SDK mode, with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, when the same forked skill is already running, and when a scheduled task fires it. A backgrounded fork runs with the narrower background-subagent tool set (the fork-the-conversation exemption doesn't apply — it's a regular agent type), so set `background: false` if the skill needs a tool outside it. Its edits also fall outside `/rewind` checkpoints; revert with git.
+
+An agent in a dynamic workflow that invokes a forked skill waits for and receives the result even without `background: false` (v2.1.295+; earlier, the result went to the main conversation).
 
 `context: fork` skills also end slash-command stacking: `/other-skill /forked-skill args` stops expanding at the forked skill.
 
