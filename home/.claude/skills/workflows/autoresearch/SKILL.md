@@ -144,7 +144,7 @@ Fold its system model into `session.md` and its hypotheses into `ideas.md`.
 
 ### Reviewer
 
-Agent tool, `subagent_type: "general-review"`, no `model`. Dispatch for every candidate, once it sits uncommitted on trunk.
+Agent tool, `subagent_type: "vet-reviewer"`, no `model`. Dispatch for every candidate, once it sits uncommitted on trunk.
 
 ```
 Review the uncommitted change on trunk against the objective and constraints in .scratch/autoresearch/session.md. In each repo session.md lists, read `git status` and `git diff HEAD`, and any new untracked files. Judge whether the change wins on the real workload or games the benchmark: special-cased inputs, skipped work, cached results the real workload cannot reuse, changes to measurement, or behaviour the constraints forbid. Report a verdict of sound or gamed, then each finding with its file and line.
