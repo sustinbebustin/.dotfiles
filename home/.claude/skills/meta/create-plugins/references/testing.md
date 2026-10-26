@@ -127,4 +127,5 @@ Exit codes: `0` every case met the threshold, `1` a case failed or a load error,
 Machine-readable and non-interactive flags:
 
 - `install`, `uninstall`, `update`, `enable`, and `disable` take `--json` (v2.1.268+).
+- `install <plugin> --marketplace <source>` adds the marketplace first if needed (v2.1.275+).
 - `install` and `update` take `--yes` or `--accept-command <sha256>` to accept a `command` source or `headersHelper` non-interactively.

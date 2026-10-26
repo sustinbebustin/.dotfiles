@@ -3,7 +3,7 @@ name: create-plugins
 description: Designing, scaffolding, validating, and distributing Claude Code plugins — manifest, components, marketplaces, and evals.
 metadata:
   author: sustinbebustin
-  last_reviewed_version: 2.1.288
+  last_reviewed_version: 2.1.310
 ---
 
 # Creating Claude Code Plugins

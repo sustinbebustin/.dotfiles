@@ -79,7 +79,7 @@ A marketplace install with a `package.json` plus an npm or bun lockfile gets `no
 - Location: `monitors/monitors.json`, or `experimental.monitors` (a path or an inline array).
 - Each entry takes `name`, `command`, and `description`, plus an optional `when`: `"always"` (the default) or `"on-skill-invoke:<skill>"`.
 - Every stdout line reaches Claude as a notification.
-- Monitors run only in the interactive CLI, unsandboxed. They don't load from a project-scope skills-dir plugin.
+- Monitors run only in the interactive CLI, unsandboxed, and are skipped on hosts where the Monitor tool is unavailable. They don't load from a project-scope skills-dir plugin.
 - The command rejects `${user_config.*}` and gets no `CLAUDE_PLUGIN_OPTION_*`. Read config from a file instead.
 - Changes need a session restart, not `/reload-plugins`. Disabling the plugin doesn't stop a running monitor.
 

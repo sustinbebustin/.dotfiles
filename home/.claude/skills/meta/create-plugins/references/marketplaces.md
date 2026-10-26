@@ -93,13 +93,13 @@ Commit this to the project's `.claude/settings.json`. It applies once a user tru
 
 - **Install scopes:** `user` (default), `project` (shared through `.claude/settings.json`), `local` (gitignored), `managed`.
 - **Containers and CI:** pre-populate with `CLAUDE_CODE_PLUGIN_SEED_DIR`, or relocate the whole plugins root (default `~/.claude/plugins`) with `CLAUDE_CODE_PLUGIN_CACHE_DIR`.
-- **Admin controls** (managed settings): `strictKnownMarketplaces`, `blockedMarketplaces`, `disableCommandPluginSources`, `strictPluginOnlyCustomization`, `pluginSuggestionMarketplaces`.
+- **Admin controls** (managed settings): `strictKnownMarketplaces`, `blockedMarketplaces`, `disableCommandPluginSources`, `strictPluginOnlyCustomization`, `pluginSuggestionMarketplaces`, `pluginTrustMessage` (extra text in the install trust warning), `prependPlugins` / `appendPlugins` (managed mods that run before or after every user-installed mod).
 
 ## Public Sharing
 
 - **Community marketplace:** submit through the claude.ai admin form or `platform.claude.com/plugins/submit`, after `claude plugin validate` passes. Review re-runs validation plus a safety screen.
 - **Official marketplace** (`claude-plugins-official`) is curated by Anthropic; there is no application.
-- **CLI install hints:** a CLI can print `<claude-code-hint v="1" type="plugin" value="name@claude-plugins-official" />` to stderr when `CLAUDECODE` is set. This works for official-marketplace plugins only.
+- **CLI install hints:** a CLI can print `<claude-code-hint v="1" type="plugin" value="name@claude-plugins-official" />` to stderr when `CLAUDECODE` (or `CLAUDE_CODE_CHILD_SESSION`, v2.1.172+, set only in subprocesses Claude Code spawns) is set. The tag must sit on its own line. This works for official-marketplace plugins only.
 - **Org suggestions:** add a `relevance` block to the entry, with signals `cwd`, `cli`, `hosts`, `filesRead`, and `manifestDeps`. It takes effect only for marketplaces an admin allowlists in `pluginSuggestionMarketplaces`.
 
 ## Test A Marketplace
