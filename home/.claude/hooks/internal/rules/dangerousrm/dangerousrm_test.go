@@ -1,7 +1,9 @@
 package dangerousrm
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"claude-hooks/internal/config"
 	"claude-hooks/internal/hook"
@@ -171,6 +173,210 @@ func TestEvaluate(t *testing.T) {
 		{
 			name:     "a declared assignment does persist",
 			cmd:      `declare R=/tmp/probe; rm -rf "$R"`,
+			decision: "allow",
+		},
+		{
+			name:     "an assignment inside an && chain reaches the rm later in that chain",
+			cmd:      `cd /x && R=/tmp/probe && rm -rf "$R"`,
+			decision: "allow",
+		},
+		{
+			name:     "an assignment inside an && chain does not outlive it",
+			cmd:      `true && R=/tmp/probe; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "an assignment before || does not reach the rm after it",
+			cmd:      `true && R=/tmp/probe || rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "an assignment inside an if body applies later in that body",
+			cmd:      `if true; then R=/tmp/probe; rm -rf "$R"; fi`,
+			decision: "allow",
+		},
+		{
+			name:     "an assignment in the then branch does not reach the else branch",
+			cmd:      `if true; then R=/tmp/probe; else rm -rf "$R"; fi`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+
+		// A binding that may or may not have been replaced is unknown, so a
+		// scratch value bound earlier must not survive a conditional rebinding.
+		{
+			name:     "a conditional rebinding on the right of && hides an earlier tmp binding",
+			cmd:      `R=/tmp/probe; true && R=/Users/me/repo; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a rebinding in an if body hides an earlier tmp binding",
+			cmd:      `R=/tmp/probe; if true; then R=/Users/me/repo; fi; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a rebinding in a loop body hides an earlier tmp binding after the loop",
+			cmd:      `R=/tmp/probe; for d in a; do R=/Users/me/repo; done; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a rebinding later in a loop body reaches the rm on the next iteration",
+			cmd:      `R=/tmp/probe; for d in a b; do rm -rf "$R"; R=/Users/me/repo; done`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a rebinding in the last pipeline stage persists under zsh",
+			cmd:      `R=/tmp/probe; true | R=/Users/me/repo; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "read rebinds its operands",
+			cmd:      `R=/tmp/probe; read R; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "unset drops the binding",
+			cmd:      `R=/tmp/probe; unset R; rm -rf "/tmp$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "eval can rebind anything",
+			cmd:      `R=/tmp/probe; eval "$X"; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "source can rebind anything",
+			cmd:      `R=/tmp/probe; . ./env.sh; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a nameref is not a literal binding",
+			cmd:      `declare -n R=coverage; coverage=/Users/me/repo; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a function can rebind a variable when it is called",
+			cmd:      `f() { R=/Users/me/repo; }; R=/tmp/probe; f; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "an rm inside a function body cannot know the caller's bindings",
+			cmd:      `R=/tmp/probe; f() { rm -rf "$R"; }; R=/Users/me/repo; f`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+
+		// Word splitting.
+		{
+			name:     "an unquoted value with spaces splits into several targets",
+			cmd:      `R="/tmp/a /Users/me/repo"; rm -rf $R`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a quoted value with spaces is one target",
+			cmd:      `R="/tmp/a /Users/me/repo"; rm -rf "$R"`,
+			decision: "allow",
+		},
+
+		// for loops over literal lists.
+		{
+			name:     "a loop variable over tmp items is exempt",
+			cmd:      `for d in /tmp/a /tmp/b; do rm -rf "$d/x"; done`,
+			decision: "allow",
+		},
+		{
+			name:     "every loop item must be exempt",
+			cmd:      `for d in /tmp/a /Users/me/repo; do rm -rf "$d"; done`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "loop items resolve through earlier assignments",
+			cmd:      `O=/tmp/s; for d in $O/a $O/b; do rm -rf $d/x; done`,
+			decision: "allow",
+		},
+		{
+			name:     "a body assignment built from the loop variable is exempt",
+			cmd:      `O=/tmp/s; for c in a b; do D=$O/b-$c; rm -rf $D; mkdir -p $D; done`,
+			decision: "allow",
+		},
+		{
+			name:     "loop items split from an unquoted value fail closed",
+			cmd:      `L="/tmp/a /Users/me/repo"; for d in $L; do rm -rf "$d"; done`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a loop over the positional parameters is unknown",
+			cmd:      `for d; do rm -rf "/tmp/$d"; done`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "the loop variable is unknown after the loop",
+			cmd:      `for d in /tmp/a; do :; done; rm -rf "$d"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "builtin export rebinds",
+			cmd:      `R=/tmp/x; builtin export R=/Users/me/repo; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "command declare rebinds",
+			cmd:      `R=/tmp/x; command declare R=/Users/me/repo; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "an assigning expansion rebinds",
+			cmd:      `R=""; : ${R:=/Users/me/repo}; rm -rf /tmp/x $R`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "zsh print -v rebinds",
+			cmd:      `R=/tmp/x; print -v R /Users/me/repo; rm -rf "$R"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a changed IFS makes unquoted splitting unknown",
+			cmd:      `IFS=/; R=/tmp/x; rm -rf $R`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "brace expansion can climb out of tmp",
+			cmd:      `rm -rf /tmp/{a,../Users/me}`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "brace expansion can climb out of an artifact directory",
+			cmd:      `rm -rf node_modules/{x,../..}/src`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a while body assignment applies later in that body",
+			cmd:      `while read -r l; do R=/tmp/probe; rm -rf "$R"; done`,
 			decision: "allow",
 		},
 
@@ -358,6 +564,27 @@ func TestEvaluate(t *testing.T) {
 	}
 }
 
+// TestDoublingVariablesStayCheap pins that a binding is resolved once, however
+// often it is looked up: a chain of variables that each double the one before
+// would otherwise cost 2^n lookups and stall the hook.
+func TestDoublingVariablesStayCheap(t *testing.T) {
+	cmd := "V0=''"
+	for i := 1; i <= 40; i++ {
+		cmd += fmt.Sprintf("; V%d=$V%d$V%d", i, i-1, i-1)
+	}
+	cmd += `; rm -rf "/tmp/x$V40"`
+	done := make(chan hook.Verdict, 1)
+	go func() { done <- evaluate(cmd) }()
+	select {
+	case got := <-done:
+		if got.Decision != hook.Allow {
+			t.Fatalf("decision = %q, want allow", got.Decision)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("resolving 40 doubling variables took over 5s")
+	}
+}
+
 // TestNonBashIsIgnored pins that a payload from another tool is not a shell
 // command, even when it has a command field.
 func TestNonBashIsIgnored(t *testing.T) {
@@ -453,6 +680,146 @@ func TestAllowedRoots(t *testing.T) {
 			name:     "a non-recursive rm below a root was never asked about",
 			cwd:      "/home/tester/dev/app",
 			cmd:      `rm backend/tmp`,
+			decision: "allow",
+		},
+		{
+			name:     "brace expansion is not modelled",
+			cwd:      "/elsewhere",
+			cmd:      `rm -rf /home/tester/dev/app/backend/{tmp,..}`,
+			decision: "ask",
+		},
+
+		// A cd moves where a relative target lands.
+		{
+			name:     "a cd out of the root moves relative targets with it",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `cd /home/tester && rm -rf dev`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd in an earlier statement still moves relative targets",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `cd /home/tester; rm -rf dev`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd into the root places relative targets there",
+			cwd:      "/elsewhere",
+			cmd:      `cd /home/tester/dev/app/backend && rm -rf build`,
+			decision: "allow",
+		},
+		{
+			name:     "a dot-relative cd is followed",
+			cwd:      "/home/tester/dev/app/backend",
+			cmd:      `cd .. && rm -rf frontend/x`,
+			decision: "allow",
+		},
+		{
+			name:     "a dot-relative cd can leave the root",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `cd .. && rm -rf other/x`,
+			decision: "ask",
+		},
+		{
+			name:     "a bare relative cd may follow CDPATH and is unknown",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `cd src && rm -rf x`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd through a variable is followed",
+			cwd:      "/elsewhere",
+			cmd:      `W=/home/tester/dev/app/wt; cd "$W" && rm -rf x`,
+			decision: "allow",
+		},
+		{
+			name:     "a cd in a subshell does not move the rm after it",
+			cwd:      "/elsewhere",
+			cmd:      `(cd /home/tester/dev/app); rm -rf x`,
+			decision: "ask",
+		},
+		{
+			name:     "a conditional cd leaves the directory unknown",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `test -d x && cd /home/tester; rm -rf dev`,
+			decision: "ask",
+		},
+		{
+			name:     "a function that cds leaves the directory unknown",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `f() { cd /home/tester; }; f; rm -rf dev`,
+			decision: "ask",
+		},
+		{
+			name:     "a computed cd leaves the directory unknown",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `cd "$(mktemp -d)" && rm -rf x`,
+			decision: "ask",
+		},
+		{
+			name:     "a bare cd goes home",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `cd && rm -rf dev`,
+			decision: "ask",
+		},
+		{
+			name:     "env -C changes the directory too",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `env -C /home/tester rm -rf dev`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd that may fail leaves the start directory possible",
+			cwd:      "/home/tester",
+			cmd:      `cd /home/tester/dev/app/missing; rm -rf build`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd heading a chain may have failed past the chain",
+			cwd:      "/home/tester",
+			cmd:      `cd /home/tester/dev/app && make; rm -rf build`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd in an if condition may have failed",
+			cwd:      "/home/tester",
+			cmd:      `if cd /home/tester/dev/app; then :; fi; rm -rf build`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd that may fail is fine when both directories are below the root",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `cd /home/tester/dev/app/wt; rm -rf build`,
+			decision: "allow",
+		},
+		{
+			name:     "a brace in a cd target is unknown",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `cd /home/tester/dev/app/{x,y} && rm -rf build`,
+			decision: "ask",
+		},
+		{
+			name:     "an attached env -C value moves the rm",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `env -C/ rm -rf home`,
+			decision: "ask",
+		},
+		{
+			name:     "an attached sudo -D value moves the rm",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `sudo -D/ rm -rf home`,
+			decision: "ask",
+		},
+		{
+			name:     "sudo --chdir does not hide the rm",
+			cwd:      "/home/tester/dev/app",
+			cmd:      `sudo --chdir / rm -rf home`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd then a loop over relative items below the root is exempt",
+			cwd:      "/elsewhere",
+			cmd:      `cd /home/tester/dev/app/wt && for d in a/b c/d; do test -d $d && rm -r $d/testdata; done`,
 			decision: "allow",
 		},
 	}

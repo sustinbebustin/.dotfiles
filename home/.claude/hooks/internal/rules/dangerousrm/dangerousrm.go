@@ -6,12 +6,20 @@
 // as var/cache or node_modules (see artifactDirs), and paths below a root the
 // machine-local config names (see underAllowedRoot).
 //
-// Targets are resolved through simple literal variable assignments made earlier
-// in the same command, so the common `R=/tmp/probe; rm -rf "$R"` shape is
-// recognised as scratch rather than prompting. Only assignments the shell
-// reaches unconditionally count, and only in the shell that runs the rm; see
-// collectAssigns. Anything the resolver cannot pin down to a literal fails
-// closed and reads as a non-scratch path.
+// Targets are resolved through literal variable bindings made earlier in the
+// same command -- assignments, including those later in an && chain, and for
+// loops over literal item lists -- so the common `R=/tmp/probe; rm -rf "$R"`
+// and `for d in a b; do rm -rf "$d"; done` shapes are recognised as scratch
+// rather than prompting. A binding only counts where the shell is known to
+// hold it, and one that may or may not have been replaced is unknown; see
+// resolve.go. Anything the resolver cannot pin down to literals fails closed
+// and reads as a non-scratch path.
+//
+// A relative target is placed against every directory the shell may be in when
+// the rm runs: the payload's cwd until a cd moves it, and past a cd that may
+// have failed, both (see dirsAt). It is below an allowed root only if it is
+// from all of them. A function or alias from the user's shell profile that
+// changes directory (zoxide's `z`) is not visible here; that gap is accepted.
 //
 // The resolver is deliberately local to this package rather than shared with
 // the other shell rules: it is more capable than shellast.WordLit, and lending
@@ -61,13 +69,6 @@ func Check(req *hook.Request) hook.Verdict {
 	return hook.Allowed()
 }
 
-// assignment records a `NAME=literal` whose value resolved to a plain string.
-type assignment struct {
-	name  string
-	value string
-	pos   uint
-}
-
 // createdPath records a path the command brings into existence (mkdir, output
 // redirect, touch, and the destination of cp/mv/tee).
 type createdPath struct {
@@ -78,23 +79,32 @@ type createdPath struct {
 // scope holds everything the rm checks need from a single parsed command,
 // together with the context the payload supplies around it.
 type scope struct {
-	assigns []assignment
-	created []createdPath
-	// cwd is the directory the command runs in, used to resolve relative
-	// targets against allowedRoots. Empty when the payload carried none, which
-	// leaves relative targets unresolvable and therefore prompting.
+	// binds, funcs, lasting, ifsChanged and memo are the resolver's state;
+	// see resolve.go.
+	binds      []binding
+	funcs      []span
+	lasting    []lastingPoison
+	ifsChanged bool
+	memo       map[*binding]resolved
+	created    []createdPath
+	// cwd is the directory the command starts in, used to place relative
+	// targets against allowedRoots until a cd moves it (see dirsAt). Empty when
+	// the payload carried none, which leaves relative targets unplaceable and
+	// therefore prompting.
 	cwd string
 	// allowedRoots are absolute, cleaned directories from the machine-local
 	// config, already validated by package config.
 	allowedRoots []string
 }
 
-// scan collects variable assignments and created paths in one pass. Created
-// paths are resolved against the assignments visible at their own position, so
-// ordering within the command is respected.
+// scan collects bindings and created paths. Bindings come first, since created
+// paths are resolved against the bindings in force at their own position.
 func scan(file *syntax.File, cwd string, allowedRoots []string) *scope {
 	s := &scope{cwd: cwd, allowedRoots: allowedRoots}
-	s.collectAssigns(file.Stmts)
+	everywhere := assignedIn(file)
+	s.ifsChanged = everywhere.all || everywhere.names["IFS"]
+	s.lasting = assigningExpansions(file)
+	s.collect(file.Stmts, unbounded)
 
 	syntax.Walk(file, func(n syntax.Node) bool {
 		switch x := n.(type) {
@@ -109,66 +119,9 @@ func scan(file *syntax.File, cwd string, allowedRoots []string) *scope {
 	return s
 }
 
-// collectAssigns records the bindings that are still in force when the rm runs.
-// Only statements the shell reaches unconditionally, in the shell that runs the
-// rm, are descended into: an && / || right-hand side may never run, a subshell
-// or pipeline stage binds in a child process that then exits, and the body of an
-// if/for/while/case or a function is neither.
-//
-// Skipping them is what makes the resolver fail closed. `R=/repo; (R=/tmp/x);
-// rm -rf "$R"` removes /repo, and reading the subshell's binding would have
-// waved it through as scratch.
-func (s *scope) collectAssigns(stmts []*syntax.Stmt) {
-	for _, st := range stmts {
-		s.collectStmtAssigns(st)
-	}
-}
-
-func (s *scope) collectStmtAssigns(st *syntax.Stmt) {
-	if st == nil || st.Background || st.Coprocess {
-		return
-	}
-	switch x := st.Cmd.(type) {
-	case *syntax.CallExpr:
-		// A bare `NAME=value` binds in this shell; the same assignment in front
-		// of a command word (`NAME=value cmd`) is that command's environment
-		// only and is gone afterwards.
-		if len(x.Args) == 0 {
-			for _, a := range x.Assigns {
-				s.recordAssign(a)
-			}
-		}
-	case *syntax.DeclClause:
-		// export / declare / typeset / readonly / local.
-		for _, a := range x.Args {
-			s.recordAssign(a)
-		}
-	case *syntax.BinaryCmd:
-		if x.Op == syntax.AndStmt || x.Op == syntax.OrStmt {
-			s.collectStmtAssigns(x.X)
-		}
-	case *syntax.Block:
-		s.collectAssigns(x.Stmts)
-	}
-}
-
-func (s *scope) recordAssign(a *syntax.Assign) {
-	// Append (`+=`), naked (`export FOO`), and indexed assignments are not
-	// simple bindings; leaving them out keeps the resolver failing closed.
-	if a.Append || a.Naked || a.Name == nil || a.Index != nil || a.Array != nil || a.Value == nil {
-		return
-	}
-	val, ok := s.resolveWord(a.Value, a.Pos().Offset())
-	if !ok {
-		return
-	}
-	s.assigns = append(s.assigns, assignment{name: a.Name.Value, value: val, pos: a.Pos().Offset()})
-}
-
 func (s *scope) recordCreatingCall(c *syntax.CallExpr) {
 	name, operands := shellast.Invocation(c.Args, func(w *syntax.Word) string {
-		tok, _ := s.resolveWord(w, c.Pos().Offset())
-		return tok
+		return s.resolveOne(w, off(c.Pos()))
 	})
 
 	switch shellast.CommandName(name) {
@@ -189,12 +142,13 @@ func (s *scope) recordOperand(w *syntax.Word, keep bool) {
 	if !keep {
 		return
 	}
-	pos := w.Pos().Offset()
-	tok, ok := s.resolveWord(w, pos)
-	if !ok || tok == "" || strings.HasPrefix(tok, "-") {
-		return
+	pos := off(w.Pos())
+	vals, _ := s.resolveWord(w, pos, true)
+	for _, tok := range vals {
+		if tok != "" && !strings.HasPrefix(tok, "-") {
+			s.created = append(s.created, createdPath{path: tok, pos: pos})
+		}
 	}
-	s.created = append(s.created, createdPath{path: tok, pos: pos})
 }
 
 func (s *scope) recordRedirect(r *syntax.Redirect) {
@@ -206,12 +160,13 @@ func (s *scope) recordRedirect(r *syntax.Redirect) {
 	if r.Word == nil {
 		return
 	}
-	pos := r.Word.Pos().Offset()
-	tok, ok := s.resolveWord(r.Word, pos)
-	if !ok || tok == "" {
-		return
+	pos := off(r.Word.Pos())
+	vals, _ := s.resolveWord(r.Word, pos, false)
+	for _, tok := range vals {
+		if tok != "" {
+			s.created = append(s.created, createdPath{path: tok, pos: pos})
+		}
 	}
-	s.created = append(s.created, createdPath{path: tok, pos: pos})
 }
 
 // checkRm returns an "ask" verdict when c is a recursive `rm` with at least one
@@ -219,13 +174,11 @@ func (s *scope) recordRedirect(r *syntax.Redirect) {
 func (s *scope) checkRm(c *syntax.CallExpr) (hook.Verdict, bool) {
 	// Words render through the resolver rather than shellast.WordLit, so a `rm`
 	// reached through a variable is still recognised. A word the resolver
-	// cannot pin down renders empty, which stops the search -- the same as
-	// before wrappers were looked through.
-	render := func(w *syntax.Word) string {
-		tok, _ := s.resolveWord(w, c.Pos().Offset())
-		return tok
-	}
-	name, operands := shellast.Invocation(c.Args, render)
+	// cannot pin down to one string renders empty, which stops the search --
+	// the same as before wrappers were looked through.
+	name, operands := shellast.Invocation(c.Args, func(w *syntax.Word) string {
+		return s.resolveOne(w, off(c.Pos()))
+	})
 	if shellast.CommandName(name) != "rm" {
 		return hook.Verdict{}, false
 	}
@@ -237,37 +190,63 @@ func (s *scope) checkRm(c *syntax.CallExpr) (hook.Verdict, bool) {
 		// Flags are always literal; an unresolved word is a target, and
 		// resolveWord's failure is carried through as an empty-but-present
 		// path so it cannot pass the /tmp check.
-		tok, resolved := s.resolveWord(a, a.Pos().Offset())
+		vals, resolved := s.resolveWord(a, off(a.Pos()), true)
+		tok := ""
+		if resolved && len(vals) == 1 {
+			tok = vals[0]
+		}
 		switch {
-		case resolved && !optsEnded && tok == "--":
+		case !resolved:
+			paths = append(paths, unresolvedPath)
+		case len(vals) != 1:
+			// A loop variable: one target per value. A value that could be
+			// read as a flag is beyond what this reasons about.
+			for _, v := range vals {
+				if !optsEnded && strings.HasPrefix(v, "-") {
+					recursive = true
+					v = unresolvedPath
+				}
+				paths = append(paths, v)
+			}
+		case !optsEnded && tok == "--":
 			optsEnded = true
-		case resolved && !optsEnded && strings.HasPrefix(tok, "--"):
+		case !optsEnded && strings.HasPrefix(tok, "--"):
 			if tok == "--recursive" {
 				recursive = true
 			}
-		case resolved && !optsEnded && strings.HasPrefix(tok, "-") && len(tok) > 1:
+		case !optsEnded && strings.HasPrefix(tok, "-") && len(tok) > 1:
 			// Bundled short flags: -r, -rf, -fr, -Rf, ...
 			for _, ch := range tok[1:] {
 				if ch == 'r' || ch == 'R' {
 					recursive = true
 				}
 			}
-		case !resolved:
-			paths = append(paths, unresolvedPath)
-		default:
-			if tok != "" {
-				paths = append(paths, tok)
-			}
+		case tok != "":
+			paths = append(paths, tok)
 		}
 	}
 
 	if !recursive {
 		return hook.Verdict{}, false
 	}
-	if len(paths) > 0 && s.allDisposable(paths) {
+	if len(paths) > 0 && s.allDisposable(paths, s.rmDirs(c)) {
 		return hook.Verdict{}, false
 	}
-	return hook.Asked(s.reasonFor(paths, c.Pos().Offset())), true
+	return hook.Asked(s.reasonFor(paths, off(c.Pos()))), true
+}
+
+// rmDirs returns the directories c may run in, or nil when they are unknown: a
+// wrapper such as `env -C dir` moves this one call, and otherwise it runs
+// wherever the shell is at that point.
+func (s *scope) rmDirs(c *syntax.CallExpr) []string {
+	if dir, moved := shellast.WrapperDir(c.Args); moved {
+		if !filepath.IsAbs(dir) {
+			return nil
+		}
+		return []string{filepath.Clean(dir)}
+	}
+	dirs, _ := s.dirsAt(off(c.Pos()))
+	return dirs
 }
 
 // unresolvedPath stands in for a target the resolver could not pin to a
@@ -307,10 +286,18 @@ func (s *scope) createdBeneath(target string, rmPos uint) bool {
 
 // allDisposable reports whether every target is one the rule waves through:
 // scratchpad space, a directory the toolchain regenerates on demand, or a
-// directory the machine-local config has signed off on.
-func (s *scope) allDisposable(paths []string) bool {
+// directory the machine-local config has signed off on. dirs are where the rm
+// may run, for placing relative targets.
+//
+// A `{` may start a brace expansion, which none of the checks model:
+// `/tmp/{a,../home}` reads as below /tmp, and `app/{tmp,..}` cleans to a path
+// below app but also removes app itself.
+func (s *scope) allDisposable(paths, dirs []string) bool {
 	for _, p := range paths {
-		if !underTmp(p) && !underArtifactDir(p) && !s.underAllowedRoot(p) {
+		if strings.Contains(p, "{") {
+			return false
+		}
+		if !underTmp(p) && !underArtifactDir(p) && !s.underAllowedRoot(p, dirs) {
 			return false
 		}
 	}
@@ -318,7 +305,7 @@ func (s *scope) allDisposable(paths []string) bool {
 }
 
 // underAllowedRoot reports whether p resolves to a path strictly below one of
-// the roots in the machine-local config.
+// the roots in the machine-local config, from every directory in dirs.
 //
 // Strictly below is deliberate: the root itself is the whole project, and
 // wiping it is the one removal still worth a prompt. Matching is by path
@@ -328,14 +315,23 @@ func (s *scope) allDisposable(paths []string) bool {
 // The comparison is textual. A root that is itself a symlink elsewhere is
 // therefore taken at face value; resolving it would mean touching the
 // filesystem, and Check is a pure function by design.
-func (s *scope) underAllowedRoot(p string) bool {
+func (s *scope) underAllowedRoot(p string, dirs []string) bool {
 	if len(s.allowedRoots) == 0 {
 		return false
 	}
-	abs, ok := s.absTarget(p)
+	targets, ok := absTargets(p, dirs)
 	if !ok {
 		return false
 	}
+	for _, abs := range targets {
+		if !s.belowARoot(abs) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *scope) belowARoot(abs string) bool {
 	segs := pathSegments(abs)
 	for _, root := range s.allowedRoots {
 		want := pathSegments(root)
@@ -346,26 +342,30 @@ func (s *scope) underAllowedRoot(p string) bool {
 	return false
 }
 
-// absTarget resolves an rm target to an absolute, cleaned path. It reports
-// false for anything it cannot pin down, which leaves the target matching no
-// root and prompting as before.
+// absTargets resolves an rm target to the absolute, cleaned paths it names:
+// one for an absolute target, one per directory in dirs for a relative one.
+// It reports false for anything it cannot pin down, which leaves the target
+// matching no root and prompting as before.
 //
 // A `~` is an ordinary literal to the shell parser, and expanding it would need
 // the home directory this rule does not go looking for, so tilde targets never
-// match a root. Relative targets need a cwd; without one they cannot be placed.
-// Any `..` is resolved away by Clean before matching, so a target cannot climb
-// out of a root and back in under a name that still looks like it.
-func (s *scope) absTarget(p string) (string, bool) {
+// match a root. Any `..` is resolved away by Clean before matching, so a target
+// cannot climb out of a root and back in under a name that still looks like it.
+func absTargets(p string, dirs []string) ([]string, bool) {
 	if p == "" || p == unresolvedPath || strings.HasPrefix(p, "~") {
-		return "", false
+		return nil, false
 	}
-	if !filepath.IsAbs(p) {
-		if !filepath.IsAbs(s.cwd) {
-			return "", false
-		}
-		p = filepath.Join(s.cwd, p)
+	if filepath.IsAbs(p) {
+		return []string{filepath.Clean(p)}, true
 	}
-	return filepath.Clean(p), true
+	if len(dirs) == 0 {
+		return nil, false
+	}
+	out := make([]string, len(dirs))
+	for i, d := range dirs {
+		out[i] = filepath.Join(d, p)
+	}
+	return out, true
 }
 
 // artifactDirs are directory paths whose contents are produced by a toolchain
@@ -465,69 +465,4 @@ func underTmp(p string) bool {
 	}
 	return p == "/tmp" || strings.HasPrefix(p, "/tmp/") ||
 		p == "/private/tmp" || strings.HasPrefix(p, "/private/tmp/")
-}
-
-// resolveWord renders w to a literal string, substituting `$VAR` / `${VAR}`
-// from assignments made before pos. It reports false when any part cannot be
-// reduced to a literal (command substitution, arithmetic, globs, unknown
-// variables), so callers treat the target as non-scratch.
-func (s *scope) resolveWord(w *syntax.Word, pos uint) (string, bool) {
-	if w == nil {
-		return "", false
-	}
-	var sb strings.Builder
-	if !s.resolveParts(w.Parts, pos, &sb) {
-		return "", false
-	}
-	return sb.String(), true
-}
-
-func (s *scope) resolveParts(parts []syntax.WordPart, pos uint, sb *strings.Builder) bool {
-	for _, p := range parts {
-		switch x := p.(type) {
-		case *syntax.Lit:
-			sb.WriteString(shellast.LitText(x))
-		case *syntax.SglQuoted:
-			sb.WriteString(x.Value)
-		case *syntax.DblQuoted:
-			if !s.resolveParts(x.Parts, pos, sb) {
-				return false
-			}
-		case *syntax.ParamExp:
-			val, ok := s.lookupParam(x, pos)
-			if !ok {
-				return false
-			}
-			sb.WriteString(val)
-		default:
-			// CmdSubst, ArithmExp, ProcSubst, ExtGlob: not statically known.
-			return false
-		}
-	}
-	return true
-}
-
-// lookupParam resolves a plain `$NAME` / `${NAME}` against the most recent
-// qualifying assignment. Any modifier (default, length, slice, replacement,
-// index) makes the expansion non-trivial and is refused.
-func (s *scope) lookupParam(pe *syntax.ParamExp, pos uint) (string, bool) {
-	if pe.Excl || pe.Length || pe.Width {
-		return "", false
-	}
-	if pe.Index != nil || pe.Slice != nil || pe.Repl != nil || pe.Exp != nil || pe.Names != 0 {
-		return "", false
-	}
-	if pe.Param == nil {
-		return "", false
-	}
-
-	best := ""
-	found := false
-	for _, a := range s.assigns {
-		if a.name != pe.Param.Value || a.pos >= pos {
-			continue
-		}
-		best, found = a.value, true
-	}
-	return best, found
 }
