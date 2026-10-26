@@ -140,8 +140,8 @@ func TestEvaluate(t *testing.T) {
 		{
 			name:     "assignment on the right of && may not run",
 			cmd:      `R=/Users/me/repo; false && R=/tmp/probe; rm -rf "$R"`,
-			decision: "ask",
-			reason:   reasonGeneric,
+			decision: "deny",
+			reason:   reasonChainVar,
 		},
 		{
 			name:     "a command prefix binds only for that command",
@@ -183,14 +183,32 @@ func TestEvaluate(t *testing.T) {
 		{
 			name:     "an assignment inside an && chain does not outlive it",
 			cmd:      `true && R=/tmp/probe; rm -rf "$R"`,
+			decision: "deny",
+			reason:   reasonChainVar,
+		},
+		{
+			name:     "a target safe only if an earlier chain ran is denied with a rewrite hint",
+			cmd:      `cd /x && S=/tmp/s && make; rm -rf "$S/dist"`,
+			decision: "deny",
+			reason:   reasonChainVar,
+		},
+		{
+			name:     "a target unsafe even if the chain ran still asks",
+			cmd:      `cd /x && S=/Users/me/repo && make; rm -rf "$S/dist"`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "a target unsafe for another reason still asks",
+			cmd:      `cd /x && S=/tmp/s && make; rm -rf "$S/dist" /Users/me/repo`,
 			decision: "ask",
 			reason:   reasonGeneric,
 		},
 		{
 			name:     "an assignment before || does not reach the rm after it",
 			cmd:      `true && R=/tmp/probe || rm -rf "$R"`,
-			decision: "ask",
-			reason:   reasonGeneric,
+			decision: "deny",
+			reason:   reasonChainVar,
 		},
 		{
 			name:     "an assignment inside an if body applies later in that body",
@@ -778,7 +796,7 @@ func TestAllowedRoots(t *testing.T) {
 			name:     "a cd heading a chain may have failed past the chain",
 			cwd:      "/home/tester",
 			cmd:      `cd /home/tester/dev/app && make; rm -rf build`,
-			decision: "ask",
+			decision: "deny",
 		},
 		{
 			name:     "a cd in an if condition may have failed",

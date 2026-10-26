@@ -169,10 +169,15 @@ func (s *scope) collectCmd(cmd syntax.Command, end uint) {
 func (s *scope) collectAndChain(x *syntax.BinaryCmd, end uint) {
 	parts := andParts(x)
 	chainEnd := off(x.End())
+	if s.assumeChainsRun {
+		chainEnd = end
+	}
 	s.collectStmt(parts[0], end)
 	for _, st := range parts[1:] {
 		s.collectStmt(st, chainEnd)
-		s.poison(assignedIn(st), chainEnd, end)
+		if !s.assumeChainsRun {
+			s.poison(assignedIn(st), chainEnd, end)
+		}
 	}
 	// Everything after a cd in the chain runs only if the cd succeeded.
 	for _, st := range parts[:len(parts)-1] {

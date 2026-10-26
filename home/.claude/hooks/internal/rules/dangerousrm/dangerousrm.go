@@ -52,21 +52,34 @@ const (
 	reasonSameCommand = "recursive rm detected, and this same command also creates paths beneath the targets. " +
 		"If the tooling being run does not require files inside the repo, put them under the session scratchpad " +
 		"instead - recursive rm there runs without a prompt. Allow?"
+
+	reasonChainVar = "Blocked: this recursive rm depends on a variable or cd set inside an earlier && chain, " +
+		"and it runs even when that chain stops early -- then the variable is unset and the rm targets " +
+		"something else. Nothing was deleted. Rewrite so the assignment runs unconditionally: put it " +
+		"before the chain (`S=/tmp/x; cd dir && ...; rm -rf \"$S/out\"`), or join the rm to the chain with &&."
 )
 
 // Check decides whether a recursive rm in req needs approval. The whole tree is
 // walked, so rm nested in pipelines, subshells, command substitutions, and
 // && / || chains is still caught.
+//
+// A command whose removals would all be exempt if every && chain in it ran to
+// the end is denied instead, with a rewrite hint: the target really is unsafe
+// if a chain stops early, but the fix is mechanical, and a denial lets the
+// agent make it without waiting on a human.
 func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		return hook.Allowed()
 	}
-	s := scan(file, req.Cwd, req.Config.AllowedRmRoots)
-	if v, hit := shellast.FirstCall(file, s.checkRm); hit {
-		return v
+	v, hit := shellast.FirstCall(file, scan(file, req.Cwd, req.Config.AllowedRmRoots, false).checkRm)
+	if !hit {
+		return hook.Allowed()
 	}
-	return hook.Allowed()
+	if _, stillHit := shellast.FirstCall(file, scan(file, req.Cwd, req.Config.AllowedRmRoots, true).checkRm); !stillHit {
+		return hook.Denied(reasonChainVar)
+	}
+	return v
 }
 
 // createdPath records a path the command brings into existence (mkdir, output
@@ -86,7 +99,10 @@ type scope struct {
 	lasting    []lastingPoison
 	ifsChanged bool
 	memo       map[*binding]resolved
-	created    []createdPath
+	// assumeChainsRun treats every && chain as having run to its end, for
+	// the rewrite hint in Check. Never decides an allow on its own.
+	assumeChainsRun bool
+	created         []createdPath
 	// cwd is the directory the command starts in, used to place relative
 	// targets against allowedRoots until a cd moves it (see dirsAt). Empty when
 	// the payload carried none, which leaves relative targets unplaceable and
@@ -99,8 +115,8 @@ type scope struct {
 
 // scan collects bindings and created paths. Bindings come first, since created
 // paths are resolved against the bindings in force at their own position.
-func scan(file *syntax.File, cwd string, allowedRoots []string) *scope {
-	s := &scope{cwd: cwd, allowedRoots: allowedRoots}
+func scan(file *syntax.File, cwd string, allowedRoots []string, assumeChainsRun bool) *scope {
+	s := &scope{cwd: cwd, allowedRoots: allowedRoots, assumeChainsRun: assumeChainsRun}
 	everywhere := assignedIn(file)
 	s.ifsChanged = everywhere.all || everywhere.names["IFS"]
 	s.lasting = assigningExpansions(file)
