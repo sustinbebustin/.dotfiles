@@ -387,6 +387,28 @@ func TestEvaluate(t *testing.T) {
 			reason:   reasonGeneric,
 		},
 		{
+			name:     "a brace list of names under tmp is exempt",
+			cmd:      `S=/tmp/s; rm -rf $S/{uibuild,uiout,ready.json}`,
+			decision: "allow",
+		},
+		{
+			name:     "several brace lists under tmp are exempt",
+			cmd:      `rm -rf /tmp/{a,b}/{c,d}`,
+			decision: "allow",
+		},
+		{
+			name:     "a nested brace list fails closed",
+			cmd:      `rm -rf /tmp/{a,{b,../c}}`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "an unbalanced brace fails closed",
+			cmd:      `rm -rf /tmp/{a,b`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
 			name:     "brace expansion can climb out of an artifact directory",
 			cmd:      `rm -rf node_modules/{x,../..}/src`,
 			decision: "ask",

@@ -305,19 +305,61 @@ func (s *scope) createdBeneath(target string, rmPos uint) bool {
 // directory the machine-local config has signed off on. dirs are where the rm
 // may run, for placing relative targets.
 //
-// A `{` may start a brace expansion, which none of the checks model:
-// `/tmp/{a,../home}` reads as below /tmp, and `app/{tmp,..}` cleans to a path
-// below app but also removes app itself.
+// A target with a brace list is checked once per expansion (see
+// expandBraces): `/tmp/{a,../home}` names /home as well as /tmp/a.
 func (s *scope) allDisposable(paths, dirs []string) bool {
 	for _, p := range paths {
-		if strings.Contains(p, "{") {
+		expanded, ok := expandBraces(p)
+		if !ok {
 			return false
 		}
-		if !underTmp(p) && !underArtifactDir(p) && !s.underAllowedRoot(p, dirs) {
-			return false
+		for _, e := range expanded {
+			if !underTmp(e) && !underArtifactDir(e) && !s.underAllowedRoot(e, dirs) {
+				return false
+			}
 		}
 	}
 	return true
+}
+
+// expandBraces expands the comma lists in p the way the shell does:
+// `a/{b,c}/{d,e}` names four paths. A brace with no comma inside is kept as
+// written. That matches the shell for `{x}`, and a range such as `{1..3}` only
+// varies the name it sits in, which no check reads as a `..` segment. ok is
+// false for what is not modelled: nested or unbalanced braces, or more
+// expansions than maxValues.
+func expandBraces(p string) ([]string, bool) {
+	open := strings.IndexByte(p, '{')
+	if open < 0 {
+		if strings.IndexByte(p, '}') >= 0 {
+			return nil, false
+		}
+		return []string{p}, true
+	}
+	end := strings.IndexByte(p[open:], '}')
+	if end < 0 {
+		return nil, false
+	}
+	end += open
+	inner := p[open+1 : end]
+	if strings.IndexByte(inner, '{') >= 0 {
+		return nil, false
+	}
+	items := []string{"{" + inner + "}"}
+	if strings.IndexByte(inner, ',') >= 0 {
+		items = strings.Split(inner, ",")
+	}
+	tails, ok := expandBraces(p[end+1:])
+	if !ok || len(items)*len(tails) > maxValues {
+		return nil, false
+	}
+	out := make([]string, 0, len(items)*len(tails))
+	for _, item := range items {
+		for _, tail := range tails {
+			out = append(out, p[:open]+item+tail)
+		}
+	}
+	return out, true
 }
 
 // underAllowedRoot reports whether p resolves to a path strictly below one of
