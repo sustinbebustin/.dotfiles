@@ -96,6 +96,46 @@
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
     },
+    "create-formal-verification-skill": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "pstack/skills/create-formal-verification-skill"
+      },
+      "localPath": "engineering/create-formal-verification-skill",
+      "sync": {
+        "commit": "9e88dad267e8991d26a6debc0db0d943d437104b",
+        "tree": "d0dde8b2a927266f7783e4e06bc9e1a395a09b11",
+        "at": "2026-10-26"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Mapped Cursor names to Claude Code per pstack docs/harness/claude-code.md: dropped 'pstack' from the /statechart reference; statechart is a standalone skill here."
+      ]
+    },
+    "create-verification-skill": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "pstack/skills/create-verification-skill"
+      },
+      "localPath": "engineering/create-verification-skill",
+      "sync": {
+        "commit": "9e88dad267e8991d26a6debc0db0d943d437104b",
+        "tree": "5aa2dae2726d09d219397fbbedc1e9500a239d28",
+        "at": "2026-10-26"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Mapped Cursor names to Claude Code per pstack docs/harness/claude-code.md: .cursor/skills/ -> .claude/skills/ for the generated verify skill."
+      ]
+    },
     "diagnosing-bugs": {
       "author": "mattpocock",
       "source": {
@@ -436,6 +476,44 @@
         "checkout.sh quotes the inner expansions in trim_repo_input (shellcheck SC2295) so glob characters in the input match literally.",
         "checkout.sh rejects '.', '..', empty and leading-'-' segments in host/org/repo, keeping checkouts inside the cache root and out of git's option parser (upstream let 'github.com/../../x/y' escape and ff-merge an existing repo).",
         "checkout.sh exits when parse_repo fails; upstream runs it in a process substitution, so set -e never fired and the script went on with an empty path."
+      ]
+    },
+    "maintain-formal-verification-skill": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "pstack/skills/maintain-formal-verification-skill"
+      },
+      "localPath": "engineering/maintain-formal-verification-skill",
+      "sync": {
+        "commit": "9e88dad267e8991d26a6debc0db0d943d437104b",
+        "tree": "0b843c90b8b04a639dbd86fec9795610374715f2",
+        "at": "2026-10-26"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
+    "maintain-verification-skill": {
+      "author": "cursor",
+      "source": {
+        "repo": "cursor/plugins",
+        "ref": "main",
+        "path": "pstack/skills/maintain-verification-skill"
+      },
+      "localPath": "engineering/maintain-verification-skill",
+      "sync": {
+        "commit": "9e88dad267e8991d26a6debc0db0d943d437104b",
+        "tree": "b6ce4dcdc378492f9acd55a4e56ae111204b4f11",
+        "at": "2026-10-26"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": [
+        "Mapped Cursor names to Claude Code per pstack docs/harness/claude-code.md: .cursor/skills/ -> .claude/skills/; read-only subagent spelled out as Agent with subagent_type Explore plus a no-edit brief and git status check, since Explore keeps Bash."
       ]
     },
     "opentui": {
