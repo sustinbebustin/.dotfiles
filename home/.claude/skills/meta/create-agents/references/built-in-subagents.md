@@ -40,7 +40,7 @@ Capable agent for complex, multi-step tasks needing both exploration and action.
 
 The default Agent tool target when nothing more specific fits. Claude delegates here when the task requires exploration AND modification, complex reasoning to interpret results, or multiple dependent steps.
 
-Where fork mode is on — the default in interactive sessions since v2.1.232 — Claude can spawn a FORK that inherits the parent conversation by requesting the `fork` subagent type. When it requests no type it still gets `general-purpose`; named subagents are unaffected.
+Where fork mode is on — the default since v2.1.232 interactively and v2.1.302 elsewhere — Claude can spawn a FORK that inherits the parent conversation by requesting the `fork` subagent type. When it requests no type it still gets `general-purpose`; named subagents are unaffected.
 
 ## Helper Subagents
 

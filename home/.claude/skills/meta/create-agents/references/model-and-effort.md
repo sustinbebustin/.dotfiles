@@ -62,6 +62,8 @@ Options: `low`, `medium`, `high`, `xhigh`, `max`. Available levels depend on the
 
 A level the model doesn't support falls back to the highest supported level at or below it (`xhigh` runs as `high` on Opus 4.6). A `maxEffortLevel` cap in settings, global or per model under `modelSettings`, lowers the ceiling the same way (v2.1.267+).
 
+Claude can also pass a per-invocation `effort` on the Agent tool (v2.1.292+); it persists when the subagent is resumed. The `CLAUDE_CODE_EFFORT_LEVEL` environment variable beats both frontmatter and the per-call value.
+
 Omitting `effort` uses the model's default (medium on Opus 5.5 and Haiku 5.5, high on Sonnet 5.5 and Fable 5.1). Tune effort before switching models: it often recovers the same savings. Pair `sonnet` only with `low` or `medium`; a role that needs more runs cheaper per task as `opus` at `medium`.
 
 ## Cost Awareness

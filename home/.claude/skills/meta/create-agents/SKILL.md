@@ -3,7 +3,7 @@ name: create-agents
 description: Designing, authoring, and auditing Claude Code subagents — frontmatter, tool scoping, model choice, and memory. Use when creating, editing, or auditing an agent file in `.claude/agents/`.
 metadata:
   author: sustinbebustin
-  last_reviewed_version: 2.1.288
+  last_reviewed_version: 2.1.310
 ---
 
 # Creating Subagents
@@ -74,11 +74,12 @@ Only `name` and `description` are required. Full details in [frontmatter.md](ref
 | `model` | `sonnet`, `opus`, `haiku`, `fable`, a full model ID, or `inherit`. If omitted, resolves via `CLAUDE_CODE_SUBAGENT_MODEL`, then the main conversation's model. |
 | `permissionMode` | `default` (alias `manual`), `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, or `plan`. `bypassPermissions` applies only when the parent is already in it. |
 | `maxTurns` | Hard cap on agentic turns before the subagent stops. Output is returned marked partial and can be resumed (v2.1.246+). |
-| `skills` | Skills to fully preload into the subagent's context at startup. |
+| `autoCompactWindow` | Auto-compact window in tokens, 100000 to 1000000. Requires v2.1.296+. |
+| `skills` | Skills to fully preload into the subagent's context at startup (up to 32, v2.1.295+). |
 | `mcpServers` | MCP servers scoped to this subagent. Inline definitions or names. |
 | `hooks` | Lifecycle hooks scoped to this subagent's runtime. |
 | `memory` | `user`, `project`, or `local`. Enables cross-session persistent memory. |
-| `background` | `true` to always run in background, even when Claude needs the result right away. Redundant where fork mode is on — Claude Code backgrounds every spawned subagent there and Claude can't ask for the foreground. |
+| `background` | `true` to always run in background, even when Claude needs the result right away. Redundant where fork mode is on (the default) — Claude Code backgrounds every spawned subagent there and Claude can't ask for the foreground. |
 | `omitClaudeMd` | `true` to launch without user, project, and local `CLAUDE.md` (managed policy files still load). Ignored when run as the main session via `--agent`. Requires v2.1.271+. |
 | `effort` | `low`, `medium`, `high`, `xhigh`, `max`. Available levels depend on the model. |
 | `isolation` | `worktree` to run in a temporary git worktree. |
@@ -96,7 +97,7 @@ Pick exactly one of these strategies, not both at once unless intentional:
 - **Denylist** with `disallowedTools: Edit, Write` -> subagent inherits everything else from parent.
 - Both fields set: `disallowedTools` applies first, then `tools` resolves against the remainder.
 
-Fork mode is on by default in interactive sessions (v2.1.232+) and off under `-p`/the Agent SDK. Where it's on, every subagent Claude spawns runs in the background; where it's off, Claude backgrounds by default and foregrounds when it needs the result. A background subagent keeps every MCP tool but only a narrow set of built-ins: `Read`, `Grep`, `Glob`, `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `Skill`, `ToolSearch`, `EnterWorktree`, `ExitWorktree`, `Monitor`, `TaskStop`, `SendMessage`, `Artifact`. Anything else is dropped silently, whether inherited or named in `tools`, so the same definition can resolve to different tools in foreground and background. Forks are exempt.
+Fork mode is on by default in interactive sessions (v2.1.232+) and, since v2.1.302, in `-p`, the Agent SDK, the desktop app, and VS Code; `CLAUDE_CODE_FORK_SUBAGENT=0` turns it off. Where it's on, every subagent Claude spawns runs in the background; where it's off, Claude backgrounds by default and foregrounds when it needs the result. A background subagent keeps every MCP tool but only a narrow set of built-ins: `Read`, `Grep`, `Glob`, `Bash`, `PowerShell`, `Edit`, `Write`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `Skill`, `ToolSearch`, `EnterWorktree`, `ExitWorktree`, `Monitor`, `TaskStop`, `SendMessage`, `Artifact`. Anything else is dropped silently, whether inherited or named in `tools`, so the same definition can resolve to different tools in foreground and background. Forks are exempt.
 
 `permissionMode` works like CLI `--permission-mode`. Parent modes `bypassPermissions`, `acceptEdits`, and `auto` always take precedence over the subagent's setting, and a subagent can't escalate into `bypassPermissions` from a parent in `default`, `dontAsk`, or `plan` — that value is dropped for the parent's mode (v2.1.267+). See [tools-and-permissions.md](references/tools-and-permissions.md) for `Agent(type)` spawn restrictions and `permissions.deny` rules.
 

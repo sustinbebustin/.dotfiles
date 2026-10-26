@@ -77,7 +77,7 @@ Controls permission prompting. Inherits from parent unless overridden.
 
 Parent precedence: if parent uses `bypassPermissions`, `acceptEdits`, or `auto`, that takes precedence and CANNOT be overridden by the subagent's frontmatter.
 
-A subagent can't escalate INTO `bypassPermissions` either: when the parent is in `default`, `dontAsk`, or `plan`, a subagent declaring `bypassPermissions` keeps the parent's mode (v2.1.267+). It runs in that mode only when the parent already does.
+A subagent can't escalate INTO `bypassPermissions` either: when the parent is in `default`, `dontAsk`, or `plan`, a subagent declaring `bypassPermissions` keeps the parent's mode (v2.1.267+). It runs in that mode only when the parent already does. Likewise `permissionMode: auto` keeps the parent's mode when auto mode is unavailable (v2.1.292+).
 
 Plugin subagents IGNORE this field.
 
@@ -139,7 +139,7 @@ skills:
   - error-handling-patterns
 ```
 
-You CANNOT preload a skill that sets `disable-model-invocation: true` — which since v2.1.215 includes the bundled `/verify` and `/code-review`. Missing or disabled skills are skipped with a debug-log warning.
+At most 32 distinct skills are preloaded (v2.1.295+). You CANNOT preload a skill that sets `disable-model-invocation: true` — which since v2.1.215 includes the bundled `/verify` and `/code-review`. Missing or disabled skills are skipped with a debug-log warning.
 
 ### `mcpServers`
 
@@ -191,6 +191,14 @@ When set, Read/Write/Edit are auto-enabled and `MEMORY.md` (first 200 lines or 2
 memory: project
 ```
 
+### `autoCompactWindow`
+
+Token window at which this subagent auto-compacts, 100000 to 1000000. Also accepted in `--agents` JSON. Requires v2.1.296+.
+
+```yaml
+autoCompactWindow: 200000
+```
+
 ### `omitClaudeMd`
 
 `true` to launch without the user, project, and local `CLAUDE.md` files. Managed policy files still load, except for managed subagents. Use for subagents that take everything they need from the delegation prompt. Ignored when the agent runs as the main session via `--agent` or the `agent` setting. Requires v2.1.271+.
@@ -201,7 +209,7 @@ omitClaudeMd: true
 
 ### `background`
 
-`true` to always run as a background task, even when Claude needs the result right away. Where [fork mode](advanced-patterns.md) is on — the default in interactive sessions since v2.1.232 — Claude Code already backgrounds every subagent Claude spawns, so the field only matters where fork mode is off (`-p`, the Agent SDK). Claude Code refuses to spawn an agent-team teammate's subagent whose definition sets `background: true`.
+`true` to always run as a background task, even when Claude needs the result right away. Where [fork mode](advanced-patterns.md) is on — the default since v2.1.232 interactively and v2.1.302 in `-p`, the Agent SDK, the desktop app, and VS Code — Claude Code already backgrounds every subagent Claude spawns, so the field only matters where fork mode is off (`CLAUDE_CODE_FORK_SUBAGENT=0`). Claude Code refuses to spawn an agent-team teammate's subagent whose definition sets `background: true`.
 
 ```yaml
 background: true
@@ -251,6 +259,8 @@ experimental:
 Write `cacheTtl` inside the map, not at the top level.
 
 ## Field Compatibility
+
+Unrecognized fields (typically misspellings; names are camelCase and exact) are silently ignored. `claude --debug` logs `does not recognize or apply` for them (v2.1.296+).
 
 Plugin subagents silently IGNORE: `hooks`, `mcpServers`, `permissionMode`. If you need them, copy the file into `.claude/agents/` or `~/.claude/agents/`.
 
