@@ -172,7 +172,9 @@ the `gofumpt`/`gci` formatters `make fmt` applies.
 
 Workflows live in skills, not slash commands. Skills are grouped by category under `skills/` (`engineering`, `git`, `meta`, `productivity`, `review`, `tools`, `workflows`); the category layer is flattened on publish (see Stow Strategy), so names are unique across categories.
 
-Subagents are grouped by domain under `agents/`: `design/` (the Impeccable build pipeline), `explore/` (scoutmaster and the scouts it dispatches), and `review/` (code-review axes and stack-specific reviewers).
+Subagents are grouped by domain under `agents/`: `design/` (the Impeccable build pipeline), `explore/` (scoutmaster and the scouts it dispatches), and `review/` (the code-review skill's spec, standards, and doc-comment axes; `/vet`'s `vet-reviewer` and `vet-verifier`; and `design-consultant`).
+
+`/vet` (`skills/review/vet/`) is the one review pipeline: `scope.sh` resolves the scope, `vet.workflow.js` fans out reviewers over lens files and verifies their findings, and a repo teaches it project facts through an overlay at `.claude/vet.md` (this repo's sits at the root, outside `home/`).
 
 `commands/` holds the few remaining standalone slash commands.
 
