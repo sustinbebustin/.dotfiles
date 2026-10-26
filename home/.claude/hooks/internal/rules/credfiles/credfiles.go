@@ -23,7 +23,9 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
 	"strings"
+	"unicode"
 
 	"mvdan.cc/sh/v3/syntax"
 
@@ -59,44 +61,72 @@ func Check(req *hook.Request) hook.Verdict {
 
 // relaxedIn returns whether a path named in req lies under one of the
 // configured relaxed roots, where the name-word heuristics are skipped (see
-// classifyIn). A relative path is resolved against the tool's working
-// directory; one that cannot be resolved is never relaxed.
+// classifyIn). A relative path must lie under one from every directory the
+// tool may run in (see workDirs); one that cannot be placed is never relaxed.
 func relaxedIn(req *hook.Request) func(string) bool {
 	roots := req.Config.RelaxedCredRoots
 	if len(roots) == 0 {
 		return func(string) bool { return false }
 	}
 	home, _ := os.UserHomeDir()
+	dirs := workDirs(req)
 	return func(p string) bool {
-		abs, ok := resolve(strings.TrimSpace(p), req.Cwd, home)
+		targets, ok := resolve(strings.TrimSpace(p), dirs, home)
 		if !ok {
 			return false
 		}
-		for _, root := range roots {
-			if abs == root || strings.HasPrefix(abs, root+"/") {
-				return true
+		for _, abs := range targets {
+			if !underARoot(abs, roots) {
+				return false
 			}
 		}
-		return false
+		return true
 	}
 }
 
-// resolve turns p into an absolute, cleaned path: "~" expands to home and a
-// relative path joins cwd. ok is false when the needed base is unknown.
-func resolve(p, cwd, home string) (string, bool) {
+func underARoot(abs string, roots []string) bool {
+	for _, root := range roots {
+		if abs == root || strings.HasPrefix(abs, root+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// workDirs returns the directories a relative path in req may be relative to:
+// the cwd, and for Bash every directory a cd in the command may move to. nil
+// means unknown.
+func workDirs(req *hook.Request) []string {
+	if file, ok := req.Shell.File(); ok {
+		dirs, _ := shellast.WorkDirs(file, req.Cwd)
+		return dirs
+	}
+	if !path.IsAbs(req.Cwd) {
+		return nil
+	}
+	return []string{path.Clean(req.Cwd)}
+}
+
+// resolve turns p into the absolute, cleaned paths it may name: "~" expands to
+// home, and a relative path joins each of dirs. ok is false when the needed
+// base is unknown.
+func resolve(p string, dirs []string, home string) ([]string, bool) {
 	switch {
 	case p == "~" || strings.HasPrefix(p, "~/"):
 		if home == "" {
-			return "", false
+			return nil, false
 		}
-		p = home + p[1:]
+		return []string{path.Clean(home + p[1:])}, true
 	case path.IsAbs(p):
-	case cwd == "":
-		return "", false
-	default:
-		p = path.Join(cwd, p)
+		return []string{path.Clean(p)}, true
+	case len(dirs) == 0:
+		return nil, false
 	}
-	return path.Clean(p), true
+	out := make([]string, len(dirs))
+	for i, d := range dirs {
+		out[i] = path.Join(d, p)
+	}
+	return out, true
 }
 
 // verbs describes what each tool would do to the file, so the reason names the
@@ -139,6 +169,15 @@ func classifyIn(p string, relaxed bool) tier {
 	if p == "" {
 		return tierNone
 	}
+	// A URL's query and fragment are not part of the path it names, and a `?`
+	// there would otherwise read as a glob (`trees/master?recursive=1`). Only
+	// a word that is a URL through and through counts: a script handed to ssh
+	// or `python -c` can hold a URL and then a secret path in one word.
+	if wholeURL.MatchString(p) {
+		if q := strings.IndexAny(p, "?#"); q >= 0 {
+			p = p[:q]
+		}
+	}
 	cleaned := path.Clean(strings.TrimSpace(p))
 	base := path.Base(cleaned)
 	switch base {
@@ -174,6 +213,10 @@ func classifyIn(p string, relaxed bool) tier {
 	}
 	return tierNone
 }
+
+// wholeURL matches a word that is a single URL: a scheme, then nothing a shell
+// command line would separate words or statements with.
+var wholeURL = regexp.MustCompile("^[A-Za-z][A-Za-z0-9+.-]*://[^\\s'\";&|<>()`]*$")
 
 // looksLikeEnv reports whether base names an env file: `.env`, `.envrc`,
 // `.env.local`, `.env-staging`, `prod.env`, `app.env.local`. The comparison is
@@ -304,17 +347,30 @@ var secretExts = map[string]bool{
 	".enc": true, // sops/ansible-vault ciphertext; the plaintext name it shadows
 }
 
+// sshKeyPrefixes are the OpenSSH default private key names, `id_<type>`; the
+// _sk security-key variants and renamed copies (`id_rsa.old`) share them.
+var sshKeyPrefixes = []string{"id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", "id_xmss"}
+
+// isSSHKeyName reports a private key by name: a default name, or any other
+// `id_` name with no extension, which is how deploy and CI keys are named
+// (`id_deploy`). An `id_` word with an extension or a `|` in it is a doc page
+// or a search pattern (`id_root-user.md`, `id_string|Exception`). The public
+// half ends in `.pub` and is exempted before this runs.
+func isSSHKeyName(lower string) bool {
+	for _, prefix := range sshKeyPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return strings.HasPrefix(lower, "id_") && path.Ext(lower) == "" && !strings.Contains(lower, "|")
+}
+
 func isSecretName(base string) bool {
 	lower := strings.ToLower(base)
-	if secretNames[lower] {
+	if secretNames[lower] || isSSHKeyName(lower) {
 		return true
 	}
-	// Every OpenSSH default private key is `id_<type>`; the matching public
-	// half ends in `.pub` and is exempted before this runs.
-	if strings.HasPrefix(lower, "id_") {
-		return true
-	}
-	if !dataExts[strings.ToLower(path.Ext(lower))] {
+	if !dataExts[fileExt(lower)] {
 		return false
 	}
 	for _, word := range secretWords {
@@ -326,7 +382,22 @@ func isSecretName(base string) bool {
 }
 
 func hasSecretExt(base string) bool {
-	return secretExts[strings.ToLower(path.Ext(base))]
+	return secretExts[fileExt(base)]
+}
+
+// fileExt returns base's lowercased extension, or "" when what follows the last
+// dot is not one. checkBash classifies every argument, and a jq filter
+// (`... | .key`) or a regex (`cert-[0-9]+\.pem`) ends in what path.Ext reads as
+// an extension: a `|` anywhere, or whitespace or a backslash right before the
+// dot, marks the word as an expression rather than a file name.
+func fileExt(base string) string {
+	ext := path.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	if strings.Contains(base, "|") || strings.HasSuffix(stem, `\`) ||
+		strings.TrimRightFunc(stem, unicode.IsSpace) != stem {
+		return ""
+	}
+	return strings.ToLower(ext)
 }
 
 // sensitiveNames hold tokens often enough to warrant a prompt, but are also

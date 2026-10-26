@@ -99,6 +99,33 @@ func TestClassify(t *testing.T) {
 		{"infra/terraform.tfstate", tierSensitive},
 		{"infra/prod.tfvars", tierSensitive},
 
+		// SSH key names by algorithm, and words that merely start with id_
+		{"id_ed25519_sk", tierSecret},
+		{"id_rsa_work.old", tierSecret},
+		{"id_ecdsa", tierSecret},
+		{"docs/id_root-user.md", tierNone},
+		{"id_string|Exception", tierNone},
+
+		// filters and patterns that only look like they end in a key extension
+		{".shapes | to_entries[] | .key", tierNone},
+		{".shapes|to_entries[]|select(.value.type==\"operation\")|.key", tierNone},
+		{"force|VersionId|object.Key", tierNone},
+		{`SimpleNotificationService-[0-9a-f]+\.pem`, tierNone},
+		{".key", tierSecret},
+		{"server (1).key", tierSecret},
+
+		// a URL's query string is not part of its path
+		{"https://api.github.com/repos/o/r/git/trees/master?recursive=1", tierNone},
+		{"https://example.com/certs/server.pem", tierSecret},
+		{"file:///home/me/.aws/credentials", tierSecret},
+		{`curl -s "https://x/y?z=1"; cat ~/.ssh/id_rsa`, tierSecret},
+		{"u='h://x?'; print(open('/home/u/.aws/credentials').read())", tierSecret},
+		{"https://x/?a/home/u/.ssh/id_rsa", tierNone}, // the shell passes this whole word as one URL
+
+		// a custom-named key without an extension still reads as one
+		{"deploy/id_deploy", tierSecret},
+		{"keys/id_github", tierSecret},
+
 		// ordinary paths
 		{"", tierNone},
 		{"main.go", tierNone},
@@ -193,6 +220,9 @@ func TestRelaxedRoots(t *testing.T) {
 		{"climbing out of the root is not relaxed", "Bash", root, `cat ../secrets.json`, "deny"},
 		{"a neighbouring directory is not relaxed", "Read", "", root + "-old/secrets.json", "deny"},
 		{"relative path with no cwd is not relaxed", "Bash", "", `cat secrets.json`, "deny"},
+		{"a cd out of the root takes relative paths with it", "Bash", root, `cd /home/tester && cat secrets.json`, "deny"},
+		{"a cd within the root keeps relative paths relaxed", "Bash", root, `cd ` + root + `/sub && cat secrets.json`, "allow"},
+		{"an unknown cd leaves relative paths unplaced", "Bash", root, `cd "$D" && cat secrets.json`, "deny"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
