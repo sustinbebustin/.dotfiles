@@ -1,6 +1,7 @@
 package shellast
 
 import (
+	"slices"
 	"strconv"
 	"testing"
 
@@ -149,6 +150,9 @@ func TestInvocation(t *testing.T) {
 		{`sudo -u deploy`, "", nil},
 		{`$CMD push`, "", nil},
 		{`sudo $CMD push`, "", nil},
+		// A lookup runs nothing.
+		{`command -v aws`, "", nil},
+		{`command -pV aws`, "", nil},
 		// Not a wrapper: the operand is a duration, not a command.
 		{`timeout 5 git push`, "timeout", []string{"5", "git", "push"}},
 	}
@@ -180,6 +184,57 @@ func TestInvocationRefusesWordsItCannotRead(t *testing.T) {
 		if name, _ := invocation(t, cmd); name != "" {
 			t.Errorf("Invocation(%q) name = %q, want empty", cmd, name)
 		}
+	}
+}
+
+func TestWorkDirs(t *testing.T) {
+	const cwd = "/home/me/app"
+	cases := []struct {
+		cmd   string
+		cwd   string
+		dirs  []string
+		known bool
+	}{
+		{`ls`, cwd, []string{cwd}, true},
+		{`ls`, "", nil, false},
+		{`ls`, "rel", nil, false},
+		{`cd /srv/x && ls`, cwd, []string{cwd, "/srv/x"}, true},
+		{`(cd /srv/x/ && ls); cd -P /srv/y`, cwd, []string{cwd, "/srv/x", "/srv/y"}, true},
+		{`cd /home/me/app && ls`, cwd, []string{cwd}, true},
+		{`builtin cd /srv/x`, cwd, []string{cwd, "/srv/x"}, true},
+		{`pushd /srv/x && popd`, cwd, []string{cwd, "/srv/x"}, true},
+		{`pushd +1`, cwd, []string{cwd}, true},
+		{`pushd`, cwd, []string{cwd}, true},
+		{`env -C /srv/x ls`, cwd, []string{cwd, "/srv/x"}, true},
+		{`env --chdir=/srv/x ls`, cwd, []string{cwd, "/srv/x"}, true},
+		{`sudo -D /srv/x ls`, cwd, []string{cwd, "/srv/x"}, true},
+		{`cd src`, cwd, nil, false},
+		{`cd ./sub && cd ..`, cwd, []string{cwd, cwd + "/sub", "/home/me"}, true},
+		{`cd /srv/x && cd ../y`, cwd, []string{cwd, "/srv/x", "/home/me/y", "/srv/y"}, true},
+		{`for d in a; do cd ..; done`, cwd, nil, false},
+		{`f() { cd ..; }`, cwd, nil, false},
+		{`eval cd /`, cwd, nil, false},
+		{`. ./env.sh`, cwd, nil, false},
+		{`cd`, cwd, nil, false},
+		{`cd -`, cwd, nil, false},
+		{`cd ~/dev`, cwd, nil, false},
+		{`cd "$D"`, cwd, nil, false},
+		{`cd /srv/$D`, cwd, nil, false},
+		{`cd old new`, cwd, nil, false},
+		{`env -C "$D" ls`, cwd, nil, false},
+		{`echo $(cd /srv/x)`, cwd, []string{cwd, "/srv/x"}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.cmd, func(t *testing.T) {
+			file, ok := Parse(tc.cmd).File()
+			if !ok {
+				t.Fatalf("Parse(%q) failed", tc.cmd)
+			}
+			dirs, known := WorkDirs(file, tc.cwd)
+			if known != tc.known || !slices.Equal(dirs, tc.dirs) {
+				t.Errorf("WorkDirs(%q, %q) = %q, %v; want %q, %v", tc.cmd, tc.cwd, dirs, known, tc.dirs, tc.known)
+			}
+		})
 	}
 }
 

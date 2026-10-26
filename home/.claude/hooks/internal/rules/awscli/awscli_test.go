@@ -28,6 +28,7 @@ func TestCheck(t *testing.T) {
 		{"unrelated command is allowed", `echo hi`, "allow"},
 		{"sudo of something else is allowed", `sudo ls -la`, "allow"},
 		{"aws as an argument is not a call", `echo aws`, "allow"},
+		{"looking aws up is not a call", `w=$(command -v aws); readlink -f "$w"`, "allow"},
 		{"a command merely prefixed with aws is not aws", `awslogs get x`, "allow"},
 		{"unparseable command is allowed", `echo "unterminated`, "allow"},
 		{"empty command is allowed", ``, "allow"},

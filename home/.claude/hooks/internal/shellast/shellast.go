@@ -10,6 +10,8 @@
 package shellast
 
 import (
+	"path"
+	"slices"
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
@@ -159,6 +161,7 @@ var wrapperFlags = map[string]map[string]bool{
 	"sudo": {
 		"-u": true, "-g": true, "-p": true, "-C": true,
 		"-D": true, "-h": true, "-R": true, "-T": true, "-U": true,
+		"--chdir": true,
 	},
 	"doas": {"-u": true, "-C": true},
 	"env": {
@@ -171,6 +174,17 @@ var wrapperFlags = map[string]map[string]bool{
 	"nohup":   {},
 }
 
+// lookupFlags are the short flags, by wrapper, that turn the wrapper into a
+// lookup that runs nothing: `command -v aws` prints where aws lives.
+var lookupFlags = map[string]string{"command": "vV"}
+
+// chdirFlags are the wrapper flags that run the wrapped command in another
+// directory. Each also appears in wrapperFlags, since it consumes the next word.
+var chdirFlags = map[string]map[string]bool{
+	"env":  {"-C": true, "--chdir": true},
+	"sudo": {"-D": true, "--chdir": true},
+}
+
 // Invocation returns the command a call actually runs, plus the words after it.
 // Leading wrappers are stepped over, so `sudo -u deploy env FOO=1 aws s3 ls`
 // reports "aws". The name is returned as written; apply CommandName to it when
@@ -179,35 +193,75 @@ var wrapperFlags = map[string]map[string]bool{
 // render turns a word into the text to match on. Callers pass WordLit unless
 // they resolve more than it does.
 //
-// An empty name means no command word was found: the call is only wrappers, or
-// a word render could not reduce to text (a command substitution, an unknown
-// variable). Such a call is left alone, which is what the rules did before they
-// looked through wrappers at all.
+// An empty name means no command word was found: the call is only wrappers, a
+// lookup such as `command -v aws` that runs nothing, or a word render could not
+// reduce to text (a command substitution, an unknown variable). Such a call is
+// left alone, which is what the rules did before they looked through wrappers
+// at all.
 func Invocation(args []*syntax.Word, render func(*syntax.Word) string) (name string, rest []*syntax.Word) {
+	inv := invoke(args, render)
+	return inv.name, inv.rest
+}
+
+// wrapperScan is what invoke learns from a call's leading words.
+type wrapperScan struct {
+	name string
+	rest []*syntax.Word
+	// dirs are the literal targets of chdirFlags among the wrappers.
+	dirs []string
+	// unknownDir means a chdir flag's target was not a literal.
+	unknownDir bool
+}
+
+func invoke(args []*syntax.Word, render func(*syntax.Word) string) wrapperScan {
+	var inv wrapperScan
 	for i := 0; i < len(args); {
 		tok := render(args[i])
 		if tok == "" {
-			return "", nil
+			return inv
 		}
-		flags, wrapper := wrapperFlags[CommandName(tok)]
-		if !wrapper {
-			return tok, args[i+1:]
+		wrapper := CommandName(tok)
+		flags, isWrapper := wrapperFlags[wrapper]
+		if !isWrapper {
+			inv.name, inv.rest = tok, args[i+1:]
+			return inv
 		}
-		i = skipWrapperArgs(args, i+1, flags, render)
+		var lookup bool
+		i, lookup = inv.skipWrapperArgs(args, i+1, wrapper, flags, render)
+		if lookup {
+			return inv
+		}
 	}
-	return "", nil
+	return inv
 }
 
 // skipWrapperArgs advances past a wrapper's own flags and environment
-// assignments, returning the index of the word that follows them.
-func skipWrapperArgs(args []*syntax.Word, i int, flags map[string]bool, render func(*syntax.Word) string) int {
+// assignments, returning the index of the word that follows them. lookup
+// reports a flag that makes the wrapper run nothing (see lookupFlags).
+func (inv *wrapperScan) skipWrapperArgs(args []*syntax.Word, i int, wrapper string, flags map[string]bool,
+	render func(*syntax.Word) string,
+) (next int, lookup bool) {
 	for i < len(args) {
 		a := render(args[i])
 		switch {
 		case a == "--":
 			// End of the wrapper's options; the command word is next.
-			return i + 1
+			return i + 1, false
 		case len(a) > 1 && strings.HasPrefix(a, "-"):
+			flag, value, inline := strings.Cut(a, "=")
+			switch {
+			case chdirFlags[wrapper][flag] && inline:
+				inv.addDir(value, IsLiteral(args[i]))
+			case !strings.HasPrefix(a, "--") && len(a) > 2 && chdirFlags[wrapper][a[:2]]:
+				// A short flag with its value attached: `env -C/dir`.
+				inv.addDir(a[2:], IsLiteral(args[i]))
+			case chdirFlags[wrapper][flag] && i+1 < len(args):
+				inv.addDir(WordLit(args[i+1]), IsLiteral(args[i+1]))
+			case chdirFlags[wrapper][flag]:
+				inv.unknownDir = true
+			case !strings.HasPrefix(a, "--") && strings.ContainsAny(a[1:], lookupFlags[wrapper]):
+				return i, true
+			}
 			if flags[a] {
 				i += 2
 			} else {
@@ -216,10 +270,201 @@ func skipWrapperArgs(args []*syntax.Word, i int, flags map[string]bool, render f
 		case isEnvAssign(a):
 			i++
 		default:
-			return i
+			return i, false
 		}
 	}
-	return i
+	return i, false
+}
+
+func (inv *wrapperScan) addDir(dir string, literal bool) {
+	if !literal {
+		inv.unknownDir = true
+		return
+	}
+	inv.dirs = append(inv.dirs, dir)
+}
+
+// WorkDirs returns every directory a command in file may run in: cwd, plus the
+// target of each cd, pushd, `env -C` and `sudo -D` anywhere in it. A target
+// starting with `.` or `..` (which CDPATH never redirects) is joined onto every
+// directory found before it. known is false when a target cannot be pinned
+// down -- another relative form, computed, `-`, `~`, a brace or glob, or absent
+// (home) -- or when one may be applied repeatedly or out of order: a relative
+// cd in a loop or function body, or any eval or source. Then no directory can
+// be assumed for a relative path. An empty or relative cwd is unknown too.
+//
+// The set over-approximates: a cd inside a subshell, or on a branch that never
+// runs, still adds its target. That is the safe direction for a caller that
+// accepts a relative path only when it is acceptable from every directory
+// returned. popd and pushd's stack rotations only revisit directories already
+// in the set, so they add nothing.
+func WorkDirs(file *syntax.File, cwd string) (dirs []string, known bool) {
+	if !path.IsAbs(cwd) {
+		return nil, false
+	}
+	dirs = []string{path.Clean(cwd)}
+	known = true
+	repeated := repeatedSpans(file)
+	add := func(dir string, at syntax.Pos) {
+		var next []string
+		first, _, _ := strings.Cut(dir, "/")
+		switch {
+		case strings.ContainsAny(dir, "{*?["):
+			known = false
+			return
+		case path.IsAbs(dir):
+			next = []string{path.Clean(dir)}
+		case (first == "." || first == "..") && !repeated(at):
+			for _, d := range dirs {
+				next = append(next, path.Join(d, dir))
+			}
+		default:
+			known = false
+			return
+		}
+		for _, d := range next {
+			if !slices.Contains(dirs, d) {
+				dirs = append(dirs, d)
+			}
+		}
+	}
+	syntax.Walk(file, func(n syntax.Node) bool {
+		c, ok := n.(*syntax.CallExpr)
+		if !ok {
+			return known
+		}
+		if name, _ := Invocation(c.Args, WordLit); name == "eval" || name == "source" || name == "." {
+			known = false
+			return false
+		}
+		if dir, moved := WrapperDir(c.Args); moved {
+			if dir == "" {
+				known = false
+			} else {
+				add(dir, c.Pos())
+			}
+		}
+		switch move, target := DirChange(c); move {
+		case Stays, Revisits:
+		case MovesTo:
+			if !IsLiteral(target) {
+				known = false
+			} else {
+				add(WordLit(target), c.Pos())
+			}
+		case MovesUnknown:
+			known = false
+		}
+		return known
+	})
+	if !known {
+		return nil, false
+	}
+	return dirs, true
+}
+
+// repeatedSpans returns a test for whether a position lies in code that may run
+// more than once, or later than it is written: a loop or a function body.
+func repeatedSpans(file *syntax.File) func(syntax.Pos) bool {
+	var spans [][2]syntax.Pos
+	syntax.Walk(file, func(n syntax.Node) bool {
+		switch x := n.(type) {
+		case *syntax.ForClause, *syntax.WhileClause:
+			spans = append(spans, [2]syntax.Pos{x.Pos(), x.End()})
+		case *syntax.FuncDecl:
+			spans = append(spans, [2]syntax.Pos{x.Body.Pos(), x.Body.End()})
+		}
+		return true
+	})
+	return func(p syntax.Pos) bool {
+		for _, s := range spans {
+			if p.Offset() >= s[0].Offset() && p.Offset() < s[1].Offset() {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// WrapperDir reports the directory a call's wrappers run it in (`env -C dir`,
+// `sudo -D dir`). moved is false when no wrapper changes directory; dir is
+// empty when one does but its target is not a literal.
+func WrapperDir(args []*syntax.Word) (dir string, moved bool) {
+	inv := invoke(args, WordLit)
+	switch {
+	case inv.unknownDir:
+		return "", true
+	case len(inv.dirs) > 0:
+		return inv.dirs[len(inv.dirs)-1], true
+	}
+	return "", false
+}
+
+// DirMove is how a call changes the shell's working directory.
+type DirMove int
+
+const (
+	// Stays means the call does not change directory.
+	Stays DirMove = iota
+	// MovesTo means the call changes to the directory its target word names.
+	MovesTo
+	// Revisits means the call returns to a directory the shell was already in
+	// during this command: popd, and pushd's swap and stack rotations.
+	Revisits
+	// MovesUnknown means the call changes to a directory not named in it:
+	// home, `-`, or zsh's two-operand cd.
+	MovesUnknown
+)
+
+// DirChange reports how c changes the working directory, and for MovesTo the
+// word naming the target. Wrappers are looked through, so `builtin cd /x`
+// counts; `env -C` moves only the command it wraps and is WrapperDir's.
+func DirChange(c *syntax.CallExpr) (DirMove, *syntax.Word) {
+	name, rest := Invocation(c.Args, WordLit)
+	switch name = CommandName(name); name {
+	case "cd", "chdir", "pushd":
+		return cdTarget(name, rest)
+	case "popd":
+		return Revisits, nil
+	}
+	return Stays, nil
+}
+
+// cdTarget reads the operand of a cd, chdir or pushd.
+func cdTarget(name string, args []*syntax.Word) (DirMove, *syntax.Word) {
+	var operands []*syntax.Word
+	optsEnded := false
+	for _, a := range args {
+		tok := WordLit(a)
+		switch {
+		case !optsEnded && tok == "--":
+			optsEnded = true
+		case !optsEnded && len(tok) > 1 && strings.HasPrefix(tok, "-") && !isStackIndex(tok):
+			// -L, -P, -e, -@, and zsh's -q and -s.
+		default:
+			operands = append(operands, a)
+		}
+	}
+	switch {
+	case name == "pushd" && (len(operands) == 0 || isStackIndex(WordLit(operands[0]))):
+		return Revisits, nil
+	case len(operands) != 1:
+		return MovesUnknown, nil
+	}
+	return MovesTo, operands[0]
+}
+
+// isStackIndex reports a pushd stack rotation such as +1 or -0.
+func isStackIndex(tok string) bool {
+	if len(tok) < 2 || (tok[0] != '+' && tok[0] != '-') {
+		return false
+	}
+	for _, r := range tok[1:] {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // isEnvAssign reports whether tok is a `NAME=value` prefix of the kind env and
