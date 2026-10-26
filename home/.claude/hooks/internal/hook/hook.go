@@ -189,13 +189,14 @@ func NewRequest(toolName, filePath, path, command string) *Request {
 // target reads as non-scratch, which prompts. Its directory is whatever the
 // parent was in when it started it, so the derived Request keeps the cwd only
 // when the parent cannot have moved (see shellast.WorkDirs); otherwise it gets
-// none, and relative paths in it go unplaced.
+// none, and relative paths in it go unplaced. A rebase's exec scripts never
+// keep it: git runs them at the top of the worktree.
 func (r *Request) Embedded() []*Request {
 	file, ok := r.Shell.File()
 	if !ok {
 		return nil
 	}
-	scripts := shellast.EmbeddedScripts(file)
+	scripts := shellast.NestedScripts(file)
 	if len(scripts) == 0 {
 		return nil
 	}
@@ -204,11 +205,14 @@ func (r *Request) Embedded() []*Request {
 		cwd = ""
 	}
 	out := make([]*Request, 0, len(scripts))
-	for _, script := range scripts {
+	for _, n := range scripts {
 		sub := *r
 		sub.Cwd = cwd
-		sub.Command = script
-		sub.Shell = shellast.Parse(script)
+		if n.OwnDir {
+			sub.Cwd = ""
+		}
+		sub.Command = n.Script
+		sub.Shell = shellast.Parse(n.Script)
 		out = append(out, &sub)
 	}
 	return out

@@ -503,49 +503,74 @@ var shellFlagArgs = map[string]bool{
 	"-O": true, "+O": true, "-o": true, "+o": true,
 }
 
-// maxEmbedDepth caps how far EmbeddedScripts follows -c through nested shells.
+// maxEmbedDepth caps how far NestedScripts follows nested shells.
 // `bash -c 'bash -c "..."'` is worth reading; a chain deeper than this is not
 // something a real command does, and the cap keeps a hostile payload from
 // making the hook walk an unbounded tree.
 const maxEmbedDepth = 4
 
-// EmbeddedScripts returns the scripts file hands to a nested shell via -c, in
-// the order they appear, following nesting to maxEmbedDepth. The result is the
-// script text; callers parse it themselves.
+// Nested is a script a command hands to another shell to run.
+type Nested struct {
+	Script string
+	// OwnDir means the script runs in a directory of its own choosing rather
+	// than the one the command was in: git runs a rebase's exec scripts at
+	// the top of the worktree. A script nested inside such a script is
+	// OwnDir too.
+	OwnDir bool
+}
+
+// EmbeddedScripts returns the text of every script NestedScripts finds.
+func EmbeddedScripts(file *syntax.File) []string {
+	nested := NestedScripts(file)
+	out := make([]string, len(nested))
+	for i, n := range nested {
+		out[i] = n.Script
+	}
+	return out
+}
+
+// NestedScripts returns the scripts file hands to another shell, in the order
+// they appear, following nesting to maxEmbedDepth: the argument of a shell's
+// -c, and the --exec / -x scripts of a git rebase. Callers parse the text
+// themselves.
 //
 // A script is returned only when its word renders to literal text. `bash -c
 // "$CMD"` yields nothing, because there is no text to inspect -- the same
-// fail-open the rules already take on a word they cannot read.
+// fail-open the rules already take on a word they cannot read. (The rebase
+// guard asks for a rebase with any expansion in its arguments.)
 //
-// A script that interpolates a variable (`bash -c "rm -rf $DIR"`) is returned
-// with the expansion dropped. That can only remove text, never invent a call,
-// and what is left still parses: the caller sees `rm -rf` with no target rather
-// than nothing at all.
-func EmbeddedScripts(file *syntax.File) []string {
-	return embeddedScripts(file, maxEmbedDepth)
+// A shell script that interpolates a variable (`bash -c "rm -rf $DIR"`) is
+// returned with the expansion dropped. That can only remove text, never invent
+// a call, and what is left still parses: the caller sees `rm -rf` with no
+// target rather than nothing at all.
+func NestedScripts(file *syntax.File) []Nested {
+	return nestedScripts(file, maxEmbedDepth, false)
 }
 
-func embeddedScripts(file *syntax.File, depth int) []string {
+func nestedScripts(file *syntax.File, depth int, ownDir bool) []Nested {
 	if file == nil || depth <= 0 {
 		return nil
 	}
-	var out []string
+	var out []Nested
+	add := func(script string, own bool) {
+		if script == "" {
+			return
+		}
+		out = append(out, Nested{Script: script, OwnDir: own})
+		if inner, ok := Parse(script).File(); ok {
+			out = append(out, nestedScripts(inner, depth-1, own)...)
+		}
+	}
 	syntax.Walk(file, func(n syntax.Node) bool {
 		call, ok := n.(*syntax.CallExpr)
 		if !ok {
 			return true
 		}
-		word, ok := ScriptWord(call)
-		if !ok {
-			return true
+		if word, ok := ScriptWord(call); ok {
+			add(scriptText(word), ownDir)
 		}
-		script := scriptText(word)
-		if script == "" {
-			return true
-		}
-		out = append(out, script)
-		if inner, ok := Parse(script).File(); ok {
-			out = append(out, embeddedScripts(inner, depth-1)...)
+		for _, script := range rebaseExecScripts(call) {
+			add(script, true)
 		}
 		return true
 	})

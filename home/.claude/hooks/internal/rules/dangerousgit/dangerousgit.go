@@ -8,8 +8,9 @@
 // --abort` or `git reset --hard ORIG_HEAD` undoes it, and publishing the result
 // is a push, which checkPush still guards.
 //
-// A rebase runs unprompted, as do its --continue, --abort, and --skip steps,
-// unless it can run commands the guard never sees (--exec, --interactive). See
+// A rebase runs unprompted, as do its --continue, --abort, and --skip steps.
+// Its --exec scripts are checked by every rule as nested scripts; an
+// --interactive rebase asks unless its sequence editor is a no-op. See
 // checkRebase.
 //
 // The exception is a plain push of a literally named feature branch (`git push
@@ -139,7 +140,7 @@ func isEnvAssignment(tok string) bool {
 // text, with no expansion the guard cannot read. noopEditor reports a sequence
 // editor that leaves an interactive rebase's plan as it is.
 func checkGit(args []string, literals []bool, noopEditor bool) (hook.Verdict, bool) {
-	sub, rest := subcommand(args, gitTopLevelFlags)
+	sub, rest := shellast.GitSubcommand(args)
 	var prefix []string
 	if sub != "" {
 		prefix = args[:len(args)-len(rest)-1]
@@ -216,12 +217,16 @@ func checkBranch(rest []string) (hook.Verdict, bool) {
 
 // checkRebase lets a rebase run unprompted: it rewrites only local history,
 // `git reset --hard ORIG_HEAD` or the reflog undoes it, and publishing the
-// result is a force push, which checkPush still guards. Two forms still ask.
-// --exec (-x) runs shell commands this guard never parses, and --interactive
-// (-i) hands the plan to an editor, unless that editor is a no-op (see
+// result is a force push, which checkPush still guards.
+//
+// --exec (-x) scripts are not judged here: every nested rule checks them as
+// scripts handed to a shell (see shellast.NestedScripts), so `-x 'go test'`
+// runs and `-x 'git push --force'` asks. --interactive (-i) asks, since it
+// hands the plan to an editor, unless that editor is a no-op (see
 // noopSequenceEditor). Rebase arguments the guard cannot read literally ask
-// too, since they could hide either flag. Expansions before the subcommand
-// (`git -C "$dir" rebase`) cannot, so they do not count.
+// too: they could hide -i, and an exec script built from them has no text to
+// check. Expansions before the subcommand (`git -C "$dir" rebase`) cannot, so
+// they do not count.
 //
 // rest are the tokens following `rebase`; literal reports whether all of them
 // were plain text.
@@ -229,42 +234,8 @@ func checkRebase(rest []string, literal, noopEditor bool) (hook.Verdict, bool) {
 	if !literal {
 		return hook.Asked("git rebase with a shell expansion in its arguments - allow?"), true
 	}
-	for _, a := range rest {
-		if a == "--" {
-			break
-		}
-		name, _, _ := strings.Cut(a, "=")
-		switch {
-		case name == "--exec":
-			return hook.Asked("git rebase --exec runs shell commands per commit - allow?"), true
-		case name == "--interactive" && !noopEditor:
-			return hook.Asked("git rebase --interactive detected - allow?"), true
-		case strings.HasPrefix(a, "--"):
-		case strings.HasPrefix(a, "-"):
-			if v, hit := checkRebaseShorthands(a[1:], noopEditor); hit {
-				return v, true
-			}
-		}
-	}
-	return hook.Verdict{}, false
-}
-
-// rebaseValueShorthands are the `git rebase` shorthands that take a value. Git
-// bundles shorthands, and the rest of the token after one of these is its
-// value, so `-Xignore-space-change` is a strategy option, not `-i`.
-const rebaseValueShorthands = "sXCS"
-
-// checkRebaseShorthands reads one bundle of shorthand flags for -x or -i.
-func checkRebaseShorthands(bundle string, noopEditor bool) (hook.Verdict, bool) {
-	for _, flag := range bundle {
-		switch {
-		case flag == 'x':
-			return hook.Asked("git rebase -x runs shell commands per commit - allow?"), true
-		case flag == 'i' && !noopEditor:
-			return hook.Asked("git rebase -i detected - allow?"), true
-		case strings.ContainsRune(rebaseValueShorthands, flag):
-			return hook.Verdict{}, false
-		}
+	if shellast.ParseRebase(rest).Interactive && !noopEditor {
+		return hook.Asked("git rebase -i detected - allow?"), true
 	}
 	return hook.Verdict{}, false
 }
@@ -449,43 +420,6 @@ func isMutatingMethod(m string) bool {
 		return true
 	}
 	return false
-}
-
-// gitTopLevelFlags are flags that may appear before the git subcommand and
-// take a value. They are skipped when looking for the subcommand.
-var gitTopLevelFlags = map[string]bool{
-	"-C":           true,
-	"-c":           true,
-	"--git-dir":    true,
-	"--work-tree":  true,
-	"--namespace":  true,
-	"--exec-path":  true,
-	"--config-env": true,
-}
-
-// subcommand returns the first non-flag token after skipping known flags
-// (and their values where applicable), plus the args that follow it.
-func subcommand(args []string, flagsWithValue map[string]bool) (name string, rest []string) {
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		if !strings.HasPrefix(a, "-") {
-			return a, args[i+1:]
-		}
-		// Flag with attached value (--foo=bar): just skip this token.
-		if strings.Contains(a, "=") {
-			i++
-			continue
-		}
-		// Flag with separate value: skip both.
-		if flagsWithValue[a] {
-			i += 2
-			continue
-		}
-		// Bare flag: skip just this token.
-		i++
-	}
-	return "", nil
 }
 
 func allLiteral(literals []bool) bool {

@@ -282,8 +282,31 @@
   {
     "name": "git-rebase-exec",
     "stdin": "{\"tool_input\":{\"command\":\"git rebase -x 'make test' main\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-rebase-exec-rm",
+    "stdin": "{\"tool_input\":{\"command\":\"git rebase -x 'rm -rf ~/dev' main\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "git rebase -x runs shell commands per commit - allow?"
+    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "git-rebase-exec-relative-rm",
+    "stdin": "{\"cwd\":\"/tmp/x\",\"tool_input\":{\"command\":\"git rebase --exec='rm -rf build' main\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "git-rebase-exec-push",
+    "stdin": "{\"tool_input\":{\"command\":\"git rebase -qx 'git push --force origin main' main\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: git push --force detected - allow?"
+  },
+  {
+    "name": "git-rebase-exec-computed",
+    "stdin": "{\"tool_input\":{\"command\":\"git rebase -x \\\"$CMD\\\" main\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git rebase with a shell expansion in its arguments - allow?"
   },
   {
     "name": "git-reset-hard",

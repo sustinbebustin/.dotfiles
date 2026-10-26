@@ -269,6 +269,21 @@ func TestEmbeddedCwd(t *testing.T) {
 	}
 }
 
+// TestEmbeddedRebaseExec pins that a rebase's exec script is checked as a
+// nested script, and never in the session cwd: git runs it at the top of the
+// worktree, wherever that is.
+func TestEmbeddedRebaseExec(t *testing.T) {
+	req := NewRequest("Bash", "", "", `git rebase -x 'rm -rf build' main`)
+	req.Cwd = "/repo"
+	subs := req.Embedded()
+	if len(subs) != 1 {
+		t.Fatalf("Embedded() returned %d requests, want 1", len(subs))
+	}
+	if subs[0].Command != "rm -rf build" || subs[0].Cwd != "" {
+		t.Errorf("Embedded()[0] = %q in %q, want %q in %q", subs[0].Command, subs[0].Cwd, "rm -rf build", "")
+	}
+}
+
 func TestReadMalformedInput(t *testing.T) {
 	for _, in := range []string{"", "not json at all", "{", "[]"} {
 		if _, err := Read(strings.NewReader(in)); err == nil {
