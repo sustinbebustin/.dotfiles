@@ -123,8 +123,6 @@
     "statechart": "name-only",
     "summarize": "name-only",
     "test-audit": "name-only",
-    "thermo-nuclear-code-quality-review": "name-only",
-    "thermo-nuclear-review": "name-only",
     "to-spec": "name-only",
     "to-tickets": "name-only",
     "watch-ci": "name-only",
