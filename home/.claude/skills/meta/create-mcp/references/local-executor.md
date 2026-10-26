@@ -4,7 +4,7 @@ The `Executor` interface from `@cloudflare/codemode` is deliberately minimal. `D
 
 ## The interface (codemode@0.5.x)
 
-Source of truth: `node_modules/@cloudflare/codemode/dist/executor-*.d.ts`. Cloudflare's API reference page matches it as of 0.5.2.
+Source of truth: `node_modules/@cloudflare/codemode/dist/executor-*.d.ts`. Cloudflare's API reference page matches it as of 0.5.5.
 
 ```ts
 interface ResolvedProvider {

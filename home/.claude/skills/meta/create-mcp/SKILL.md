@@ -3,7 +3,7 @@ name: create-mcp
 description: Author Code Mode MCP servers that wrap multiple host functions behind one code-generating tool, replacing per-call JSON tool dispatch with a single executed JavaScript function.
 metadata:
   author: sustinbebustin
-  last_reviewed_version: 0.5.3
+  last_reviewed_version: 0.5.5
 ---
 
 # Code Mode for Local Claude Code Tools
@@ -122,5 +122,5 @@ Authoritative sources, in order of preference:
 
 - `node_modules/@cloudflare/codemode/dist/*.d.ts` and `dist/mcp.js` — the installed package; `mcp.js` is short and shows exactly what `codeMcpServer` hands your executor
 - `node_modules/@cloudflare/codemode/docs/` and `README.md` — package docs, shipped in the tarball since 0.4.2
-- Cloudflare's developer docs for Code Mode — API reference and conceptual overview; they match the package's `Executor` signature as of 0.5.2 but trail new releases
+- Cloudflare's developer docs for Code Mode — API reference and conceptual overview; they match the package's `Executor` signature as of 0.5.5 but trail new releases
 - The `codemode-mcp` example in Cloudflare's published examples — the closest Worker-shaped reference; port per [references/gotchas.md](references/gotchas.md)
