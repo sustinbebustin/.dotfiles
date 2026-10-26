@@ -120,6 +120,7 @@
     "prototype": "name-only",
     "rebase": "name-only",
     "sentry-cli": "name-only",
+    "statechart": "name-only",
     "summarize": "name-only",
     "test-audit": "name-only",
     "thermo-nuclear-code-quality-review": "name-only",
