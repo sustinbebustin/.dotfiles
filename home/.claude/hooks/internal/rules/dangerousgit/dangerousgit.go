@@ -36,6 +36,7 @@ package dangerousgit
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"mvdan.cc/sh/v3/syntax"
 
@@ -72,16 +73,72 @@ func checkCall(c *syntax.CallExpr) (hook.Verdict, bool) {
 
 	switch shellast.CommandName(name) {
 	case "git":
-		return checkGit(args, literals)
+		return checkGit(args, literals, noopSequenceEditor(c, len(c.Args)-len(operands)-1))
 	case "gh":
 		return checkGh(args)
 	}
 	return hook.Verdict{}, false
 }
 
+// sequenceEditorVar names the program git hands an interactive rebase's plan
+// to. It outranks sequence.editor and core.editor.
+const sequenceEditorVar = "GIT_SEQUENCE_EDITOR="
+
+// noopSequenceEditor reports whether c runs with GIT_SEQUENCE_EDITOR set, on the
+// call itself, to a program that exits without touching the plan (see
+// noopPrograms), which makes `rebase -i` an ordinary rebase that applies
+// --autosquash. The last setting wins, as it does for the shell: prefix
+// assignments, then any `env NAME=value` before the command word at cmdIdx.
+//
+// The only wrapper allowed between the assignment and git is a flagless env.
+// Any other could drop the variable on the way -- `env -u`, `env -i`, sudo's
+// env_reset, `exec -c` -- and git would fall back to sequence.editor or
+// core.editor, which `git -c` can point anywhere.
+func noopSequenceEditor(c *syntax.CallExpr, cmdIdx int) bool {
+	noop := false
+	for _, a := range c.Assigns {
+		if a.Name != nil && a.Name.Value+"=" == sequenceEditorVar {
+			noop = a.Value != nil && shellast.IsLiteral(a.Value) && noopPrograms[shellast.WordLit(a.Value)]
+		}
+	}
+	for _, w := range c.Args[:max(cmdIdx, 0)] {
+		tok := shellast.WordLit(w)
+		value, assigns := strings.CutPrefix(tok, sequenceEditorVar)
+		switch {
+		case assigns:
+			noop = shellast.IsLiteral(w) && noopPrograms[value]
+		case tok == "env" || isEnvAssignment(tok):
+		default:
+			return false
+		}
+	}
+	return noop
+}
+
+// noopPrograms are the exact editor strings that exit without touching the
+// plan. Git runs the editor through the shell, so the match is on the whole
+// string: a trailing `/true` on a command line, or a script named true in the
+// working directory, is not a no-op.
+var noopPrograms = map[string]bool{":": true, "true": true, "/bin/true": true, "/usr/bin/true": true}
+
+// isEnvAssignment reports a `NAME=value` word as env takes it.
+func isEnvAssignment(tok string) bool {
+	name, _, ok := strings.Cut(tok, "=")
+	if !ok || name == "" {
+		return false
+	}
+	for i, r := range name {
+		if r != '_' && !unicode.IsLetter(r) && (i == 0 || !unicode.IsDigit(r)) {
+			return false
+		}
+	}
+	return true
+}
+
 // checkGit judges one git call. literals[i] reports whether args[i] was plain
-// text, with no expansion the guard cannot read.
-func checkGit(args []string, literals []bool) (hook.Verdict, bool) {
+// text, with no expansion the guard cannot read. noopEditor reports a sequence
+// editor that leaves an interactive rebase's plan as it is.
+func checkGit(args []string, literals []bool, noopEditor bool) (hook.Verdict, bool) {
 	sub, rest := subcommand(args, gitTopLevelFlags)
 	var prefix []string
 	if sub != "" {
@@ -105,7 +162,7 @@ func checkGit(args []string, literals []bool) (hook.Verdict, bool) {
 			return hook.Asked("git subtree push detected - allow?"), true
 		}
 	case "rebase":
-		return checkRebase(rest, allLiteral(literals[len(args)-len(rest):]))
+		return checkRebase(rest, allLiteral(literals[len(args)-len(rest):]), noopEditor)
 	case "reset":
 		if hasFlag(rest, "--hard") {
 			return hook.Asked("git reset --hard discards uncommitted changes - allow?"), true
@@ -161,13 +218,14 @@ func checkBranch(rest []string) (hook.Verdict, bool) {
 // `git reset --hard ORIG_HEAD` or the reflog undoes it, and publishing the
 // result is a force push, which checkPush still guards. Two forms still ask.
 // --exec (-x) runs shell commands this guard never parses, and --interactive
-// (-i) hands the plan to an editor. Rebase arguments the guard cannot read
-// literally ask too, since they could hide either flag. Expansions before the
-// subcommand (`git -C "$dir" rebase`) cannot, so they do not count.
+// (-i) hands the plan to an editor, unless that editor is a no-op (see
+// noopSequenceEditor). Rebase arguments the guard cannot read literally ask
+// too, since they could hide either flag. Expansions before the subcommand
+// (`git -C "$dir" rebase`) cannot, so they do not count.
 //
 // rest are the tokens following `rebase`; literal reports whether all of them
 // were plain text.
-func checkRebase(rest []string, literal bool) (hook.Verdict, bool) {
+func checkRebase(rest []string, literal, noopEditor bool) (hook.Verdict, bool) {
 	if !literal {
 		return hook.Asked("git rebase with a shell expansion in its arguments - allow?"), true
 	}
@@ -179,11 +237,11 @@ func checkRebase(rest []string, literal bool) (hook.Verdict, bool) {
 		switch {
 		case name == "--exec":
 			return hook.Asked("git rebase --exec runs shell commands per commit - allow?"), true
-		case name == "--interactive":
+		case name == "--interactive" && !noopEditor:
 			return hook.Asked("git rebase --interactive detected - allow?"), true
 		case strings.HasPrefix(a, "--"):
 		case strings.HasPrefix(a, "-"):
-			if v, hit := checkRebaseShorthands(a[1:]); hit {
+			if v, hit := checkRebaseShorthands(a[1:], noopEditor); hit {
 				return v, true
 			}
 		}
@@ -197,12 +255,12 @@ func checkRebase(rest []string, literal bool) (hook.Verdict, bool) {
 const rebaseValueShorthands = "sXCS"
 
 // checkRebaseShorthands reads one bundle of shorthand flags for -x or -i.
-func checkRebaseShorthands(bundle string) (hook.Verdict, bool) {
+func checkRebaseShorthands(bundle string, noopEditor bool) (hook.Verdict, bool) {
 	for _, flag := range bundle {
 		switch {
 		case flag == 'x':
 			return hook.Asked("git rebase -x runs shell commands per commit - allow?"), true
-		case flag == 'i':
+		case flag == 'i' && !noopEditor:
 			return hook.Asked("git rebase -i detected - allow?"), true
 		case strings.ContainsRune(rebaseValueShorthands, flag):
 			return hook.Verdict{}, false

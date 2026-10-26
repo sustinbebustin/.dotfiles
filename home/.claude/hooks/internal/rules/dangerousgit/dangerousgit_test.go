@@ -155,6 +155,21 @@ func TestDecide(t *testing.T) {
 		{"rebase --interactive", `git rebase --interactive main`, "ask"},
 		{"rebase -i in a bundle", `git rebase -ri main`, "ask"},
 		{"rebase variable args", `git rebase $FLAGS main`, "ask"},
+		// A no-op sequence editor accepts the plan unchanged: an ordinary rebase.
+		{"rebase -i with a no-op sequence editor", `GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash main`, "allow"},
+		{"rebase -i with a colon sequence editor", `GIT_SEQUENCE_EDITOR=: git rebase -i main`, "allow"},
+		{"rebase -i with a no-op editor through env", `env GIT_SEQUENCE_EDITOR=true git rebase -i main`, "allow"},
+		{"rebase -i with a real sequence editor", `GIT_SEQUENCE_EDITOR=vim git rebase -i main`, "ask"},
+		{"rebase -i with a computed sequence editor", `GIT_SEQUENCE_EDITOR=$E git rebase -i main`, "ask"},
+		{"rebase -i where a later prefix wins", `GIT_SEQUENCE_EDITOR=true GIT_SEQUENCE_EDITOR=vim git rebase -i main`, "ask"},
+		{"rebase -x with a no-op sequence editor", `GIT_SEQUENCE_EDITOR=true git rebase -i -x make main`, "ask"},
+		{"a no-op sequence editor on another call", `GIT_SEQUENCE_EDITOR=true true; git rebase -i main`, "ask"},
+		{"rebase -i with an absolute true", `GIT_SEQUENCE_EDITOR=/usr/bin/true git rebase -i main`, "allow"},
+		{"rebase -i with a script named true", `GIT_SEQUENCE_EDITOR=./true git rebase -i main`, "ask"},
+		{"rebase -i with a command line ending in /true", `GIT_SEQUENCE_EDITOR="sed -i x /true" git rebase -i main`, "ask"},
+		{"rebase -i where env -u drops the editor", `GIT_SEQUENCE_EDITOR=true env -u GIT_SEQUENCE_EDITOR git rebase -i main`, "ask"},
+		{"rebase -i where env -i drops the editor", `GIT_SEQUENCE_EDITOR=true env -i PATH=/usr/bin git rebase -i main`, "ask"},
+		{"rebase -i where sudo resets the environment", `GIT_SEQUENCE_EDITOR=true sudo git rebase -i main`, "ask"},
 		{"rebase variable -C path", `git -C $F -c rerere.enabled=false rebase --continue`, "allow"},
 
 		// git merge: local and undone by `git reset --hard ORIG_HEAD`, so it
