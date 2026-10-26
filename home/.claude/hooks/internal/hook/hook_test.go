@@ -242,6 +242,33 @@ func TestReadDecodesCwd(t *testing.T) {
 	}
 }
 
+// TestEmbeddedCwd pins that a nested shell's script is placed in the payload's
+// cwd only while the parent cannot have moved before starting it.
+func TestEmbeddedCwd(t *testing.T) {
+	cases := []struct {
+		cmd  string
+		want string
+	}{
+		{`bash -c 'rm -rf build'`, "/repo"},
+		{`cd /repo && bash -c 'rm -rf build'`, "/repo"},
+		{`cd / && bash -c 'rm -rf home'`, ""},
+		{`cd "$D" && bash -c 'rm -rf build'`, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.cmd, func(t *testing.T) {
+			req := NewRequest("Bash", "", "", tc.cmd)
+			req.Cwd = "/repo"
+			subs := req.Embedded()
+			if len(subs) != 1 {
+				t.Fatalf("Embedded() returned %d requests, want 1", len(subs))
+			}
+			if subs[0].Cwd != tc.want {
+				t.Errorf("Cwd = %q, want %q", subs[0].Cwd, tc.want)
+			}
+		})
+	}
+}
+
 func TestReadMalformedInput(t *testing.T) {
 	for _, in := range []string{"", "not json at all", "{", "[]"} {
 		if _, err := Read(strings.NewReader(in)); err == nil {

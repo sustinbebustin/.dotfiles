@@ -186,7 +186,10 @@ func NewRequest(toolName, filePath, path, command string) *Request {
 //
 // The derived shell is a separate process from the parent's, and the parent's
 // variables are not resolved into it. That is the safe direction: an unresolved
-// target reads as non-scratch, which prompts.
+// target reads as non-scratch, which prompts. Its directory is whatever the
+// parent was in when it started it, so the derived Request keeps the cwd only
+// when the parent cannot have moved (see shellast.WorkDirs); otherwise it gets
+// none, and relative paths in it go unplaced.
 func (r *Request) Embedded() []*Request {
 	file, ok := r.Shell.File()
 	if !ok {
@@ -196,9 +199,14 @@ func (r *Request) Embedded() []*Request {
 	if len(scripts) == 0 {
 		return nil
 	}
+	cwd := r.Cwd
+	if dirs, known := shellast.WorkDirs(file, r.Cwd); !known || len(dirs) != 1 {
+		cwd = ""
+	}
 	out := make([]*Request, 0, len(scripts))
 	for _, script := range scripts {
 		sub := *r
+		sub.Cwd = cwd
 		sub.Command = script
 		sub.Shell = shellast.Parse(script)
 		out = append(out, &sub)
