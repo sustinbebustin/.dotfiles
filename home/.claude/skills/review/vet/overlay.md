@@ -24,7 +24,7 @@ Markdown every reviewer and verifier reads as project knowledge. Put here what n
 - **Baseline.** The architecture in a few lines: repos, apps, packages, where reads and writes go, the authorization authority, frozen contracts.
 - **Project rules.** Conventions a reviewer should enforce, each with its reason, and the business-risk triggers (partner integrations, regulated math).
 - **Surfaces.** Which app is product UI and which is brand or customer-facing, so a design review picks the right register.
-- **Data probes.** Read-only ways the verifier can settle a reachability question: a local database MCP server, a replica skill, a live-API GET. Name each and its limits; say outright that writes are forbidden.
+- **Data probes.** Ways the verifier can settle a reachability question: a database MCP server, a live-API GET. Name each and its limits. A source is read only unless this section marks it writable, as a local mock database can be.
 - **Docs sources.** A pinned docs source that should win over context7, when one exists.
 
 Keep it short and current: every line costs every reviewer on every run.
@@ -47,6 +47,6 @@ deploy: migrations ship only with a changeset
 - `frontend/` (pnpm monorepo) and `backend/` (Go API) are sibling repos.
 - Reads go straight to Postgres under RLS; writes go through the Go API as the caller.
 
-## Data probes (read-only)
-- `mcp__local-supabase__execute_sql` against the local stack: SELECT only.
+## Data probes
+- `mcp__local-supabase__execute_sql` against the local mock stack: writable.
 ```

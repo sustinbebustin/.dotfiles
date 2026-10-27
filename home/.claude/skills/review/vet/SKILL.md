@@ -82,7 +82,7 @@ Reviewers see nothing of this conversation. Write the briefing to the scratchpad
 - **Changes.** Intentional behaviour changes per file, and files that are refactor-only and must behave identically.
 - **Consumers and call sites.** The block's consumer list, plus the entry points and gates you know: routes and their auth, UI triggers and the conditions around them, flags, product constraints, callers that will never reach the code. Cite `file:line`. Write "single area, no cross-boundary gates" when that is the case. Missing gates are the main source of false blockers.
 - **Project knowledge.** The overlay path (its body is required reading), its deploy facts, the standards sources, and the workspace repos the verifier sweeps for variants.
-- **Data probes.** The overlay's read-only probes, for the verifier. Omit without an overlay.
+- **Data probes.** The overlay's probes and what each allows, for the verifier. Omit without an overlay.
 - **Fix context.** Only when the block lists fix commits, or for the fix-mode delta: the defect each fix addresses.
 - **Prior findings.** Re-review only: the prior synthesis's findings whose files are still in scope (id, `file:line`, summary, routing, the user's decision). Say when the prior run's scope differed from this one.
 

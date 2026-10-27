@@ -12,7 +12,7 @@ Collect, read-only:
 - **Environment failures.** The services and private packages the checks depend on (docker compose files, a local database config, private git dependencies in a lockfile or Dockerfile): an `env_failure` pattern matching how each one fails.
 - **Repos.** In a multi-repo workspace, short `repos.alias.<name>` entries for long repo names.
 - **Deploy.** How changes ship: deploy workflows, a changesets directory, migration tooling, whether the repos release together.
-- **Project knowledge** for the body, limited to what CLAUDE.md and the repo's rules files leave out (reviewers already load those): partner or vendor integrations and domain math (business risk), user-facing surfaces and who uses each, read-only data sources an MCP config exposes, docs bundled with installed dependencies.
+- **Project knowledge** for the body, limited to what CLAUDE.md and the repo's rules files leave out (reviewers already load those): partner or vendor integrations and domain math (business risk), user-facing surfaces and who uses each, data sources an MCP config exposes, docs bundled with installed dependencies.
 
 Done when every frontmatter key in overlay.md has either a value traced to a file or a named gap.
 
@@ -23,7 +23,7 @@ One `AskUserQuestion` call, up to four questions, covering only the gaps from st
 - Do these parts deploy together, or can one ship without the other?
 - Is rollback supported? Rollback scenarios are reviewed only when a `deploy` line enables them.
 - Which integrations or calculations encode business rules a reviewer should treat as possibly intended?
-- May the verifier run read-only queries against the database or API step 1 found?
+- May the verifier query the databases or APIs step 1 found, and is any of them a mock it may write to?
 
 With no gaps, skip the step.
 

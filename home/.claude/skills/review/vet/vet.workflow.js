@@ -157,7 +157,7 @@ Set lens to "${r.lenses.join('+')}".`
 }
 
 function verifyPrompt(findings, label) {
-  return `Verify these findings from the ${label} review of the change described in the briefing at ${A.briefing}. Read the briefing first; it names the scoped repos, the sibling repos for the variant sweep, and any read-only data probes.
+  return `Verify these findings from the ${label} review of the change described in the briefing at ${A.briefing}. Read the briefing first; it names the scoped repos, the sibling repos for the variant sweep, and any data probes.
 
 Return exactly one verdict per id below.
 
