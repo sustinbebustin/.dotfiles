@@ -125,6 +125,22 @@ type output struct {
 	} `json:"hookSpecificOutput"`
 }
 
+// Origin is where a Request's command comes from.
+type Origin int
+
+const (
+	// Direct is the tool call as sent.
+	Direct Origin = iota
+	// Nested is a script the tool call hands to a nested shell. That shell's
+	// functions, aliases and PATH come from the parent, which this Request
+	// cannot see, so a command name in it may not be the command it names.
+	Nested
+	// NestedLossy is a Nested script whose text had the parent's expansions
+	// dropped from it (see shellast.NestedScripts): a path in it may name
+	// something other than what it reads as.
+	NestedLossy
+)
+
 // Request is one decoded PreToolUse payload. Shell is parsed once here rather
 // than separately by each rule that needs it.
 type Request struct {
@@ -143,6 +159,9 @@ type Request struct {
 	// that need it set it directly, and the rest get the zero value, which is
 	// the no-config state.
 	Config config.Config
+	// Origin says whether Command is the tool call itself or a script it hands
+	// to a nested shell (see Embedded).
+	Origin Origin
 	// toolInput is tool_input as sent, field by field. A rewrite must hand
 	// back the whole input object, so the fields no rule reads are kept too.
 	toolInput map[string]json.RawMessage
@@ -185,8 +204,12 @@ func NewRequest(toolName, filePath, path, command string) *Request {
 // against the wrong text.
 //
 // The derived shell is a separate process from the parent's, and the parent's
-// variables are not resolved into it. That is the safe direction: an unresolved
-// target reads as non-scratch, which prompts. Its directory is whatever the
+// variables are not resolved into it. That is the safe direction for a target
+// written inside the script, which reads as unresolved and prompts; one the
+// parent interpolated into the script text is dropped instead, and the derived
+// Request is marked NestedLossy so rules stop trusting its paths. Its
+// functions, aliases and PATH come from the parent too, which is what Nested
+// tells a rule. Its directory is whatever the
 // parent was in when it started it, so the derived Request keeps the cwd only
 // when the parent cannot have moved (see shellast.WorkDirs); otherwise it gets
 // none, and relative paths in it go unplaced. A rebase's exec scripts never
@@ -210,6 +233,10 @@ func (r *Request) Embedded() []*Request {
 		sub.Cwd = cwd
 		if n.OwnDir {
 			sub.Cwd = ""
+		}
+		sub.Origin = Nested
+		if n.Lossy {
+			sub.Origin = NestedLossy
 		}
 		sub.Command = n.Script
 		sub.Shell = shellast.Parse(n.Script)

@@ -533,6 +533,10 @@ type Nested struct {
 	// the top of the worktree. A script nested inside such a script is
 	// OwnDir too.
 	OwnDir bool
+	// Lossy means expansions were dropped from Script (see NestedScripts), so
+	// a word in it may name something other than its text says. A script
+	// nested inside a lossy one is lossy too.
+	Lossy bool
 }
 
 // EmbeddedScripts returns the text of every script NestedScripts finds.
@@ -558,23 +562,24 @@ func EmbeddedScripts(file *syntax.File) []string {
 // A shell script that interpolates a variable (`bash -c "rm -rf $DIR"`) is
 // returned with the expansion dropped. That can only remove text, never invent
 // a call, and what is left still parses: the caller sees `rm -rf` with no
-// target rather than nothing at all.
+// target rather than nothing at all. It can change a path, though
+// (`/tmp$X/home`), so such a script is marked Lossy.
 func NestedScripts(file *syntax.File) []Nested {
-	return nestedScripts(file, maxEmbedDepth, false)
+	return nestedScripts(file, maxEmbedDepth, false, false)
 }
 
-func nestedScripts(file *syntax.File, depth int, ownDir bool) []Nested {
+func nestedScripts(file *syntax.File, depth int, ownDir, lossy bool) []Nested {
 	if file == nil || depth <= 0 {
 		return nil
 	}
 	var out []Nested
-	add := func(script string, own bool) {
+	add := func(script string, own, lossy bool) {
 		if script == "" {
 			return
 		}
-		out = append(out, Nested{Script: script, OwnDir: own})
+		out = append(out, Nested{Script: script, OwnDir: own, Lossy: lossy})
 		if inner, ok := Parse(script).File(); ok {
-			out = append(out, nestedScripts(inner, depth-1, own)...)
+			out = append(out, nestedScripts(inner, depth-1, own, lossy)...)
 		}
 	}
 	syntax.Walk(file, func(n syntax.Node) bool {
@@ -583,10 +588,10 @@ func nestedScripts(file *syntax.File, depth int, ownDir bool) []Nested {
 			return true
 		}
 		if word, ok := ScriptWord(call); ok {
-			add(scriptText(word), ownDir)
+			add(scriptText(word), ownDir, lossy || !IsLiteral(word))
 		}
 		for _, script := range rebaseExecScripts(call) {
-			add(script, true)
+			add(script, true, lossy)
 		}
 		return true
 	})

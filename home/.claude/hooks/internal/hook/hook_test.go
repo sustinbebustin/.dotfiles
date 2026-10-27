@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -281,6 +282,36 @@ func TestEmbeddedRebaseExec(t *testing.T) {
 	}
 	if subs[0].Command != "rm -rf build" || subs[0].Cwd != "" {
 		t.Errorf("Embedded()[0] = %q in %q, want %q in %q", subs[0].Command, subs[0].Cwd, "rm -rf build", "")
+	}
+}
+
+// TestEmbeddedOrigin pins that a nested script is marked as one, and as lossy
+// when the parent interpolated into its text, including a script nested inside
+// a lossy one.
+func TestEmbeddedOrigin(t *testing.T) {
+	cases := []struct {
+		cmd  string
+		want []Origin
+	}{
+		{`bash -c 'rm -rf /tmp/x'`, []Origin{Nested}},
+		{`bash -c "rm -rf /tmp$X/home"`, []Origin{NestedLossy}},
+		{`bash -c "bash -c 'rm -rf /tmp/x' $X"`, []Origin{NestedLossy, NestedLossy}},
+		{`git rebase -x 'rm -rf build' main`, []Origin{Nested}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.cmd, func(t *testing.T) {
+			if got := NewRequest("Bash", "", "", tc.cmd).Origin; got != Direct {
+				t.Errorf("parent Origin = %d, want Direct", got)
+			}
+			subs := NewRequest("Bash", "", "", tc.cmd).Embedded()
+			got := make([]Origin, len(subs))
+			for i, sub := range subs {
+				got[i] = sub.Origin
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("Origins = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
