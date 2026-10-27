@@ -16,7 +16,11 @@
 // Example variants (.env.example, .sample, .template) and public key material
 // (*.pub, known_hosts, authorized_keys, certificates) stay allowed so the
 // documented shape of a config remains readable. The example markers do not
-// carry inside a credential directory; see classify.
+// carry inside a credential directory; see classify. So do the system apt
+// keyrings, mws's generated port lease, and quoted regex words that only look
+// like a path. For Bash, an operand that names a file only to keep it out of a
+// search -- an rg exclusion glob, a negated find name test -- is skipped; see
+// unreadOperands.
 package credfiles
 
 import (
@@ -195,7 +199,7 @@ func classifyIn(p string, relaxed bool) tier {
 	if touchesAnyDir(cleaned, secretDirs) {
 		return tierSecret
 	}
-	if isSafeVariant(base) {
+	if isSafeVariant(base) || isPublicKeyring(cleaned) || generatedEnvFiles[base] || isPattern(base) {
 		return tierNone
 	}
 	if looksLikeEnv(base) || hasSecretExt(base) {
@@ -467,6 +471,37 @@ func isSafeVariant(base string) bool {
 	return false
 }
 
+// publicKeyringDirs are the system directories apt reads repository signing
+// keys from. They hold public keys only, in the .gpg and .asc formats that are
+// otherwise key material by extension.
+var publicKeyringDirs = []string{"/usr/share/keyrings/", "/etc/apt/keyrings/", "/etc/apt/trusted.gpg.d/"}
+
+func isPublicKeyring(cleaned string) bool {
+	for _, dir := range publicKeyringDirs {
+		if strings.HasPrefix(cleaned, dir) {
+			return true
+		}
+	}
+	return false
+}
+
+// generatedEnvFiles are env-named files a tool renders from tracked config, so
+// they hold nothing a checkout does not already show. mws writes its port
+// lease (MWS_SLOT, MWS_PORT_*, the .mws.toml [vars]) to .mws-ports.env. The
+// match is the exact name: a copy beside it (.mws-ports.env.local) is
+// hand-made and stays a secret.
+var generatedEnvFiles = map[string]bool{".mws-ports.env": true}
+
+// isPattern reports a word that is a search pattern rather than a file name: a
+// regex alternation (`UPDATE|process.env`) or escape (`^\.env`). A `|` or `\`
+// survives in the word only when quoted -- the shell splits an unquoted `|`
+// into a pipe and LitText strips an unquoted escape -- and no credential file
+// is named with either, so the real file behind the pattern is never what the
+// word names.
+func isPattern(base string) bool {
+	return strings.ContainsAny(base, `|\`)
+}
+
 // isPublicMaterial exempts the halves of a keypair that are meant to be shared,
 // plus the SSH bookkeeping files that sit beside private keys.
 func isPublicMaterial(base string) bool {
@@ -519,16 +554,11 @@ func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 		}
 		switch x := n.(type) {
 		case *syntax.CallExpr:
-			// The script a nested shell runs is a program, not a path operand;
-			// it is classified on its own as a derived request. Reading it here
-			// too would name a file that does not exist, since `cat .env` ends
-			// in .env as surely as a filename does.
-			script, nested := shellast.ScriptWord(x)
+			skip := unreadOperands(x)
 			for _, arg := range x.Args {
-				if nested && arg == script {
-					continue
+				if !skip[arg] {
+					consider(shellast.WordLit(arg))
 				}
-				consider(shellast.WordLit(arg))
 			}
 		case *syntax.Redirect:
 			consider(shellast.WordLit(x.Word))
@@ -536,6 +566,88 @@ func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 		return true
 	})
 	return bashVerdict(found, foundPath)
+}
+
+// unreadOperands returns the words of c that name a file without anything
+// reading it, and so are not classified:
+//
+//   - the script a nested shell runs, which is a program rather than a path
+//     operand and is classified on its own as a derived request (`sh -c 'cat
+//     .env'` would otherwise name a file called "cat .env");
+//   - an exclusion glob given to rg (`-g '!.env'`) or a negated find name test
+//     (`-not -name .env`), which keep the file out of what the tool reads.
+//
+// Commands that seem to read nothing (test, touch) get no exemption: the name
+// proves nothing about what runs, since a function, an alias or a binary of
+// that name elsewhere on PATH can take it.
+func unreadOperands(c *syntax.CallExpr) map[*syntax.Word]bool {
+	skip := map[*syntax.Word]bool{}
+	if script, nested := shellast.ScriptWord(c); nested {
+		skip[script] = true
+	}
+	name, rest := shellast.Invocation(c.Args, shellast.WordLit)
+	switch shellast.CommandName(name) {
+	case "rg":
+		rgExclusions(rest, skip)
+	case "find":
+		findExclusions(rest, skip)
+	}
+	return skip
+}
+
+// rgGlobFlags are rg's flags whose value is a glob; a value with one leading
+// `!` excludes the files it matches. `!!x` is not a double negation to rg but
+// it is not an exclusion of x either, so only a single `!` counts.
+var rgGlobFlags = []string{"-g", "--glob", "--iglob"}
+
+func rgExclusions(args []*syntax.Word, skip map[*syntax.Word]bool) {
+	excludes := func(glob string) bool {
+		return strings.HasPrefix(glob, "!") && !strings.HasPrefix(glob, "!!")
+	}
+	for i, w := range args {
+		tok := shellast.WordLit(w)
+		for _, flag := range rgGlobFlags {
+			if tok == flag && i+1 < len(args) && excludes(shellast.WordLit(args[i+1])) {
+				skip[args[i+1]] = true
+			}
+			if value, ok := strings.CutPrefix(tok, flag+"="); ok && excludes(value) {
+				skip[w] = true
+			}
+		}
+	}
+}
+
+// findNameTests are find's tests whose operand is a file name pattern.
+var findNameTests = map[string]bool{
+	"-name": true, "-iname": true, "-path": true, "-ipath": true,
+	"-wholename": true, "-iwholename": true,
+}
+
+// findBranching are the find operators that can undo a negation: a group can
+// be negated again from outside (`-not \( -not -name .env \)`), and an `-o` or
+// `,` branch runs its actions on exactly the files the negation dropped. An
+// expression holding any of them is left fully classified.
+var findBranching = map[string]bool{"-o": true, "-or": true, ",": true, "(": true, ")": true}
+
+func isFindNot(tok string) bool { return tok == "-not" || tok == "!" }
+
+// findExclusions skips the operand of a name test negated exactly once in an
+// expression that is a plain AND chain. There a negated test drops the file
+// from every action after it; an action before it already reads every file,
+// which no name in the command could reveal.
+func findExclusions(args []*syntax.Word, skip map[*syntax.Word]bool) {
+	toks := make([]string, len(args))
+	for i, w := range args {
+		toks[i] = shellast.WordLit(w)
+		if findBranching[toks[i]] {
+			return
+		}
+	}
+	for i := 1; i+1 < len(toks); i++ {
+		if findNameTests[toks[i]] && isFindNot(toks[i-1]) && (i < 2 || !isFindNot(toks[i-2])) {
+			skip[args[i+1]] = true
+		}
+	}
 }
 
 func bashVerdict(t tier, p string) hook.Verdict {

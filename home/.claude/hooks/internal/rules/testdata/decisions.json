@@ -960,5 +960,16 @@
     "name": "nested-script-file-is-not-read",
     "stdin": "{\"tool_input\":{\"command\":\"bash deploy.sh\"},\"tool_name\":\"Bash\"}",
     "decision": "allow"
+  },
+  {
+    "name": "nested-rg-exclusion-glob",
+    "stdin": "{\"tool_input\":{\"command\":\"sh -c \\\"rg -n x -g '!.env' src\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "nested-find-double-negation",
+    "stdin": "{\"tool_input\":{\"command\":\"sh -c 'find . -not -not -name .env -exec cat {} +'\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Inside a script passed to a nested shell: Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
   }
 ]

@@ -122,6 +122,26 @@ func TestClassify(t *testing.T) {
 		{"u='h://x?'; print(open('/home/u/.aws/credentials').read())", tierSecret},
 		{"https://x/?a/home/u/.ssh/id_rsa", tierNone}, // the shell passes this whole word as one URL
 
+		// regex alternations and escapes are search patterns, not file names
+		{`UPDATE|writeFile|process\.env`, tierNone},
+		{"BASE|basePath|/api|prefix|process.env", tierNone},
+		{`^\.env`, tierNone},
+		{`~/.ssh/a|b`, tierSecret}, // a credential directory still outranks it
+
+		// mws's port lease is rendered from tracked config
+		{".mws-ports.env", tierNone},
+		{"/home/me/ws/copy/.wt/04/.mws-ports.env", tierNone},
+		{"~/.ssh/.mws-ports.env", tierSecret},
+		{".mws-ports.env.local", tierSecret},
+
+		// system apt keyrings hold public keys only
+		{"/usr/share/keyrings/hashicorp-archive-keyring.gpg", tierNone},
+		{"/etc/apt/keyrings/docker.asc", tierNone},
+		{"/etc/apt/trusted.gpg.d/ubuntu.gpg", tierNone},
+		{"/usr/share/keyrings/../../../home/me/.gnupg/secring.gpg", tierSecret},
+		{"/home/me/usr/share/keyrings/x.gpg", tierSecret},
+		{"usr/share/keyrings/x.gpg", tierSecret},
+
 		// a custom-named key without an extension still reads as one
 		{"deploy/id_deploy", tierSecret},
 		{"keys/id_github", tierSecret},
@@ -164,6 +184,46 @@ func TestCheckBash(t *testing.T) {
 		{name: "unparseable command naming a secret is denied", cmd: `cat .env "unterminated`, decision: "deny"},
 		{name: "unparseable command naming nothing is allowed", cmd: `echo "unterminated`, decision: "allow"},
 		{name: "empty command is allowed", cmd: ``, decision: "allow"},
+
+		// a glob that excludes the file names it to keep it out
+		{name: "rg exclusion glob is allowed", cmd: `rg -n x --glob '!**/.env*' src`, decision: "allow"},
+		{name: "rg short exclusion glob is allowed", cmd: `rg -n x -g '!.env' .`, decision: "allow"},
+		{name: "rg attached exclusion glob is allowed", cmd: `rg -n x --glob='!*.tfstate' .`, decision: "allow"},
+		{name: "rg iglob exclusion is allowed", cmd: `sudo rg x --iglob '!.env' .`, decision: "allow"},
+		{name: "rg inclusion glob is denied", cmd: `rg -n x -g '.env*' .`, decision: "deny"},
+		{name: "rg exclusion beside an inclusion is denied", cmd: `rg x -g '!.env' -g '.env' .`, decision: "deny"},
+		{name: "rg double negation is denied", cmd: `rg x -g '!!.env' .`, decision: "deny"},
+		{name: "rg exclusion with a secret operand is denied", cmd: `rg x -g '!.env' .env`, decision: "deny"},
+		{name: "bang word outside a glob flag is denied", cmd: `rg x '!.env'`, decision: "deny"},
+		{name: "another tool's -g is not an exclusion", cmd: `cat -g '!.env'`, decision: "deny"},
+		{name: "find negated name is allowed", cmd: `find . -type f -not -name '.env*' -not -path '*/.git*'`, decision: "allow"},
+		{name: "find bang name is allowed", cmd: `find d ! -name .env -print`, decision: "allow"},
+		{name: "find positive name is denied", cmd: `find . -name .env -exec cat {} +`, decision: "deny"},
+		{name: "find double negation is denied", cmd: `find . -not -not -name .env -exec cat {} +`, decision: "deny"},
+		{name: "find negation inside a group is denied", cmd: `find . -not \( -not -name .env \) -exec cat {} +`, decision: "deny"},
+		{name: "find negation beside -o is denied", cmd: `find . -not -name .env -o -exec cat {} +`, decision: "deny"},
+		{name: "find negation beside -or is denied", cmd: `find . -not -name .env -or -print`, decision: "deny"},
+		{name: "find negation beside a comma is denied", cmd: `find . -not -name .env , -exec cat {} +`, decision: "deny"},
+		{name: "find prune is denied", cmd: `find . -path '*/.env*' -prune -o -type f -print`, decision: "deny"},
+
+		// regex words
+		{name: "regex alternation is allowed", cmd: `rg -n 'UPDATE|writeFile|process\.env' src`, decision: "allow"},
+		{name: "regex beside a secret operand is denied", cmd: `rg -o '^\.env' .env`, decision: "deny"},
+		{name: "unquoted escape still names the file", cmd: `cat \.env`, decision: "deny"},
+		{name: "ANSI-C escape inside an env name is denied", cmd: `cat $'.env\x2dprod'`, decision: "deny"},
+		{name: "ANSI-C escaped env name is denied", cmd: `cat $'\x2eenv'`, decision: "deny"},
+		{name: "ANSI-C escaped aws path is denied", cmd: `cat $'\x2fhome\x2fme\x2f.aws\x2fcredentials'`, decision: "deny"},
+		{name: "ANSI-C regex alternation is allowed", cmd: `rg $'a|process\\.env' src`, decision: "allow"},
+
+		// a command name proves nothing about what runs: a function, alias or
+		// another binary on PATH can take it
+		{name: "test is not exempt", cmd: `test(){ cat "$1"; }; test .env`, decision: "deny"},
+		{name: "touch is not exempt", cmd: `/tmp/x/touch .env`, decision: "deny"},
+		{name: "echo of a secret name is denied", cmd: `echo .env | xargs cat`, decision: "deny"},
+		{name: "ls of a secret is denied", cmd: `ls .env | xargs cat`, decision: "deny"},
+
+		{name: "mws port lease is allowed", cmd: `cat .mws-ports.env | rg DB_PORT`, decision: "allow"},
+		{name: "public apt keyring is allowed", cmd: `gpg --no-default-keyring --keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg --list-keys`, decision: "allow"},
 	}
 
 	for _, tc := range cases {
