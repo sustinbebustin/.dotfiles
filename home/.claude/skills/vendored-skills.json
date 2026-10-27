@@ -797,15 +797,15 @@
       },
       "localPath": "engineering/statechart",
       "sync": {
-        "commit": "9e88dad267e8991d26a6debc0db0d943d437104b",
-        "tree": "b6373798ceb3e9caf951241f152512cce5de6721",
-        "at": "2026-10-26"
+        "commit": "519d36aa98955bf680db01bcde5fdfba686dc901",
+        "tree": "a79a48c6970be3b63d6efefb0a306b7c87de88d0",
+        "at": "2026-10-27"
       },
       "status": {
         "state": "tracked"
       },
       "localChanges": [
-        "Rewrote the renderer's runtime npm install to pnpm add (scripts/render.mjs, help text) and pointed the install-failure test at pnpm_config_* env vars: npm and npx are not installed here, and pnpm 11 ignores npm_config_*.",
+        "Rewrote the Pele/Mermaid install in scripts/test/render.test.ts from npm install --prefix to pnpm add --dir: npm and npx are not installed here.",
         "Removed disable-model-invocation (settings.json skillOverrides sets it name-only instead): create-formal-verification-skill and the verify skills it generates tell the agent to run /statechart, so the model must be able to invoke it."
       ]
     },
