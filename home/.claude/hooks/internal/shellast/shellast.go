@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/syntax"
 )
 
@@ -107,7 +108,7 @@ func WordLit(w *syntax.Word) string {
 		case *syntax.Lit:
 			sb.WriteString(LitText(x))
 		case *syntax.SglQuoted:
-			sb.WriteString(x.Value)
+			sb.WriteString(SglText(x))
 		case *syntax.DblQuoted:
 			for _, dp := range x.Parts {
 				if lit, ok := dp.(*syntax.Lit); ok {
@@ -117,6 +118,21 @@ func WordLit(w *syntax.Word) string {
 		}
 	}
 	return sb.String()
+}
+
+// SglText is the text a single-quoted part passes to the command. Plain '...'
+// is taken as written; ANSI-C $'...' has its backslash escapes decoded, as
+// the shell does, so `$'\x2eenv'` is `.env`. The text ends at a decoded NUL.
+func SglText(x *syntax.SglQuoted) string {
+	if !x.Dollar {
+		return x.Value
+	}
+	s, _, err := expand.Format(nil, x.Value, nil)
+	if err != nil {
+		return x.Value
+	}
+	s, _, _ = strings.Cut(s, "\x00")
+	return s
 }
 
 // IsLiteral reports whether w is plain text, so WordLit renders exactly what

@@ -78,6 +78,14 @@ func TestWordLit(t *testing.T) {
 		{`\ls`, "ls"},
 		{`l\s`, "ls"},
 		{`\\ls`, `\ls`},
+		// ANSI-C quoting: the shell decodes the escapes, so WordLit must too.
+		{`$'\x2eenv'`, ".env"},
+		{`$'.env\x2dprod'`, ".env-prod"},
+		{`$'a\nb'`, "a\nb"},
+		{`$'50%'`, "50%"},
+		{`$'%s'`, "%s"},
+		{`$'a\x00b'`, "a"},
+		{`'\x2e'`, `\x2e`},
 	}
 
 	for _, tc := range cases {
