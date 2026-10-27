@@ -1,6 +1,7 @@
 {
   "version": 1,
   "trustedAuthors": [
+    "anomalyco",
     "anthropics",
     "cursor",
     "dmmulroy",
