@@ -141,7 +141,7 @@ Verdict: <verdict>
 | Reviewer | Lenses | Blocking / notes | Status |
 ```
 
-Show at most 10 notes, most severe first; the rest stay in the log with a count here. Then write the synthesis log, and in report mode call `ReportFindings`, both per [contract.md](contract.md). Report mode ends here: it edits nothing.
+Show at most 10 notes, most severe first; the rest stay in the log with a count here. Then write the synthesis log, and in report mode call `ReportFindings`, both per [contract.md](contract.md). Report mode then runs only [overlay upkeep](#8-overlay-upkeep): it edits no code.
 
 ## 7. Fix mode
 
@@ -166,7 +166,18 @@ Not reviewed: <n staged files | filtered-out repos>
 Verify (`<command>`): PASS
 ```
 
-Then stop. The user decides what to commit.
+Then run overlay upkeep and stop. The user decides what to commit.
+
+## 8. Overlay upkeep
+
+The overlay steers every later run, so a run that proves it wrong or incomplete fixes it. Through the run, collect overlay drift: each item a fact this run established, with its evidence, never a guess.
+
+- **Verify.** The resolved command is wrong for this repo, or died for resources with no fallback listed.
+- **Environment.** An environment failure no `env_failure` pattern matched.
+- **Project knowledge.** A finding refuted or dismissed because of a rule, deploy fact, or business risk the overlay leaves out, including what the user answered in this run ("deploy-order skew is intended").
+- **Stale lines.** A path, tool, module, or probe the overlay names that the code or a failed call contradicts.
+
+With no drift, skip this step. Otherwise ask one `AskUserQuestion` (multi-select), one option per edit, each naming the line to add, change, or remove and its evidence. Apply the chosen edits to the overlay file with Edit, in the format [overlay.md](overlay.md) defines, and tell the user it is theirs to commit. In a headless run, list the proposed edits under `### Overlay` in the report and leave the file as it is. With no overlay, list the drift under `### Overlay` as what a setup would capture.
 
 ## Gotchas
 
