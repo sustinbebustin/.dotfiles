@@ -1,9 +1,10 @@
 // Package dangerousrm prompts before a recursive `rm` runs. It mirrors
 // dangerousgit: instead of a hard `deny`, it returns `ask` so the user can
-// approve destructive removals case by case. Three kinds of target are exempt
-// so routine cleanup stays friction-free: absolute paths under /tmp (the
-// scratchpad area), relative paths inside a toolchain artifact directory such
-// as var/cache or node_modules (see artifactDirs), and paths below a root the
+// approve destructive removals case by case. Four kinds of target are exempt
+// so routine cleanup stays friction-free: paths under /tmp (the scratchpad
+// area), the directory a bare `$(mktemp -d)` in the same command made (see
+// freshTempDir), relative paths inside a toolchain artifact directory such as
+// var/cache or node_modules (see artifactDirs), and paths below a root the
 // machine-local config names (see underAllowedRoot).
 //
 // Targets are resolved through literal variable bindings made earlier in the
@@ -17,9 +18,16 @@
 //
 // A relative target is placed against every directory the shell may be in when
 // the rm runs: the payload's cwd until a cd moves it, and past a cd that may
-// have failed, both (see dirsAt). It is below an allowed root only if it is
-// from all of them. A function or alias from the user's shell profile that
+// have failed, both (see dirsAt). It is under /tmp or below an allowed root
+// only if it is from all of them. A function or alias from the user's shell profile that
 // changes directory (zoxide's `z`) is not visible here; that gap is accepted.
+// One the command itself defines is (see findShadows): it leaves the directory
+// unknown past a cd, and a redefined mktemp is no longer trusted.
+//
+// A script handed to a nested shell inherits functions, aliases and PATH from
+// its parent, so every command name in it counts as redefined. One whose text
+// had the parent's expansions dropped from it (hook.NestedLossy) gets no
+// exemption at all, since `/tmp$X/home` reads as /tmp/home.
 //
 // The resolver is deliberately local to this package rather than shared with
 // the other shell rules: it is more capable than shellast.WordLit, and lending
@@ -72,11 +80,11 @@ func Check(req *hook.Request) hook.Verdict {
 	if !ok {
 		return hook.Allowed()
 	}
-	v, hit := shellast.FirstCall(file, scan(file, req.Cwd, req.Config.AllowedRmRoots, false).checkRm)
+	v, hit := shellast.FirstCall(file, scan(req, file, false).checkRm)
 	if !hit {
 		return hook.Allowed()
 	}
-	if _, stillHit := shellast.FirstCall(file, scan(file, req.Cwd, req.Config.AllowedRmRoots, true).checkRm); !stillHit {
+	if _, stillHit := shellast.FirstCall(file, scan(req, file, true).checkRm); !stillHit {
 		return hook.Denied(reasonChainVar)
 	}
 	return v
@@ -92,13 +100,17 @@ type createdPath struct {
 // scope holds everything the rm checks need from a single parsed command,
 // together with the context the payload supplies around it.
 type scope struct {
-	// binds, funcs, lasting, ifsChanged and memo are the resolver's state;
-	// see resolve.go.
+	// binds, funcs, lasting, ifsChanged, shadows and memo are the resolver's
+	// state; see resolve.go.
 	binds      []binding
 	funcs      []span
 	lasting    []lastingPoison
 	ifsChanged bool
+	shadows    shadows
 	memo       map[*binding]resolved
+	// lossy marks a nested script whose text had expansions dropped from it,
+	// so no target in it is exempt: `/tmp$X/home` reads as /tmp/home.
+	lossy bool
 	// assumeChainsRun treats every && chain as having run to its end, for
 	// the rewrite hint in Check. Never decides an allow on its own.
 	assumeChainsRun bool
@@ -115,11 +127,24 @@ type scope struct {
 
 // scan collects bindings and created paths. Bindings come first, since created
 // paths are resolved against the bindings in force at their own position.
-func scan(file *syntax.File, cwd string, allowedRoots []string, assumeChainsRun bool) *scope {
-	s := &scope{cwd: cwd, allowedRoots: allowedRoots, assumeChainsRun: assumeChainsRun}
+func scan(req *hook.Request, file *syntax.File, assumeChainsRun bool) *scope {
+	s := &scope{
+		cwd:             req.Cwd,
+		allowedRoots:    req.Config.AllowedRmRoots,
+		assumeChainsRun: assumeChainsRun,
+		lossy:           req.Origin == hook.NestedLossy,
+	}
 	everywhere := assignedIn(file)
 	s.ifsChanged = everywhere.all || everywhere.names["IFS"]
-	s.lasting = assigningExpansions(file)
+	s.shadows = findShadows(file, everywhere)
+	if req.Origin != hook.Direct {
+		// The parent shell's functions, aliases and PATH are not visible here.
+		s.shadows.all = true
+	}
+	s.lasting = append(assigningExpansions(file), arithmeticAssignments(file)...)
+	if declaresNameref(file) {
+		s.lasting = append(s.lasting, lastingPoison{rebinds{all: true}, 0})
+	}
 	s.collect(file.Stmts, unbounded)
 
 	syntax.Walk(file, func(n syntax.Node) bool {
@@ -251,18 +276,18 @@ func (s *scope) checkRm(c *syntax.CallExpr) (hook.Verdict, bool) {
 	return hook.Asked(s.reasonFor(paths, off(c.Pos()))), true
 }
 
-// rmDirs returns the directories c may run in, or nil when they are unknown: a
-// wrapper such as `env -C dir` moves this one call, and otherwise it runs
-// wherever the shell is at that point.
-func (s *scope) rmDirs(c *syntax.CallExpr) []string {
+// rmDirs returns the directories c may run in, with dirs nil when they are
+// unknown: a wrapper such as `env -C dir` moves this one call, and otherwise it
+// runs wherever the shell is at that point.
+func (s *scope) rmDirs(c *syntax.CallExpr) workDirs {
 	if dir, moved := shellast.WrapperDir(c.Args); moved {
 		if !filepath.IsAbs(dir) {
-			return nil
+			return workDirs{}
 		}
-		return []string{filepath.Clean(dir)}
+		return workDirs{dirs: []string{filepath.Clean(dir)}, climbed: hasDotDot(dir)}
 	}
-	dirs, _ := s.dirsAt(off(c.Pos()))
-	return dirs
+	wd, _ := s.dirsAt(off(c.Pos()))
+	return wd
 }
 
 // unresolvedPath stands in for a target the resolver could not pin to a
@@ -302,19 +327,22 @@ func (s *scope) createdBeneath(target string, rmPos uint) bool {
 
 // allDisposable reports whether every target is one the rule waves through:
 // scratchpad space, a directory the toolchain regenerates on demand, or a
-// directory the machine-local config has signed off on. dirs are where the rm
-// may run, for placing relative targets.
+// directory the machine-local config has signed off on. wd is where the rm may
+// run, for placing relative targets. Nothing in a lossy script is.
 //
 // A target with a brace list is checked once per expansion (see
 // expandBraces): `/tmp/{a,../home}` names /home as well as /tmp/a.
-func (s *scope) allDisposable(paths, dirs []string) bool {
+func (s *scope) allDisposable(paths []string, wd workDirs) bool {
+	if s.lossy {
+		return false
+	}
 	for _, p := range paths {
 		expanded, ok := expandBraces(p)
 		if !ok {
 			return false
 		}
 		for _, e := range expanded {
-			if !underTmp(e) && !underArtifactDir(e) && !s.underAllowedRoot(e, dirs) {
+			if e != freshTempDir && !underTmpFrom(e, wd) && !underArtifactDir(e) && !s.underAllowedRoot(e, wd.dirs) {
 				return false
 			}
 		}
@@ -518,9 +546,42 @@ func pathSegments(p string) []string {
 // macOS resolves /tmp to /private/tmp, so both prefixes are treated as scratch.
 // A `..` component disqualifies the path, since it can escape the scratch root.
 func underTmp(p string) bool {
-	if slices.Contains(strings.Split(p, "/"), "..") {
+	if hasDotDot(p) {
 		return false
 	}
 	return p == "/tmp" || strings.HasPrefix(p, "/tmp/") ||
 		p == "/private/tmp" || strings.HasPrefix(p, "/private/tmp/")
+}
+
+// underTmpFrom reports whether p is inside the /tmp scratchpad: an absolute p
+// as written, a relative one from every directory in wd.
+//
+// A relative p holds to underTmp's rule on `..` twice over: in p itself, and on
+// the way to wd. The kernel resolves `..` against the physical directory, and
+// anything under /tmp may be a symlink to anywhere, so `cd /tmp/link && rm -rf
+// ../x` can name a path outside /tmp that a textual join places inside it.
+// underAllowedRoot does not apply this: its roots are the user's own trees,
+// where a symlink pointing out is not something to expect.
+func underTmpFrom(p string, wd workDirs) bool {
+	if filepath.IsAbs(p) {
+		return underTmp(p)
+	}
+	if wd.climbed || hasDotDot(p) {
+		return false
+	}
+	targets, ok := absTargets(p, wd.dirs)
+	if !ok {
+		return false
+	}
+	for _, abs := range targets {
+		if !underTmp(abs) {
+			return false
+		}
+	}
+	return true
+}
+
+// hasDotDot reports whether p has a `..` segment.
+func hasDotDot(p string) bool {
+	return slices.Contains(strings.Split(p, "/"), "..")
 }

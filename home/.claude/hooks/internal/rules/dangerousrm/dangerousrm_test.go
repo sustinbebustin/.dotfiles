@@ -428,7 +428,7 @@ func TestEvaluate(t *testing.T) {
 		},
 		{
 			name:     "command substitution fails closed",
-			cmd:      "rm -rf \"$(mktemp -d)\"",
+			cmd:      "rm -rf \"$(git rev-parse --show-toplevel)\"",
 			decision: "ask",
 			reason:   reasonGeneric,
 		},
@@ -588,6 +588,147 @@ func TestEvaluate(t *testing.T) {
 			name:     "cd into a repo then clear its cache is exempt",
 			cmd:      `(cd /Users/me/project && rm -rf var/cache/test && vendor/bin/phpunit)`,
 			decision: "allow",
+		},
+
+		// A directory `mktemp -d` just made.
+		{
+			name:     "a fresh mktemp directory is exempt",
+			cmd:      `d=$(mktemp -d); echo hi >"$d/log"; rm -rf "$d"`,
+			decision: "allow",
+		},
+		{
+			name:     "a quoted mktemp substitution is exempt",
+			cmd:      `d="$(mktemp -d)"; rm -rf "$d"`,
+			decision: "allow",
+		},
+		{
+			name: "a server probe cleaning up its mktemp directory is exempt",
+			cmd: `b=.build/us; d=$(mktemp -d); $b serve --data "$d" >"$d/log" 2>&1 & pid=$!; ` +
+				`for i in $(seq 1 50); do curl -s http://127.0.0.1:45783/ && break; done; ` +
+				`kill $pid; wait $pid 2>/dev/null; tail -3 "$d/log"; rm -rf "$d"`,
+			decision: "allow",
+		},
+		{
+			name:     "a path below a mktemp directory asks, since a failed mktemp leaves it at the root",
+			cmd:      `d=$(mktemp -d); rm -rf "$d/x"`,
+			decision: "ask",
+		},
+		{
+			name:     "climbing out of a mktemp directory asks",
+			cmd:      `d=$(mktemp -d); rm -rf "$d/.."`,
+			decision: "ask",
+		},
+		{
+			name:     "an unquoted mktemp directory may word-split and asks",
+			cmd:      `d=$(mktemp -d); rm -rf $d`,
+			decision: "ask",
+		},
+		{
+			name:     "a mktemp variable rebound before the rm asks",
+			cmd:      `d=$(mktemp -d); d=/home/me; rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "mktemp with other arguments asks",
+			cmd:      `d=$(mktemp -d /home/me/x); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a mktemp dry run asks",
+			cmd:      `d=$(mktemp -u); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "mktemp with a redirect asks",
+			cmd:      `d=$(mktemp -d 2>/dev/null); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a mktemp value with a suffix asks",
+			cmd:      `d=$(mktemp -d)/sub; rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd into a mktemp directory leaves relative targets unknown",
+			cmd:      `d=$(mktemp -d); cd "$d" && rm -rf x`,
+			decision: "ask",
+		},
+
+		// A mktemp the command may have replaced.
+		{
+			name:     "a mktemp function makes the substitution unknown",
+			cmd:      `mktemp() { echo /home/me; }; d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a mktemp function declared with the keyword makes the substitution unknown",
+			cmd:      `function mktemp { echo /home/me; }; d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a PATH change makes the substitution unknown",
+			cmd:      `PATH=/home/me/bin:$PATH; d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "an exported PATH makes the substitution unknown",
+			cmd:      `export PATH=/home/me/bin; d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a zsh path array change makes the substitution unknown",
+			cmd:      `path=(/home/me/bin $path); d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a zsh functions entry makes the substitution unknown",
+			cmd:      `functions[mktemp]='echo /home/me'; d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a hashed command path makes the substitution unknown",
+			cmd:      `hash -p /bin/echo mktemp; d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "an alias makes the substitution unknown",
+			cmd:      "alias mktemp='echo /home/me'\nd=$(mktemp -d); rm -rf \"$d\"",
+			decision: "ask",
+		},
+		{
+			name:     "an eval makes the substitution unknown",
+			cmd:      `eval "$X"; d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a nameref write makes the variable it names unknown",
+			cmd:      `d=/tmp/x; declare -n r=d; r=/home/me; rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "a let assignment makes the variable unknown",
+			cmd:      `d=/tmp/x; let d=0; rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "an arithmetic assignment makes the variable unknown",
+			cmd:      `d=/tmp/x; (( d = 1 )); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "an arithmetic increment makes the variable unknown",
+			cmd:      `d=/tmp/x; (( d++ )); rm -rf "$d"`,
+			decision: "ask",
+		},
+		{
+			name:     "arithmetic on another variable leaves the target known",
+			cmd:      `d=/tmp/x; for ((i=0; i<3; i++)); do :; done; rm -rf "$d"`,
+			decision: "allow",
+		},
+		{
+			name:     "a nameref makes the substitution unknown",
+			cmd:      `declare -n p=PATH; p=/home/me/bin; d=$(mktemp -d); rm -rf "$d"`,
+			decision: "ask",
 		},
 	}
 
@@ -861,6 +1002,79 @@ func TestAllowedRoots(t *testing.T) {
 			cwd:      "/elsewhere",
 			cmd:      `cd /home/tester/dev/app/wt && for d in a/b c/d; do test -d $d && rm -r $d/testdata; done`,
 			decision: "allow",
+		},
+
+		// A cd into /tmp places relative targets there.
+		{
+			name:     "relative targets after a cd into a tmp scratchpad are exempt",
+			cwd:      "/home/tester/other",
+			cmd:      `S=/tmp/claude/scratchpad/binsize; cd $S && (diff -ru a b > k.patch; true) && wc -l k.patch && rm -rf proto proto.full && ls`,
+			decision: "allow",
+		},
+		{
+			name:     "a relative target climbing out of tmp still asks",
+			cwd:      "/home/tester/other",
+			cmd:      `cd /tmp/x && rm -rf ../../home/tester`,
+			decision: "ask",
+		},
+		{
+			name:     "a cd into tmp that may have failed leaves the start directory possible",
+			cwd:      "/home/tester/other",
+			cmd:      `cd /tmp/x; rm -rf proto`,
+			decision: "ask",
+		},
+		{
+			name:     "a relative target from a tmp cwd is exempt",
+			cwd:      "/tmp/claude/scratchpad",
+			cmd:      `rm -rf proto`,
+			decision: "allow",
+		},
+
+		// A `..` resolves against the physical directory, which a symlink under
+		// /tmp can put anywhere.
+		{
+			name:     "a relative target climbing through a tmp symlink asks",
+			cwd:      "/tmp/x",
+			cmd:      `rm -rf link/../proj`,
+			decision: "ask",
+		},
+		{
+			name:     "a relative target climbing from a tmp cwd asks",
+			cwd:      "/tmp/link",
+			cmd:      `rm -rf ../victim`,
+			decision: "ask",
+		},
+		{
+			name:     "a relative target climbing after a cd into tmp asks",
+			cwd:      "/home/tester/other",
+			cmd:      `cd /tmp/link && rm -rf ../proj`,
+			decision: "ask",
+		},
+		{
+			name:     "a physical cd climbing through tmp asks",
+			cwd:      "/home/tester/other",
+			cmd:      `cd -P /tmp/link/.. && rm -rf proj`,
+			decision: "ask",
+		},
+		{
+			name:     "a dot-relative physical cd from tmp asks",
+			cwd:      "/home/tester/other",
+			cmd:      `cd /tmp/link && cd -P .. && rm -rf proj`,
+			decision: "ask",
+		},
+
+		// A cd the command may have replaced.
+		{
+			name:     "a cd function makes the directory unknown",
+			cwd:      "/home/tester/other",
+			cmd:      `cd() { :; }; cd /tmp/x && rm -rf proj`,
+			decision: "ask",
+		},
+		{
+			name:     "an alias makes the directory unknown",
+			cwd:      "/home/tester/other",
+			cmd:      "alias g='cd /home/tester'\ncd /tmp/x && g && rm -rf proj",
+			decision: "ask",
 		},
 	}
 

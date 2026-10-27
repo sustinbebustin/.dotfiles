@@ -21,13 +21,15 @@ import (
 // made -- on the right of && or ||, in an if/case branch, a loop body, a
 // function, a zsh last pipeline stage -- leaves a poison behind it: past the
 // point where it may or may not have happened, the variable is unknown. So does
-// anything that rebinds a variable out of sight: read, unset, eval, source, and
-// a declare whose flags transform the value. A lookup that lands on a poison, or
-// on no binding at all, fails, and the target reads as non-scratch.
+// anything that rebinds a variable out of sight: read, unset, eval, source, a
+// declare whose flags transform the value, an arithmetic assignment (`((x=1))`,
+// let) and, once any nameref is declared, every assignment. A lookup that lands
+// on a poison, or on no binding at all, fails, and the target reads as
+// non-scratch.
 //
-// Not modelled, so not trusted either way: arithmetic assignments (`((x=1))`,
-// let) and a variable command word that happens to be one of the rebinding
-// builtins. Neither shows up in the commands this guards against.
+// Not modelled, so not trusted either way: a variable command word that happens
+// to be one of the rebinding builtins. It does not show up in the commands this
+// guards against.
 
 // binding is what the resolver knows about one variable in the span (pos, end):
 // the values words expands to, resolved as of at. A nil words is a poison: the
@@ -458,13 +460,18 @@ func (s *scope) resolveParts(parts []syntax.WordPart, at uint, split bool) ([]st
 				return nil, false
 			}
 			for _, val := range v {
-				if split && (s.ifsChanged || strings.ContainsAny(val, " \t\n")) {
+				if split && (s.ifsChanged || strings.ContainsAny(val, " \t\n") || strings.Contains(val, freshTempDir)) {
 					return nil, false
 				}
 			}
 			vals = v
+		case *syntax.CmdSubst:
+			if split || s.shadows.has("mktemp") || !isMktempDir(x) {
+				return nil, false
+			}
+			vals = []string{freshTempDir}
 		default:
-			// CmdSubst, ArithmExp, ProcSubst, ExtGlob: not statically known.
+			// ArithmExp, ProcSubst, ExtGlob: not statically known.
 			return nil, false
 		}
 		if len(out)*len(vals) > maxValues {
@@ -479,6 +486,34 @@ func (s *scope) resolveParts(parts []syntax.WordPart, at uint, split bool) ([]st
 		out = next
 	}
 	return out, true
+}
+
+// freshTempDir stands in for the output of a bare `$(mktemp -d)`: a directory
+// that did not exist before the command made it, wherever $TMPDIR puts it. Its
+// real path is unknown, so the value matches no path check; only a target that
+// is exactly this value is exempt (see allDisposable). A suffix is not, since a
+// failed mktemp prints nothing and `"$d/x"` becomes `/x`. Where the shell would
+// word-split it, a $TMPDIR with spaces or glob characters would name other
+// paths, so there it does not resolve at all.
+const freshTempDir = "\x00mktemp -d"
+
+// isMktempDir reports a substitution that is exactly `mktemp -d`. Any other
+// flag or operand (a template, -p, -u) or a redirect is refused rather than
+// modelled.
+func isMktempDir(cs *syntax.CmdSubst) bool {
+	if len(cs.Stmts) != 1 || !plainStmt(cs.Stmts[0]) {
+		return false
+	}
+	c, ok := cs.Stmts[0].Cmd.(*syntax.CallExpr)
+	if !ok || len(c.Assigns) != 0 || len(c.Args) != 2 {
+		return false
+	}
+	for i, want := range []string{"mktemp", "-d"} {
+		if !shellast.IsLiteral(c.Args[i]) || shellast.WordLit(c.Args[i]) != want {
+			return false
+		}
+	}
+	return true
 }
 
 // resolveOne renders w when it expands to exactly one string, and to "" when
@@ -571,54 +606,211 @@ func (s *scope) values(b *binding) ([]string, bool) {
 	return vals, ok
 }
 
+// workDirs is every directory the shell may be in at some point, cleaned.
+// climbed marks that getting to one of them took a `..` -- in the payload's
+// cwd or a cd target -- which a symlink can send somewhere the cleaned text
+// does not say (see underTmpFrom).
+type workDirs struct {
+	dirs    []string
+	climbed bool
+}
+
 // dirsAt returns every directory the shell may be in at at: the payload's cwd
 // until a cd binds another, and past a cd that may have failed, both. A
 // relative cd target counts only when it starts with `.` or `..`, which CDPATH
 // never redirects; one with a brace or glob may name several directories, and
-// cd refuses those. ok is false when the directory is unknown.
-func (s *scope) dirsAt(at uint) ([]string, bool) {
+// cd refuses those. ok is false when the directory is unknown, and so it is
+// past any cd when the command may have redefined cd.
+func (s *scope) dirsAt(at uint) (workDirs, bool) {
 	b := s.bindingAt(cwdVar, at)
 	if b == nil {
 		if !filepath.IsAbs(s.cwd) {
-			return nil, false
+			return workDirs{}, false
 		}
-		return []string{filepath.Clean(s.cwd)}, true
+		return workDirs{dirs: []string{filepath.Clean(s.cwd)}, climbed: hasDotDot(s.cwd)}, true
 	}
-	if b.words == nil {
-		return nil, false
+	if b.words == nil || s.shadows.has(dirChangers...) {
+		return workDirs{}, false
 	}
 	targets, ok := s.values(b)
 	if !ok {
-		return nil, false
+		return workDirs{}, false
 	}
-	var out []string
+	var out workDirs
+	add := func(wd workDirs) {
+		out.dirs = append(out.dirs, wd.dirs...)
+		out.climbed = out.climbed || wd.climbed
+	}
 	if b.orPrior {
 		prior, ok := s.dirsAt(b.at)
 		if !ok {
-			return nil, false
+			return workDirs{}, false
 		}
-		out = append(out, prior...)
+		add(prior)
 	}
 	for _, t := range targets {
 		switch first, _, _ := strings.Cut(t, "/"); {
 		case strings.ContainsAny(t, "{*?["):
-			return nil, false
+			return workDirs{}, false
 		case filepath.IsAbs(t):
-			out = append(out, filepath.Clean(t))
+			add(workDirs{dirs: []string{filepath.Clean(t)}, climbed: hasDotDot(t)})
 		case first == "." || first == "..":
 			base, ok := s.dirsAt(b.at)
 			if !ok {
-				return nil, false
+				return workDirs{}, false
 			}
-			for _, d := range base {
-				out = append(out, filepath.Join(d, t))
+			moved := workDirs{climbed: base.climbed || hasDotDot(t)}
+			for _, d := range base.dirs {
+				moved.dirs = append(moved.dirs, filepath.Join(d, t))
 			}
+			add(moved)
 		default:
-			return nil, false
+			return workDirs{}, false
 		}
 	}
-	if len(out) > maxValues {
-		return nil, false
+	if len(out.dirs) > maxValues {
+		return workDirs{}, false
 	}
 	return out, true
+}
+
+// dirChangers are the builtins the cd binding models; redefining any of them
+// leaves the directory unknown past a cd.
+var dirChangers = []string{"cd", "chdir", "pushd", "popd"}
+
+// shadows is the set of command names the command may have redefined, so that
+// a call by that name may not run the command it names. all stands for every
+// name.
+type shadows struct {
+	names map[string]bool
+	all   bool
+}
+
+func (sh shadows) has(names ...string) bool {
+	if sh.all {
+		return true
+	}
+	for _, n := range names {
+		if sh.names[n] {
+			return true
+		}
+	}
+	return false
+}
+
+// shadowingVars change which command a name runs: the search path, and zsh's
+// tables of functions, aliases and hashed commands.
+var shadowingVars = []string{"PATH", "path", "functions", "aliases", "commands"}
+
+// shadowingCmds can redefine any command name.
+var shadowingCmds = map[string]bool{
+	"alias": true, "hash": true, "enable": true, "autoload": true, "functions": true,
+}
+
+// namerefDecls are the declaration builtins whose -n flag makes a name write
+// through to another variable, which may be one of shadowingVars.
+var namerefDecls = map[string]bool{"declare": true, "typeset": true, "local": true}
+
+// findShadows returns the command names file may redefine: every function it
+// declares, and every name at all once it runs eval or source, binds one of
+// shadowingVars (assigned is what assignedIn found), calls one of
+// shadowingCmds, or declares a nameref.
+//
+// A function, alias or PATH entry from the user's shell profile is not visible
+// here; that gap is accepted, as for cd.
+func findShadows(file *syntax.File, assigned rebinds) shadows {
+	sh := shadows{names: map[string]bool{}, all: assigned.all}
+	for _, v := range shadowingVars {
+		sh.all = sh.all || assigned.names[v]
+	}
+	syntax.Walk(file, func(n syntax.Node) bool {
+		switch x := n.(type) {
+		case *syntax.FuncDecl:
+			if x.Name != nil {
+				sh.names[x.Name.Value] = true
+			}
+			for _, name := range x.Names {
+				sh.names[name.Value] = true
+			}
+		case *syntax.CallExpr:
+			name, _ := shellast.Invocation(x.Args, shellast.WordLit)
+			if shadowingCmds[shellast.CommandName(name)] {
+				sh.all = true
+			}
+		}
+		return true
+	})
+	sh.all = sh.all || declaresNameref(file)
+	return sh
+}
+
+// declaresNameref reports a declare / typeset / local -n anywhere in file,
+// including one reached through a wrapper. A nameref writes through to the
+// variable it names, so once one exists any assignment may bind any variable.
+func declaresNameref(file *syntax.File) bool {
+	found := false
+	syntax.Walk(file, func(n syntax.Node) bool {
+		switch x := n.(type) {
+		case *syntax.CallExpr:
+			name, rest := shellast.Invocation(x.Args, shellast.WordLit)
+			found = found || (namerefDecls[shellast.CommandName(name)] && hasNamerefFlag(rest))
+		case *syntax.DeclClause:
+			for _, a := range x.Args {
+				found = found || (a.Naked && a.Name == nil && a.Value != nil && hasNamerefFlag([]*syntax.Word{a.Value}))
+			}
+		}
+		return !found
+	})
+	return found
+}
+
+// arithAssignOps are the arithmetic operators that bind their left operand.
+var arithAssignOps = map[syntax.BinAritOperator]bool{
+	syntax.Assgn: true, syntax.AddAssgn: true, syntax.SubAssgn: true, syntax.MulAssgn: true,
+	syntax.QuoAssgn: true, syntax.RemAssgn: true, syntax.AndAssgn: true, syntax.OrAssgn: true,
+	syntax.XorAssgn: true, syntax.ShlAssgn: true, syntax.ShrAssgn: true, syntax.AndBoolAssgn: true,
+	syntax.OrBoolAssgn: true, syntax.XorBoolAssgn: true, syntax.PowAssgn: true,
+}
+
+// arithmeticAssignments returns a lasting poison for every variable an
+// arithmetic expression binds (`let d=0`, `((d++))`, `for ((i=0; ...))`),
+// wherever it sits. A target that is not a plain name poisons every variable.
+func arithmeticAssignments(file *syntax.File) []lastingPoison {
+	var out []lastingPoison
+	poison := func(x syntax.ArithmExpr) {
+		var r rebinds
+		if w, ok := x.(*syntax.Word); ok && shellast.IsLiteral(w) {
+			r.add(shellast.WordLit(w))
+		} else {
+			r.all = true
+		}
+		out = append(out, lastingPoison{r, off(x.Pos())})
+	}
+	syntax.Walk(file, func(n syntax.Node) bool {
+		switch x := n.(type) {
+		case *syntax.BinaryArithm:
+			if arithAssignOps[x.Op] {
+				poison(x.X)
+			}
+		case *syntax.UnaryArithm:
+			if x.Op == syntax.Inc || x.Op == syntax.Dec {
+				poison(x.X)
+			}
+		}
+		return true
+	})
+	return out
+}
+
+// hasNamerefFlag reports a -n among words, or a flag it cannot read.
+func hasNamerefFlag(words []*syntax.Word) bool {
+	for _, w := range words {
+		if !shellast.IsLiteral(w) {
+			return true
+		}
+		if flag := shellast.WordLit(w); strings.HasPrefix(flag, "-") && strings.ContainsRune(flag, 'n') {
+			return true
+		}
+	}
+	return false
 }

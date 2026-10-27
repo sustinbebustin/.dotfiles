@@ -918,6 +918,30 @@
     "decision": "allow"
   },
   {
+    "name": "nested-rm-dropped-expansion-not-scratch",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"rm -rf /tmp$X/home\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "nested-rm-mktemp-not-trusted",
+    "stdin": "{\"tool_input\":{\"command\":\"mktemp() { echo /home/me; }; export -f mktemp; bash -c 'd=$(mktemp -d); rm -rf \\\"$d\\\"'\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "rm-mktemp-dir",
+    "stdin": "{\"tool_input\":{\"command\":\"d=$(mktemp -d); echo hi \u003e\\\"$d/log\\\"; rm -rf \\\"$d\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "rm-relative-after-cd-tmp",
+    "stdin": "{\"cwd\":\"/home/tester/other\",\"tool_input\":{\"command\":\"S=/tmp/claude/scratchpad; cd $S \u0026\u0026 rm -rf proto\"},\"tool_name\":\"Bash\"}",
+    "decision": "rewrite",
+    "command": "(\nS=/tmp/claude/scratchpad; cd $S \u0026\u0026 rm -rf proto\n)",
+    "note": "This command used a top-level `cd`, so a hook ran it wrapped in a `( ... )` subshell. Its output is as written, but the working directory is still /home/tester/other for later commands. Write `(cd dir \u0026\u0026 cmd)` yourself next time."
+  },
+  {
     "name": "nested-credential-file",
     "stdin": "{\"tool_input\":{\"command\":\"sh -c 'cat .env'\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",
