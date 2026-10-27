@@ -878,20 +878,35 @@ case "$TIER" in
   *)       if [ "$RISKY" -eq 1 ]; then echo "- **$TIER** (raised by a risk trigger)"; else echo "- **$TIER**"; fi ;;
 esac
 if [ "$TIER" = "chunked" ] || [ "$TIER" = "deep" ]; then
-  echo "- Areas (lines, files) -- the basis for splitting reviewers or chunks:"
-  printf '%s\n' "$FILE_STATS" | awk -F '\t' -v multi="$MULTI" '
-    NF >= 2 {
-      n = split($2, p, "/"); depth = (multi == 1) ? 3 : 2
-      a = p[1]; for (j = 2; j <= depth && j < n; j++) a = a "/" p[j]
-      lines[a] += $1; files[a]++
+  chunked="$([ "$TIER" = chunked ] && echo 1 || echo 0)"
+  if [ "$chunked" -eq 0 ]; then
+    echo "- Areas (lines, files; data files such as fixtures count 0 lines) -- the basis for splitting reviewers:"
+  fi
+  # An area over the chunk cap (8,000 code lines or 120 files) splits one directory
+  # level deeper, down to single files.
+  printf '%s\n' "$FILE_STATS" | DATA_RE="$DATA_RE" awk -F '\t' -v multi="$MULTI" '
+    function key(p, d, deep,   n, s, a, j) {
+      n = split(p, s, "/")
+      if (d >= n) { if (deep) return p; d = n - 1 }
+      a = s[1]; for (j = 2; j <= d; j++) a = a "/" s[j]
+      return a
     }
-    END { for (a in lines) printf "%s\t%d\t%d\n", a, lines[a], files[a] }' | sort \
-    | awk -F '\t' -v chunked="$([ "$TIER" = chunked ] && echo 1 || echo 0)" '
+    NF >= 2 { m++; fp[m] = $2; fl[m] = ($2 ~ ENVIRON["DATA_RE"]) ? 0 : $1; fd[m] = (multi == 1) ? 3 : 2 }
+    END {
+      do {
+        changed = 0; delete L; delete F
+        for (i = 1; i <= m; i++) { k[i] = key(fp[i], fd[i], dp[i]); L[k[i]] += fl[i]; F[k[i]]++ }
+        for (i = 1; i <= m; i++)
+          if ((L[k[i]] > 8000 || F[k[i]] > 120) && k[i] != fp[i]) { fd[i]++; dp[i] = 1; changed = 1 }
+      } while (changed)
+      for (a in L) printf "%s\t%d\t%d\n", a, L[a], F[a]
+    }' | sort \
+    | awk -F '\t' -v chunked="$chunked" '
       BEGIN { c = 0 }
-      { printf "    - %s: %d lines, %d file(s)\n", $1, $2, $3
-        if (chunked) { if (cl > 0 && (cl + $2 > 3000 || cf + $3 > 80)) { c++; cl = 0; cf = 0 }
-          cl += $2; cf += $3; chunk[c] = chunk[c] " " $1; cls[c] = cl; cfs[c] = cf } }
-      END { if (chunked) { print "- Proposed chunks (each a deep run; then one boundaries-only run over the whole diff):"
+      !chunked { printf "    - %s: %d lines, %d file(s)\n", $1, $2, $3 }
+      chunked { if (cl > 0 && (cl + $2 > 8000 || cf + $3 > 120)) { c++; cl = 0; cf = 0 }
+          cl += $2; cf += $3; chunk[c] = chunk[c] " " $1; cls[c] = cl; cfs[c] = cf }
+      END { if (chunked) { print "- Proposed chunks (code lines, files; data files count 0 lines). Each is a deep run without boundaries, one at a time; then one boundaries-only run over the whole diff:"
           for (j = 0; j <= c; j++) printf "    %d. %d lines, %d file(s):%s\n", j + 1, cls[j], cfs[j], chunk[j] } }'
 fi
 echo ""
