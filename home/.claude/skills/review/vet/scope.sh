@@ -761,16 +761,6 @@ for_changed shell_scan
 SHELL_FILES="$(printf '%s' "$SHELL_FILES" | grep . || true)"
 [ -n "$SHELL_FILES" ] && add_lens shell "shell scripts: $(printf '%s\n' "$SHELL_FILES" | head -5 | tr '\n' ' ')"
 
-sentry_hit=0
-has '(^|/)(sentry\.[a-z]+\.config\.[a-z]+|instrumentation(-client)?\.[jt]s)$' && sentry_hit=1
-sentry_scan() {
-  local k="$1"
-  gdiff "$k" -U0 2>/dev/null | grep -qE "^[+-].*@sentry/" && sentry_hit=1
-  return 0
-}
-[ "$sentry_hit" -eq 0 ] && for_changed sentry_scan
-[ "$sentry_hit" -eq 1 ] && add_lens sentry "Sentry config or an @sentry/* import in the diff"
-
 # Comment lines added in source files (doc-comment-reviewer's trigger).
 export SLASH_RE='\.(go|ts|tsx|js|jsx|mjs|cjs|mts|cts|rs|java|kt|swift|c|h|cc|cpp|hpp|cs|php|scala|dart)$'
 export HASH_RE='\.(py|sh|bash|zsh|rb|pl)$'

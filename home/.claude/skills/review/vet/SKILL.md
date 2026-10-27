@@ -71,7 +71,7 @@ Reviewer set per tier (`slots` and `inline_max` are the workflow's `verify` args
 | standard | `core`; `quality`; up to two stack lenses, one instance each; comments; design when judged in. At most 5 | `slots: 4, inline_max: 0` |
 | deep | `core` twice, split by the block's areas (`files`); `quality`; up to two stack lenses; `boundaries`; comments. At most 7 | `slots: 2, inline_max: 0, batched: true` |
 
-Stack lenses are `go`, `react-next`, `typescript`, `supabase`, and `shell`. `sentry` attaches to the `react-next` instance, else to `core`. When there are more lenses than instances, attach the extras to an existing instance's `lenses` list (core first) rather than dropping them, and say so in the report. The workflow refuses more than nine agents counting verifier slots: fold the two core instances into one, then attach lenses, until the set fits.
+Stack lenses are `go`, `react-next`, `typescript`, `supabase`, and `shell`. When there are more lenses than instances, attach the extras to an existing instance's `lenses` list (core first) rather than dropping them, and say so in the report. The workflow refuses more than nine agents counting verifier slots: fold the two core instances into one, then attach lenses, until the set fits.
 
 ## 3. Briefing
 
