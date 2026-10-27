@@ -61,7 +61,11 @@ The block proposes a tier, lenses, and risk triggers. Add the judgment it cannot
 - **Trivial** holds only when the diff has no logic change (formatting, comments, a pure rename, docs). Then print a report with verdict `APPROVED_TRIVIAL` and the reason, write the synthesis log, and stop. Any logic change makes it `small`.
 - **Judged triggers.** A contract change the patterns missed (status codes, error shapes, queue or webhook payloads, auth model) is a risk trigger: raise the tier one step (small to standard, standard to deep).
 - **Design** is a judgment, never a file type. Add `design-consultant` for a design decision: a new surface or flow with no pattern to follow, a new component, a redesign, a changed layout, hierarchy, interaction, or state model, or a deliberate design pass (responsive, accessibility remediation, motion, theming and tokens, a copy overhaul). Skip it for pattern extension -- a tile, row, column, field, option, or route cloned from a working sibling -- and for wiring, data, hooks, and tests. When in doubt, skip: a design reviewer sent at a correct clone invents findings. Give it only the design-bearing files and a `Surface:` note naming the app and who uses it.
-- **Chunked.** Show the block's proposed chunks and ask the user to approve or adjust them. Each chunk is its own deep run (its files as each reviewer's `files`); a final run with one `boundaries` reviewer covers the whole diff.
+- **Chunked.** Show the block's proposed chunks and ask the user to approve or adjust them. Then:
+  - Run the chunks one at a time, each a deep run without `boundaries` (its files as each reviewer's `files`). Sequential runs let each chunk inherit what earlier ones settled and keep the box's agent count bounded.
+  - After each chunk, append to the briefing's settled facts every question its verifiers or the user settled, and drop open questions those facts answer.
+  - Last, one run with one `boundaries` reviewer covers the whole diff. Its briefing lists the findings already reported (`file:line`, summary), so it reports only defects that cross chunks.
+  - Synthesize all runs as one report: merge findings across runs by the workflow's rule (same file and category, lines within 3), group one root cause cited in several files under its first finding, and merge open questions that ask the same thing.
 
 Reviewer set per tier (`slots` and `inline_max` are the workflow's `verify` args):
 
@@ -79,11 +83,12 @@ Reviewers see nothing of this conversation. Write the briefing to the scratchpad
 
 - **Scope.** Mode, scope line, repos and any repo filter, the diff commands verbatim, untracked files to read in full, partially staged files (only their worktree hunks are in scope), the count of excluded staged files. For a PR not checked out, how to read files at its head. One line: findings land only in these hunks and files.
 - **Intent.** What the change is for, from this conversation (cite a plan file by path when one exists), the user's `-- note`, and the commits in scope. When intent comes only from commit subjects, say so rather than inventing it.
-- **Changes.** Intentional behaviour changes per file, and files that are refactor-only and must behave identically.
+- **Changes.** Intentional behaviour changes per file, and files that are refactor-only and must behave identically. Cite a commit or `file:line` for every claim that something moved, was removed, or was replaced: an uncited claim misleads every reviewer at once.
 - **Consumers and call sites.** The block's consumer list, plus the entry points and gates you know: routes and their auth, UI triggers and the conditions around them, flags, product constraints, callers that will never reach the code. Cite `file:line`. Write "single area, no cross-boundary gates" when that is the case. Missing gates are the main source of false blockers.
 - **Project knowledge.** The overlay path (its body is required reading), its deploy facts, the standards sources, and the workspace repos the verifier sweeps for variants.
 - **Data probes.** The overlay's probes and what each allows, for the verifier. Omit without an overlay.
 - **Fix context.** Only when the block lists fix commits, or for the fix-mode delta: the defect each fix addresses.
+- **Settled facts.** Chunked runs only: each answer an earlier chunk settled, with its evidence (a verifier's query result, the user's answer). Reviewers and verifiers take these as given and do not re-ask them.
 - **Prior findings.** Re-review only: the prior synthesis's findings whose files are still in scope (id, `file:line`, summary, routing, the user's decision). Say when the prior run's scope differed from this one.
 
 ## 4. Dispatch
@@ -106,7 +111,7 @@ Workflow({
 })
 ```
 
-Pass `args` as an object, not a JSON string. Labels are unique; `files` limits an instance to a cluster. The workflow returns `reviewers[]`, `findings[]` (refuted ones removed), `refuted[]`, `open_questions[]`, `previous_findings_status[]`, `unverified_ids[]`, and `agents_used`, and keeps every agent's raw return in its journal. A reviewer with `status: failed` is reported as missing; offer to re-run it.
+Pass `args` as an object, not a JSON string. Labels are unique; `files` limits an instance to a cluster, with a deleted file listed as `<path> (deleted)`. The workflow returns `reviewers[]`, `findings[]` (refuted ones removed), `refuted[]`, `open_questions[]`, `previous_findings_status[]`, `unverified_ids[]`, and `agents_used`, and keeps every agent's raw return in its journal. A reviewer with `status: failed` is reported as missing; offer to re-run it.
 
 ## 5. Synthesis
 
@@ -141,7 +146,7 @@ Verdict: <verdict>
 | Reviewer | Lenses | Blocking / notes | Status |
 ```
 
-Show at most 10 notes, most severe first; the rest stay in the log with a count here. Then write the synthesis log, and in report mode call `ReportFindings`, both per [contract.md](contract.md). Report mode then runs only [overlay upkeep](#8-overlay-upkeep): it edits no code.
+Show at most 10 notes and 10 open questions, most severe first; the rest stay in the log with a count here. Then write the synthesis log, and in report mode call `ReportFindings`, both per [contract.md](contract.md). Report mode then runs only [overlay upkeep](#8-overlay-upkeep): it edits no code.
 
 ## 7. Fix mode
 
@@ -181,6 +186,7 @@ With no drift, skip this step. Otherwise ask one `AskUserQuestion` (multi-select
 
 ## Gotchas
 
+- **Scope block saved to a file.** A large block arrives as a saved-output path instead of inline. Read that file in full before step 1: it is the block, and everything above that calls it authoritative applies to it.
 - **Nothing in scope.** Print "No changes to review" and stop; never review recent commits on your own. Under `unstaged`, staged-only work is a real result: say so and offer `/vet` with no scope.
 - **Unknown argument.** The block stops on it. Ask what the user meant; never guess a scope.
 - **A repo filter hides a cross-repo defect.** Report a finding whose failure path runs through an excluded repo with that caveat, and offer an unfiltered run when the change is genuinely cross-repo.

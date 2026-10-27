@@ -35,7 +35,7 @@ const FINDING = {
   properties: {
     id: str,
     file: { type: 'string', description: 'workspace-relative path' },
-    line: { type: 'integer' },
+    line: { type: 'integer', description: 'line number in the file as it stands after the change, never an offset into the diff' },
     end_line: { type: 'integer' },
     summary: { type: 'string', description: 'one sentence: what is wrong' },
     failure_scenario: { type: 'string', description: 'concrete inputs or state -> wrong outcome' },
@@ -132,7 +132,7 @@ if (A.reviewers.length + V.slots > MAX_AGENTS) {
 // --- prompts --------------------------------------------------------------------
 function reviewPrompt(r) {
   const files = r.files && r.files.length
-    ? `\nFiles assigned to you (a parallel reviewer covers the rest of the scope):\n${r.files.map(f => `- ${f}`).join('\n')}\n`
+    ? `\nFiles assigned to you (a parallel reviewer covers the rest of the scope; a path marked "(deleted)" is gone from the change: read it at the base with \`git show <base sha>:<path>\` and review what its removal breaks):\n${r.files.map(f => `- ${f}`).join('\n')}\n`
     : ''
   const note = r.note ? `\n${r.note}\n` : ''
   if (r.agent === 'doc-comment-reviewer') {

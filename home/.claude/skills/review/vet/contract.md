@@ -101,7 +101,7 @@ When reviewers disagree, the workflow keeps the worst status (STILL_PRESENT over
 
 ## ReportFindings
 
-Call `ReportFindings` once per run with every finding that is not dropped or logged-only, most severe first (blocking before non-blocking, then CONFIRMED, PLAUSIBLE, unverified): after the report in report mode, at the close with each `outcome` in fix mode. Map each finding:
+Call `ReportFindings` once per run with every finding that is not dropped or logged-only, most severe first (blocking before non-blocking, then CONFIRMED, PLAUSIBLE, unverified): after the report in report mode, at the close with each `outcome` in fix mode. The tool takes at most 32: past that, send the 32 most severe and say in the report how many more the log holds. Map each finding:
 
 | ReportFindings | From |
 |---|---|

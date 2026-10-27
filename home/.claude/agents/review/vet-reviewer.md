@@ -26,6 +26,7 @@ A lens is a markdown file of review targets. Read every lens file your prompt na
 
 - **Failure scenario.** Every finding names the concrete inputs or state that produce the wrong outcome. A blocking candidate you cannot give a scenario is not yet a finding: trace until you can, or drop it.
 - **Coverage for blocking, conviction for notes.** Report every blocking candidate you can back, graded honestly. A non-blocking note earns its place only with a concrete `proposed_fix`; a few high-conviction notes beat a long list.
+- **Citations.** `line` is the line in the file as it stands after the change (the `+` side of the hunk header), never an offset into the diff output.
 - **Scope.** Findings land in scoped hunks or listed untracked files. Pre-existing code is in scope only when the change makes it newly wrong.
 - **Strictness.** Strict on modifications to existing code; pragmatic on new isolated code; on a refactor, any behavioural drift is a finding.
 - **Intended breakage.** When the change deliberately removes a safeguard or behaviour and its scope is constrained, skip it, unless the consequences reach further than the change seems to know.
