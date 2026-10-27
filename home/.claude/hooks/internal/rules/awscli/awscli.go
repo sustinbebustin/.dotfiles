@@ -114,20 +114,116 @@ func (s *scope) checkAWS(c *syntax.CallExpr) (v hook.Verdict, hit bool) {
 	}
 	toks := s.census.expand(rest, c.Pos())
 	wrapperArgs := len(c.Args) - len(rest) - 1
+	v = s.judge(c, wrapperArgs, toks)
+	if v.Decision != hook.Ask {
+		return v, true
+	}
+	// An expansion that only blocks the call by sitting in an option's value
+	// slot has a mechanical fix; deny with it, so the agent rewrites the call
+	// instead of a human approving it. The rewritten call is judged afresh when
+	// it runs, so the hint can never let anything through.
+	if fixed, hints, ok := s.census.valueSlotRewrite(toks); ok && s.judge(c, wrapperArgs, fixed).Decision == hook.Allow {
+		return hook.Denied(fmt.Sprintf("Blocked: this AWS CLI call passes %s, which could "+
+			"expand to a --profile or --endpoint-url option, so the profile cannot be confirmed. Nothing ran. "+
+			"Attach each value to its option so it stays one value: %s.",
+			describeCount(len(hints)), strings.Join(hints, "; "))), true
+	}
+	return v, true
+}
+
+// judge applies the endpoint and profile rules to the call's tokens.
+func (s *scope) judge(c *syntax.CallExpr, wrapperArgs int, toks []token) hook.Verdict {
 	if local, found := flagEndpoint(toks); found {
 		if local {
-			return hook.Allowed(), true
+			return hook.Allowed()
 		}
 	} else if !s.env.poisoned && (callSetsLocalEndpoint(c, wrapperArgs) ||
 		(s.env.exported && c.Pos().After(s.env.exportedFrom))) {
-		return hook.Allowed(), true
+		return hook.Allowed()
 	}
 
 	profile, err := s.profiles.resolve(c, c.Args[:wrapperArgs], toks)
 	if err != nil {
-		return hook.Asked(fmt.Sprintf("AWS CLI call, and %v. Allow?", err)), true
+		return hook.Asked(fmt.Sprintf("AWS CLI call, and %v. Allow?", err))
 	}
-	return s.applyPolicy(profile, toks), true
+	return s.applyPolicy(profile, toks)
+}
+
+func describeCount(n int) string {
+	if n == 1 {
+		return "an option value as a separate word"
+	}
+	return fmt.Sprintf("%d option values as separate words", n)
+}
+
+// positionalCommands are the high-level aws commands that take positional
+// arguments, and boolean options among their flags, so a word after an option
+// need not be its value.
+var positionalCommands = map[string]bool{"logs tail": true, "logs start-live-tail": true}
+
+// valueSlotRewrite rewrites every flag-capable token into `--opt="value"`,
+// joined to the option before it, and returns the rewritten tokens with a hint
+// per rewrite. ok is false unless every such token can be rewritten: it
+// directly follows a literal `--opt` that takes a value (not a global boolean,
+// not --profile or --endpoint-url, whose values must be literal anyway), in a
+// modelled API operation (no s3 or other command with positional arguments),
+// and its source is already one word (see quotedSource).
+func (c census) valueSlotRewrite(toks []token) (fixed []token, hints []string, ok bool) {
+	op, err := findOperation(toks)
+	if err != nil || op.service == "s3" || positionalCommands[op.String()] {
+		return nil, nil, false
+	}
+	for i, t := range toks {
+		if !t.mayBeFlags {
+			fixed = append(fixed, t)
+			continue
+		}
+		if i == 0 {
+			return nil, nil, false
+		}
+		// A known option is never itself rewritten, so it is still the last
+		// token in fixed.
+		opt := toks[i-1]
+		value, quotable := c.quotedSource(t.word)
+		if !quotable || !opt.known || !strings.HasPrefix(opt.text, "--") || opt.text == "--" ||
+			strings.Contains(opt.text, "=") || globalBoolFlags[opt.text] ||
+			opt.text == profileFlag || opt.text == endpointFlag {
+			return nil, nil, false
+		}
+		fixed[len(fixed)-1] = token{text: opt.text + "="}
+		hints = append(hints, fmt.Sprintf("`%s=%s`", opt.text, value))
+	}
+	return fixed, hints, len(hints) > 0
+}
+
+// quotedSource returns w's source as one double-quoted word, when w is already
+// meant as one value, so attaching it to its option keeps the meaning: a
+// double-quoted string with no expansion that yields several words, or a bare
+// $NAME the census binds only to single words (a loop item, an arithmetic
+// result). An unquoted $(cmd) or other $NAME may be meant to split into
+// several values (`--instance-ids $IDS`), so it is not rewritten.
+func (c census) quotedSource(w *syntax.Word) (string, bool) {
+	if w == nil || len(w.Parts) != 1 {
+		return "", false
+	}
+	var sb strings.Builder
+	if err := syntax.NewPrinter().Print(&sb, w); err != nil {
+		return "", false
+	}
+	switch x := w.Parts[0].(type) {
+	case *syntax.DblQuoted:
+		for _, p := range x.Parts {
+			if pe, ok := p.(*syntax.ParamExp); ok && multiWord(pe) {
+				return "", false
+			}
+		}
+		return sb.String(), true
+	case *syntax.ParamExp:
+		if x.Param != nil && !multiWord(x) && c.singleWord(x.Param.Value) {
+			return `"` + sb.String() + `"`, true
+		}
+	}
+	return "", false
 }
 
 // applyPolicy turns the profile's configured policy into a verdict for a call
@@ -188,22 +284,23 @@ func makesNoRequest(args []*syntax.Word) bool {
 	return shellast.WordLit(args[len(args)-1]) == "help"
 }
 
-// flagEndpoint finds an --endpoint-url flag in the aws arguments. found reports
-// whether one is present; local whether its value is a known loopback URL.
+// flagEndpoint finds the --endpoint-url flag in the aws arguments; the last one
+// wins, as in the CLI. found reports whether one is present; local whether its
+// value is a known loopback URL. A token that may expand to options could add
+// a later one, so it counts as a non-local endpoint.
 func flagEndpoint(toks []token) (local, found bool) {
 	for i, t := range toks {
 		switch {
+		case t.mayBeFlags:
+			return false, true
+		case !t.known:
 		case t.text == endpointFlag:
-			if i+1 >= len(toks) {
-				return false, true
-			}
-			next := toks[i+1]
-			return next.known && isLoopbackURL(next.text), true
+			local, found = i+1 < len(toks) && toks[i+1].known && isLoopbackURL(toks[i+1].text), true
 		case strings.HasPrefix(t.text, endpointFlag+"="):
-			return t.known && isLoopbackURL(strings.TrimPrefix(t.text, endpointFlag+"=")), true
+			local, found = isLoopbackURL(strings.TrimPrefix(t.text, endpointFlag+"=")), true
 		}
 	}
-	return false, false
+	return local, found
 }
 
 // callSetsLocalEndpoint reports whether the call itself sets a literal loopback

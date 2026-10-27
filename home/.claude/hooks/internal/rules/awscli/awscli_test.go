@@ -168,7 +168,64 @@ func TestProfilePolicies(t *testing.T) {
 		{"sudo hides the profile", `sudo aws --profile rec s3 ls`, "ask"},
 		{"env -i drops AWS_PROFILE", `env -i AWS_PROFILE=rec aws s3 ls`, "ask"},
 		{"unquoted variable could add --profile", `aws --profile rec s3 ls $EXTRA`, "ask"},
-		{"quoted unknown operand is fine", `aws --profile rec s3 cp "$F" s3://b/k`, "allow"},
+		{"quoted unknown operand could be --profile=x", `aws --profile rec s3 cp "$F" s3://b/k`, "ask"},
+		{"quoted unknown after literal text is fine", `aws --profile rec s3 cp "./$F" s3://b/k`, "allow"},
+		{"ANSI-C quoting could spell --profile", `aws --profile rec s3 rb s3://b $'\x2d-profile=prod'`, "ask"},
+		{"ANSI-C quoting before a glob could spell --profile", `aws --profile rec s3 rb s3://b $'\x2d'*`, "ask"},
+		{"leading tilde expands HOME", `HOME=--profile=prod; aws --profile rec s3 rb s3://b ~`, "ask"},
+		{"zsh extended glob could match --profile=x", `aws --profile rec s3 ls ^x`, "ask"},
+		{"tilde inside a word stays literal", `aws --profile rec s3 cp s3://b/~x .`, "allow"},
+		{"unquoted variable inside a word could add --profile", `aws --profile work s3 ls ${X}z`, "ask"},
+		{"unquoted substitution could add --profile", `aws --profile work s3 ls $(cat f)`, "ask"},
+		{"unquoted substitution inside a word could add --profile", `aws --profile work s3 ls s3://b/$(cat f)`, "ask"},
+		{"unquoted glob could match a file named --profile=x", `aws --profile work s3 ls --*`, "ask"},
+		{"quoted substitution is one argument", `aws --profile work s3 ls "s3://b/$(cat f)"`, "allow"},
+		{"brace list could add --profile", `aws --profile work s3 ls --{profile=rec,x}`, "ask"},
+		{"glob after literal text cannot make an option", `aws --profile work s3 ls s3://b/*`, "allow"},
+		{"quoted glob is one argument", `aws --profile work logs describe-log-groups --query 'logGroups[?x]'`, "allow"},
+
+		// An expansion in an option's value slot is denied with a rewrite hint
+		// when `--opt="$X"` would pass; anything else keeps asking.
+		{"loop variable as a value", `for f in a; do aws --profile work lambda get-function --function-name $f; done`, "deny"},
+		{"quoted variable as a value", `aws --profile work lambda get-function --function-name "$f"`, "deny"},
+		{"quoted substitution as a value", `aws --profile work logs filter-log-events --log-group-name g --start-time "$(date +%s)"`, "deny"},
+		{"unbound variable may be several values", `aws --profile work lambda get-function --function-name $f`, "ask"},
+		{"value behind the option is fine", `aws --profile work lambda get-function --function-name="$f"`, "allow"},
+		{"rewrite that would still ask", `aws --profile work sqs purge-queue --queue-url $Q`, "ask"},
+		{"expansion not after an option", `aws --profile work s3 ls $X`, "ask"},
+		{"expansion as the --profile value", `aws --profile $P s3 ls`, "ask"},
+		{"expansion after literal text", `aws --profile work lambda get-function --function-name x$f`, "ask"},
+		{"one fixable and one not", `aws --profile work lambda get-function --function-name $f $X`, "ask"},
+		{"rewrite under an unlisted profile", `aws lambda get-function --function-name $f`, "ask"},
+		{"arithmetic as a value", `S=$(( 1 * 1000 )); aws --profile work logs filter-log-events --log-group-name g --start-time $S`, "deny"},
+		{"unquoted unknown variable may be several values", `aws --profile work ec2 describe-instances --instance-ids $IDS`, "ask"},
+		{"unquoted substitution may be several values", `aws --profile work ec2 describe-instances --instance-ids $(cat ids)`, "ask"},
+		{"quoted substitution as a value", `aws --profile work ec2 describe-instances --instance-ids "$(cat id)"`, "deny"},
+		{"array as a value", `aws --profile work ec2 describe-instances --instance-ids "${ids[@]}"`, "ask"},
+		{"positional parameters as a value", `aws --profile work lambda get-function --function-name $@`, "ask"},
+		{"boolean global flag", `aws --profile work --no-paginate "$X" sqs list-queues`, "ask"},
+		{"s3 boolean flag", `aws --profile work s3 ls --recursive "$P"`, "ask"},
+		{"logs tail positional", `aws --profile work logs tail --follow "$G"`, "ask"},
+		{"double dash is not an option", `aws --profile work s3 cp -- "$f" s3://b/`, "ask"},
+
+		// Words that expand to several arguments even inside double quotes.
+		{"quoted array after literal text", `ids=(i-1 --profile=prod); aws --profile work ec2 describe-instances --instance-ids="${ids[@]}"`, "ask"},
+		{"quoted $@ after literal text", `aws --profile work s3 ls s3://b/x"$@"`, "ask"},
+		{"any quoted subscript is refused", `aws --profile work ec2 describe-instances --instance-ids="${ids[0]}"`, "ask"},
+		{"quoted scalar after literal text is one word", `aws --profile work ec2 describe-instances --instance-ids="$id"`, "allow"},
+
+		// Variables the shell rebinds out of the census's sight are not known.
+		{"literal variable is known", `X=a; aws --profile rec s3 ls $X`, "allow"},
+		{"$_ is rebound by every command", `_=a; : --profile=prod; aws --profile rec s3 ls $_`, "ask"},
+		{"nameref writes through", `X=a; declare -n r=X; r=--profile=prod; aws --profile rec s3 ls $X`, "ask"},
+		{"printf -v attached", `X=a; printf -vX %s --profile=prod; aws --profile rec s3 ls $X`, "ask"},
+		{"zsh print -v", `X=a; print -v X -- --profile=prod; aws --profile rec s3 ls $X`, "ask"},
+		{"zsh vared", `X=a; vared X; aws --profile rec s3 ls $X`, "ask"},
+
+		// The last --endpoint-url wins, as in the CLI.
+		{"later remote endpoint wins", `aws --profile prod --endpoint-url http://localhost:4566 s3 rb s3://b --endpoint-url https://s3.amazonaws.com`, "deny"},
+		{"expansion could add a remote endpoint", `aws --profile prod --endpoint-url http://localhost:4566 s3 rb s3://b $X`, "ask"},
+		{"later local endpoint wins", `aws --profile prod --endpoint-url https://s3.amazonaws.com s3 ls --endpoint-url http://127.0.0.1:1`, "allow"},
 
 		// Read-only boundaries under readOnly.
 		{"describe", `aws --profile work ecs describe-services --cluster c`, "allow"},
@@ -246,6 +303,24 @@ func TestProfileFromHookEnvironment(t *testing.T) {
 			t.Errorf("Check(%q) = %s, want ask", cmd, got)
 		}
 	})
+}
+
+// TestValueSlotHintSpellsTheRewrite pins that the denial gives the agent the
+// exact replacement for each expansion, so it can fix the call itself.
+func TestValueSlotHintSpellsTheRewrite(t *testing.T) {
+	clearAWSEnv(t)
+	cases := []struct{ cmd, want string }{
+		{`for f in a b; do aws --profile work lambda get-function --function-name $f; done`, `--function-name="$f"`},
+		{`S=$(( 1 )); aws --profile work logs filter-log-events --log-group-name g --start-time $S`, `--start-time="$S"`},
+		{`aws --profile work lambda get-function --function-name "$f"`, `--function-name="$f"`},
+		{`aws --profile work logs filter-log-events --log-group-name g --start-time "$(date +%s)"`, `--start-time="$(date +%s)"`},
+	}
+	for _, tc := range cases {
+		got := checkWithPolicies(tc.cmd)
+		if got.Decision != hook.Deny || !strings.Contains(got.Reason, tc.want) {
+			t.Errorf("Check(%q) = %s (%s), want deny naming %s", tc.cmd, got.Decision, got.Reason, tc.want)
+		}
+	}
 }
 
 func TestReasonsNameTheProfile(t *testing.T) {

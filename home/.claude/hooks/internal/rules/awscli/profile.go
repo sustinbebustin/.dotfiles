@@ -99,7 +99,7 @@ func (pe profileEnv) resolve(call *syntax.CallExpr, wrappers []*syntax.Word, tok
 func flagProfile(toks []token) (name string, found bool, err error) {
 	for i, t := range toks {
 		if t.mayBeFlags {
-			return "", false, unknownProfile("the unquoted %s could expand to a --profile option",
+			return "", false, unknownProfile("the %s could expand to a --profile option",
 				describeWord(t.text))
 		}
 		if !t.known {
