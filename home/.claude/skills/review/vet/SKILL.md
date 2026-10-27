@@ -1,6 +1,6 @@
 ---
 name: vet
-description: Review a diff, branch, PR, or commit through one pipeline -- scope, verify gate, lens-picked reviewers, adversarial verification, routed findings. `fix` applies safe fixes, then reviews the fixes.
+description: Review a diff, branch, PR, or commit through one pipeline -- scope, verify gate, lens-picked reviewers, adversarial verification, routed findings. Fixes by default, then reviews the fixes; `report` only reports.
 argument-hint: "[report|fix] [unstaged|branch|pr <n>|commit <ref>] [--base <ref>] [--repo <name>]... [-- note]"
 disable-model-invocation: true
 allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/scope.sh *), Bash(git stash create), Bash(git -C * stash create), Bash(bash ~/.claude/scripts/context-usage.sh)
@@ -61,7 +61,7 @@ The block proposes a tier, lenses, and risk triggers. Add the judgment it cannot
 - **Trivial** holds only when the diff has no logic change (formatting, comments, a pure rename, docs). Then print a report with verdict `APPROVED_TRIVIAL` and the reason, write the synthesis log, and stop. Any logic change makes it `small`.
 - **Judged triggers.** A contract change the patterns missed (status codes, error shapes, queue or webhook payloads, auth model) is a risk trigger: raise the tier one step (small to standard, standard to deep).
 - **Design** is a judgment, never a file type. Add `design-consultant` for a design decision: a new surface or flow with no pattern to follow, a new component, a redesign, a changed layout, hierarchy, interaction, or state model, or a deliberate design pass (responsive, accessibility remediation, motion, theming and tokens, a copy overhaul). Skip it for pattern extension -- a tile, row, column, field, option, or route cloned from a working sibling -- and for wiring, data, hooks, and tests. When in doubt, skip: a design reviewer sent at a correct clone invents findings. Give it only the design-bearing files and a `Surface:` note naming the app and who uses it.
-- **Chunked.** Show the block's proposed chunks and ask the user to approve or adjust them. Then:
+- **Chunked.** Show the block's proposed chunks and ask the user to approve or adjust them. When the block's mode is `fix (default)`, ask in the same `AskUserQuestion` call whether to fix or only report: a chunked branch yields more findings than one session applies comfortably, so recommend report. Then:
   - Run the chunks one at a time, each a deep run without `boundaries` (its files as each reviewer's `files`). Sequential runs let each chunk inherit what earlier ones settled and keep the box's agent count bounded.
   - After each chunk, append to the briefing's settled facts every question its verifiers or the user settled, and drop open questions those facts answer.
   - Last, one run with one `boundaries` reviewer covers the whole diff. Its briefing lists the findings already reported (`file:line`, summary), so it reports only defects that cross chunks.

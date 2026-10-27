@@ -41,7 +41,8 @@ set -f
 tokens=($raw)
 set +f
 
-MODE="report"
+MODE="fix"
+MODE_SET=0
 SCOPE=""
 TARGET=""
 BASE_ARG=""
@@ -82,7 +83,7 @@ while [ "$i" -lt "${#tokens[@]}" ]; do
     break
   fi
   case "$(lower "$tok")" in
-    report|fix)        MODE="$(lower "$tok")" ;;
+    report|fix)        MODE="$(lower "$tok")"; MODE_SET=1 ;;
     unstaged|branch)   set_scope "$(lower "$tok")" ;;
     pr|commit)
       set_scope "$(lower "$tok")"
@@ -439,7 +440,8 @@ base_text() {
 # --- scope section -----------------------------------------------------------
 echo "### Scope"
 echo ""
-echo "- Mode: **$MODE**${MODE_NOTE:+ -- $MODE_NOTE}"
+mode_src=""; [ "$MODE_SET" -eq 0 ] && [ -z "$MODE_NOTE" ] && mode_src=" (default)"
+echo "- Mode: **$MODE**$mode_src${MODE_NOTE:+ -- $MODE_NOTE}"
 case "$SCOPE" in
   unstaged)
     echo "- Scope: **unstaged only** -- staged work is OUT of scope: not reviewed, not fixed, not counted." ;;
