@@ -105,6 +105,7 @@
     "create-skills": "name-only",
     "doc-generator": "name-only",
     "domain-modeling": "name-only",
+    "elevenlabs-tts": "name-only",
     "fix-merge-conflicts": "name-only",
     "gh-fix-ci": "name-only",
     "gh-stack": "name-only",

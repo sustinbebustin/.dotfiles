@@ -1,7 +1,6 @@
 ---
 name: html-effectiveness
-description: Produce polished standalone single-file HTML artifacts in the warm-paper Anthropic editorial visual language.
-disable-model-invocation: true
+description: Produce polished standalone single-file HTML artifacts in the warm-paper Anthropic editorial visual language, optionally with spoken audio narration.
 metadata:
   author: sustinbebustin
 ---
@@ -42,6 +41,8 @@ The look is constant; the structure is earned per artifact. Every layout choice 
 | Wireframe | [wireframes.md](references/wireframes.md) | `02` for the direction switcher only; the look is grayscale |
 
 Examples live in `examples/NN-*.html`. A request spanning forms reads every reference that applies, then gives the page one coherent structure.
+
+**Audio narration.** When the user asks to hear a page -- an audio explanation, a voiceover, per-section listening, on a new page or an existing one -- read [audio.md](references/audio.md) for the clip plan, script rules, and the player.
 
 ## Design tokens -- copy verbatim
 
