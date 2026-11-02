@@ -15,7 +15,17 @@ git clone --recursive https://github.com/sustinbebustin/dotfiles.git ~/.dotfiles
 
 Everything under `home/` maps 1:1 to `$HOME` -- `home/.config/zsh/` becomes `~/.config/zsh/`. Stow is run with `--no-folding` so each file gets its own symlink rather than the directory being linked wholesale.
 
-Claude Code skills are the exception. The tree at `home/.claude/skills/` is skipped by stow and published to `~/.claude/skills` by `dot stow` itself, one folder symlink per skill. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since Claude Code only reads `~/.claude/skills/<name>/SKILL.md`.
+Agent config is split by who reads it. `home/.agents/` is the source of truth for what Claude Code and Factory Droid share; `home/.claude/` and `home/.factory/` keep only what is specific to one harness. `dot stow` publishes the shared tree to each:
+
+| Source | Claude Code (`~/.claude`, every `~/.claude-<account>`) | Droid |
+|---|---|---|
+| `.agents/AGENTS.md` | `CLAUDE.md` (`.claude/CLAUDE.md` is a symlink to it) | read natively at `~/.agents/AGENTS.md` |
+| `.agents/skills/` | one folder link per skill in `skills/` | one folder link per skill in `~/.agents/skills` |
+| `.agents/commands/` | dir link `commands` | dir link `~/.factory/commands` |
+| `.agents/agents/` | dir link `agents` | generated droids in `~/.factory/droids` |
+| `.agents/hooks/` | `*-bin` stowed into `~/.agents/hooks`, registered in `.claude/settings.base.json` | same binaries, registered in `.factory/settings.base.json` |
+
+Skills, commands and agents are skipped by stow and linked by `dot stow` itself. Skills may be grouped under a one-level category dir for clarity; that layer is flattened away when linking, since both harnesses read `<skills dir>/<name>/SKILL.md`.
 
 A category dir holding `.claude-plugin/plugin.json` doubles as a Claude Code plugin, listed in the root `.claude-plugin/marketplace.json`. `dot` ignores the hidden manifest dir, so local linking is unchanged. The `meta` skills install without cloning this repo:
 
@@ -26,7 +36,7 @@ claude plugin install meta@sustinbebustin
 
 Claude Code mods in `home/.claude/mods/` are published the same way, one folder symlink per mod into `~/.claude/mods`, because the plugin loader rejects per-file links. `settings.base.json` points `CLAUDE_CODE_PLUGIN_DIRS` at that folder, so every mod there loads in every session.
 
-The Go hooks in `home/.claude/hooks/` (PreToolUse guards, PostToolUse format/lint) are stowed as built `*-bin` binaries only -- `dot stow` builds them first, since they are per-platform and gitignored -- and registered in `home/.claude/settings.base.json`, which `dot stow` merges into the gitignored `home/.claude/settings.json`.
+The Go hooks in `home/.agents/hooks/` (`agent-guard-bin` PreToolUse guards, `agent-quality-bin` PostToolUse format/lint) are stowed as built `*-bin` binaries only -- `dot stow` builds them first, since they are per-platform and gitignored -- and registered in each harness's `settings.base.json`, which `dot stow` merges into the gitignored `settings.json` beside it. The same module builds `agent-droids-bin`, which `dot stow` runs to turn the agents into Droid droids.
 
 ## Structure
 
@@ -37,9 +47,14 @@ The Go hooks in `home/.claude/hooks/` (PreToolUse guards, PostToolUse format/lin
 │   └── Brewfile                     # Homebrew packages
 ├── home/                            # the stow package -> $HOME
 │   ├── .zshenv
-│   ├── .claude/                     # Claude Code config
+│   ├── .agents/                     # config shared by Claude Code and Droid
+│   │   ├── AGENTS.md                # global instructions (.claude/CLAUDE.md links here)
 │   │   ├── skills/                  # agent skills (published by dot, not stow)
+│   │   ├── commands/                # slash commands (dir-linked by dot)
+│   │   ├── agents/                  # subagents (dir-linked; droids generated)
 │   │   └── hooks/                   # Go guard hooks (sources ignored, *-bin stowed)
+│   ├── .claude/                     # Claude Code only: CLAUDE.md, rules, settings, mods
+│   ├── .factory/                    # Droid only: settings
 │   └── .config/
 │       ├── zsh/                     # shell (ZDOTDIR)
 │       ├── starship.toml            # prompt

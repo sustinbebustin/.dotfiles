@@ -11,7 +11,7 @@
       "source": {
         "source": "git-subdir",
         "url": "sustinbebustin/.dotfiles",
-        "path": "home/.claude/skills/meta"
+        "path": "home/.agents/skills/meta"
       },
       "description": "Skills for authoring Claude Code skills, subagents, plugins, and Code Mode MCP servers"
     }

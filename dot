@@ -161,9 +161,9 @@ prune_broken_stow_links() {
     fi
 }
 
-# --- Claude Code hooks ---
+# --- Agent hooks (Claude Code, Factory Droid) ---
 
-hooks_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude/hooks"; }
+hooks_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.agents/hooks"; }
 
 # The Go hook binaries are per-machine, per-platform and therefore gitignored,
 # so `git pull` never refreshes them -- without this, stow relinks the previous
@@ -183,12 +183,32 @@ build_hooks() {
         return 0
     fi
 
-    info "Building Claude Code hooks..."
+    info "Building agent hooks..."
     if make -C "$src"; then
         ok "Hooks built"
     else
         warn "Hook build failed -- previously built binaries are left in place"
         warn "  Re-run manually to see why: make -C $src"
+    fi
+}
+
+# Droid can't read Claude Code agent files, so the hooks module also builds a
+# generator that writes each agent in home/.agents/agents as a droid in
+# ~/.factory/droids. It touches only the droids it generated itself.
+build_droids() {
+    local bin
+    bin="$(hooks_src_dir)/agent-droids-bin"
+    if [[ ! -x "$bin" ]]; then
+        warn "Skipping droid generation -- $bin is not built (see the hook build above)"
+        warn "  Existing droids in ~/.factory/droids are left in place"
+        return 0
+    fi
+    info "Generating Droid droids from the shared agents..."
+    if "$bin" "$(agents_src_dir)/agents" "${HOME}/.factory/droids"; then
+        ok "Droids generated"
+    else
+        warn "Droid generation failed (see above) -- ~/.factory/droids is unchanged"
+        warn "  Fix the named agent file and re-run 'dot stow'"
     fi
 }
 
@@ -198,17 +218,17 @@ build_hooks() {
 # can express neither the category flattening below nor the folder-level
 # symlink each skill is published as. These helpers replace stow for it.
 #
-# Claude Code only reads ~/.claude/skills/<name>/SKILL.md (depth 1), so the
+# Claude Code and Droid only read <skills dir>/<name>/SKILL.md (depth 1), so the
 # source may group skills under an optional one-level category dir for human
 # clarity (e.g. skills/meta/claude-docs/); that layer is flattened here.
 
-skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.claude/skills"; }
+skills_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.agents/skills"; }
 
-# True when $1 is safe for link_skill_tree to replace: absent, a symlink, or
-# a dir we built ourselves (every file under it is a symlink into the dotfiles
-# dir). Guards against blowing away a hand-installed skill that happens to
+# True when $1 is safe for link_tree to replace: absent, a symlink, or a dir we
+# built ourselves (every file under it is a symlink into the dotfiles dir).
+# Guards against blowing away a hand-installed skill or command that happens to
 # share a name with one of ours.
-skill_dst_is_ours() {
+link_dst_is_ours() {
     local path="$1"
     [[ -e "$path" || -L "$path" ]] || return 0
     [[ -L "$path" ]] && return 0
@@ -249,7 +269,7 @@ skill_dir_kind() {
 
 # Delete *broken* symlinks under the skill destination that point into the
 # dotfiles dir (orphans from removed sources), then rmdir empty parents.
-# Links to still-existing sources are left alone -- link_skill_tree() replaces
+# Links to still-existing sources are left alone -- link_tree() replaces
 # those itself if the target needs to change (e.g. a skill moved categories).
 prune_skill_links() {
     local dst="$1" marker pattern removed=0 link
@@ -267,17 +287,18 @@ prune_skill_links() {
     fi
 }
 
-# Publish $src_skill at $dst_skill as one symlink to the source dir, so source
-# edits and new files show up without re-stowing.
-link_skill_tree() {
-    local src_skill="$1" dst_skill="$2"
-    if ! skill_dst_is_ours "$dst_skill"; then
-        err "Refusing to replace $dst_skill -- it holds files not linked from $DOTFILES_DIR"
-        err "  Move or delete it, or rename the skill in $(skills_src_dir), then re-run"
+# Publish dir $src at $dst as one symlink to it, so source edits and new files
+# show up without re-stowing. Replaces whatever stow or an older dot left at
+# $dst, as long as it is ours (see link_dst_is_ours).
+link_tree() {
+    local src="$1" dst="$2"
+    if ! link_dst_is_ours "$dst"; then
+        err "Refusing to replace $dst -- it holds files not linked from $DOTFILES_DIR"
+        err "  Move or delete it, or rename ${src#"$DOTFILES_DIR"/} in the repo, then re-run 'dot stow'"
         return 1
     fi
-    rm -rf "$dst_skill"
-    ln -snf "$src_skill" "$dst_skill"
+    rm -rf "$dst"
+    ln -snf "$src" "$dst"
 }
 
 # Emit "<skill-name>|<source-dir>" for every skill in the canonical tree,
@@ -329,7 +350,7 @@ stow_skills() {
     local dst="$1" src listing
     src="$(skills_src_dir)"
     [[ -d "$src" ]] || return 0
-    info "Linking Claude skills into ${dst/#$HOME/\~}..."
+    info "Linking skills into ${dst/#$HOME/\~}..."
     # Command substitution (not a pipe) so an enumeration failure -- duplicate
     # name, malformed skill dir -- aborts before anything is linked.
     listing="$(enumerate_skills)" || return 1
@@ -340,7 +361,7 @@ stow_skills() {
         [[ -n "$skill" ]] || continue
         name="${skill%%|*}"
         skill_src="${skill#*|}"
-        link_skill_tree "$skill_src" "$dst/$name" || return 1
+        link_tree "$skill_src" "$dst/$name" || return 1
         ((++count))
     done <<< "$listing"
     ok "Linked $count skill(s) -> $dst"
@@ -364,31 +385,55 @@ stow_mods() {
     mkdir -p "$dst"
     prune_skill_links "$dst"
     while IFS= read -r -d '' entry; do
-        link_skill_tree "$entry" "$dst/${entry##*/}" || return 1
+        link_tree "$entry" "$dst/${entry##*/}" || return 1
         ((++count))
     done < <(find "$src" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
     ok "Linked $count mod(s) -> $dst"
 }
 
-# --- Claude Code settings ---
+# --- Shared agent dirs ---
 
-# home/.claude/settings.json is gitignored but stowed like any other file, so
-# every account links the same one. It stays out of git because Claude Code
-# writes to it (/permissions, /model, auto mode rules) and much of it is
-# personal. The tracked settings.base.json holds what this setup needs --
-# hooks, statusline, env, baseline permissions -- and `dot stow` merges it into
-# settings.json, creating it on a fresh clone. The base wins on the keys it
-# defines; every other key is left alone. Objects merge key by key. Arrays of
-# plain values (permission rules) are unioned, so rules added locally survive;
-# any other array (hook entries) is replaced, so a changed hook doesn't linger
-# beside its old version. A key deleted from the base is not deleted locally --
-# dot can't tell it from one added by hand.
+# home/.agents holds the config Claude Code and Droid share. Commands and agents
+# are stow-ignored there and published whole, one dir symlink per harness dir,
+# so every Claude account and Droid see the same tree, nested agent subdirs
+# included. Agents reach Droid as generated droids instead (see build_droids).
 
-claude_settings_base() { printf '%s\n' "$(claude_pkg_dir)/settings.base.json"; }
-claude_settings_file() { printf '%s\n' "$(claude_pkg_dir)/settings.json"; }
+agents_src_dir() { printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.agents"; }
+
+# Link each named home/.agents/<name> dir into harness dir $1.
+link_shared_dirs() {
+    local dst="$1" name
+    shift
+    mkdir -p "$dst"
+    for name in "$@"; do
+        link_tree "$(agents_src_dir)/$name" "$dst/$name" || return 1
+    done
+    ok "Linked $* -> ${dst/#$HOME/\~}"
+}
+
+# --- Agent settings (Claude Code, Factory Droid) ---
+
+# home/.claude/settings.json and home/.factory/settings.json are gitignored but
+# stowed like any other file, so every Claude account links the same one. They
+# stay out of git because the agent writes to them (/permissions, /model,
+# trusted folders) and much of each is personal. The tracked settings.base.json
+# beside each holds what this setup needs -- hooks, statusline, env, baseline
+# permissions, custom models -- and `dot stow` merges it into settings.json,
+# creating it on a fresh clone. The base wins on the keys it defines; every
+# other key is left alone. Objects merge key by key. Arrays of plain values
+# (permission rules) are unioned, so rules added locally survive; any other
+# array (hook entries, custom models) is replaced, so a changed entry doesn't
+# linger beside its old version. A key deleted from the base is not deleted
+# locally -- dot can't tell it from one added by hand.
+
+# Dirs holding a settings.base.json to merge into the settings.json beside it.
+settings_pkg_dirs() {
+    claude_pkg_dir
+    printf '%s\n' "${DOTFILES_DIR}/${STOW_PACKAGE}/.factory"
+}
 
 # shellcheck disable=SC2016  # jq program; $b and $u are jq variables
-readonly CLAUDE_SETTINGS_MERGE='
+readonly SETTINGS_MERGE='
 def scalars: all(.[]; type != "object" and type != "array");
 def merge($b):
   if type == "object" and ($b | type) == "object" then
@@ -398,18 +443,18 @@ def merge($b):
   else $b end;
 merge($base[0])'
 
-# Print settings file $1 with the base merged in.
-render_claude_settings() {
-    jq --indent 2 --slurpfile base "$(claude_settings_base)" "$CLAUDE_SETTINGS_MERGE" "$1"
+# Print dir $1's settings.json with its settings.base.json merged in.
+render_settings() {
+    jq --indent 2 --slurpfile base "$1/settings.base.json" "$SETTINGS_MERGE" "$1/settings.json"
 }
 
-# Bring settings.json up to date with the base: create it from the base when
-# missing, else merge, backing up the previous file and showing what changed.
-# Runs before stow, so a fresh clone has a file to link.
-sync_claude_settings() {
-    local base target tmp backup_dir
-    base="$(claude_settings_base)"
-    target="$(claude_settings_file)"
+# Bring dir $1's settings.json up to date with its base: create it from the
+# base when missing, else merge, backing up the previous file and showing what
+# changed. Runs before stow, so a fresh clone has a file to link.
+sync_settings() {
+    local dir="$1" base target tmp backup_dir
+    base="${dir}/settings.base.json"
+    target="${dir}/settings.json"
 
     if [[ ! -e "$target" ]]; then
         cp "$base" "$target"
@@ -423,7 +468,7 @@ sync_claude_settings() {
     fi
 
     tmp="$(mktemp)"
-    if ! render_claude_settings "$target" > "$tmp"; then
+    if ! render_settings "$dir" > "$tmp"; then
         rm -f "$tmp"
         warn "Can't merge settings.base.json into $target -- one of them isn't valid JSON (see jq error above)"
         warn "  $target is unchanged; fix the JSON and re-run 'dot stow'"
@@ -433,7 +478,8 @@ sync_claude_settings() {
         rm -f "$tmp"
         return 0
     fi
-    backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
+    # Keyed by package dir (.claude, .factory) so two merges in one second don't collide.
+    backup_dir="${DOTFILES_DIR}/backups/$(date +%Y%m%d_%H%M%S)/${dir##*/}"
     mkdir -p "$backup_dir"
     cp -p "$target" "${backup_dir}/settings.json"
     diff -u "$target" "$tmp" || true
@@ -448,10 +494,11 @@ sync_claude_settings() {
 # Each account registered with `dot claude add <name>` gets its own config dir,
 # ~/.claude-<name>, and a zsh function <name> (home/.config/zsh/.zshrc) that
 # points CLAUDE_CONFIG_DIR at it, so every login keeps its own credentials.
-# Everything tracked here -- CLAUDE.md, agents, commands, rules, hooks,
-# statusline, skills -- is shared, so it gets linked into each dir too.
-# home/.claude is stowed as a package in its own right for this, which is why
-# it carries a second .stow-local-ignore. Session state (CLAUDE_SHARED_STATE)
+# Everything tracked here -- CLAUDE.md, rules, statusline, plus the skills,
+# agents and commands from home/.agents -- is shared, so it gets linked into
+# each dir too. home/.claude is stowed as a package in its own right for this,
+# which is why it carries a second .stow-local-ignore. Hooks need no link: the
+# settings name them by their ~/.agents path. Session state (CLAUDE_SHARED_STATE)
 # is shared as well, but by symlinking into ~/.claude rather than via stow.
 #
 # The registry is per-machine and lives outside this repo, so a fresh clone
@@ -611,6 +658,7 @@ stow_claude_account() {
     backup_claude_account_conflicts "$dir"
     stow -R --no-folding --dir="${DOTFILES_DIR}/${STOW_PACKAGE}" --target="$dir" ".claude"
     stow_skills "${dir}/skills"
+    link_shared_dirs "$dir" commands agents
     link_claude_shared_state "$dir"
     ok "Claude account '$name' linked"
 }
@@ -631,6 +679,8 @@ unlink_claude_account() {
     stow -D --no-folding --dir="${DOTFILES_DIR}/${STOW_PACKAGE}" --target="$dir" ".claude"
     marker="/$(basename "$DOTFILES_DIR")/"
     find "$dir/skills" -mindepth 1 -maxdepth 1 -type l -lname "*${marker}*" -delete 2>/dev/null || true
+    # The commands and agents dir links (link_shared_dirs).
+    find "$dir" -mindepth 1 -maxdepth 1 -type l -lname "*${marker}*" -delete 2>/dev/null || true
     for entry in "${CLAUDE_SHARED_STATE[@]}"; do
         rel="${entry%%:*}"
         link="${dir}/${rel}"
@@ -980,12 +1030,19 @@ cmd_stow() {
         return 1
     fi
     build_hooks
+    build_droids
     # A failure is reported inside and leaves the file as it was; still link it.
-    sync_claude_settings || true
+    local dir
+    while IFS= read -r dir; do
+        sync_settings "$dir" || true
+    done < <(settings_pkg_dirs)
     info "Stowing dotfiles (${STOW_PACKAGE})..."
     prune_broken_stow_links
     stow -R --no-folding --dir="$DOTFILES_DIR" --target="$HOME" "$STOW_PACKAGE"
     stow_skills "${HOME}/.claude/skills"
+    stow_skills "${HOME}/.agents/skills"
+    link_shared_dirs "${HOME}/.claude" commands agents
+    link_shared_dirs "${HOME}/.factory" commands
     stow_mods "${HOME}/.claude/mods"
     stow_claude_accounts
     ok "Dotfiles linked"
@@ -1121,24 +1178,26 @@ cmd_doctor() {
         ((++issues))
     fi
 
-    # settings.json carries the current settings.base.json
-    local settings
-    settings="$(claude_settings_file)"
-    if [[ ! -f "$settings" ]]; then
-        warn "$settings is missing"
-        info "  -> dot stow"
-        ((++issues))
-    elif ! command_exists jq; then
-        warn "Can't check $settings -- jq not installed"
-        info "  -> $(install_hint jq)"
-        ((++issues))
-    elif cmp -s <(render_claude_settings "$settings" 2>/dev/null) "$settings"; then
-        ok "settings.json up to date with settings.base.json"
-    else
-        warn "$settings is behind settings.base.json (or isn't valid JSON)"
-        info "  -> dot stow"
-        ((++issues))
-    fi
+    # Each settings.json carries its current settings.base.json
+    local dir settings
+    while IFS= read -r dir; do
+        settings="${dir}/settings.json"
+        if [[ ! -f "$settings" ]]; then
+            warn "$settings is missing"
+            info "  -> dot stow"
+            ((++issues))
+        elif ! command_exists jq; then
+            warn "Can't check $settings -- jq not installed"
+            info "  -> $(install_hint jq)"
+            ((++issues))
+        elif cmp -s <(render_settings "$dir" 2>/dev/null) "$settings"; then
+            ok "${dir##*/}/settings.json up to date with settings.base.json"
+        else
+            warn "$settings is behind settings.base.json (or isn't valid JSON)"
+            info "  -> dot stow"
+            ((++issues))
+        fi
+    done < <(settings_pkg_dirs)
 
     # Session state shared with each extra Claude account
     local name dir rel work leftover
@@ -1386,7 +1445,7 @@ cmd_claude_add() {
         ok "Registered Claude account '$name' in ${CLAUDE_ACCOUNTS_FILE/#$HOME/\~}"
     fi
 
-    sync_claude_settings || true
+    sync_settings "$(claude_pkg_dir)" || true
     stow_claude_account "$name"
     info "Open a new shell, then run '$name' to log in (it takes the same args as claude, e.g. '$name fable h')"
 }

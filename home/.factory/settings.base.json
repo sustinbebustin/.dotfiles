@@ -1,0 +1,77 @@
+{
+  "modelPolicy": {
+    "allowedModelIds": [
+      "custom:claude-fable-5-1",
+      "custom:claude-opus-5-5",
+      "custom:claude-sonnet-5-5",
+      "custom:claude-haiku-5-5"
+    ]
+  },
+  "sessionDefaultSettings": {
+    "model": "custom:Opus-5.5-[Anthropic-API]-0"
+  },
+  "customModels": [
+    {
+      "model": "claude-fable-5-1",
+      "baseModelId": "claude-fable-5.1",
+      "displayName": "Fable 5.1 [Anthropic API]",
+      "baseUrl": "https://api.anthropic.com",
+      "provider": "anthropic",
+      "apiKeyHelper": "cat ~/.factory/anthropic-api-key",
+      "maxOutputTokens": 64000,
+      "maxContextLimit": 936000
+    },
+    {
+      "model": "claude-opus-5-5",
+      "displayName": "Opus 5.5 [Anthropic API]",
+      "baseUrl": "https://api.anthropic.com",
+      "provider": "anthropic",
+      "apiKeyHelper": "cat ~/.factory/anthropic-api-key",
+      "maxOutputTokens": 64000,
+      "maxContextLimit": 936000
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "displayName": "Sonnet 5.5 [Anthropic API]",
+      "baseUrl": "https://api.anthropic.com",
+      "provider": "anthropic",
+      "apiKeyHelper": "cat ~/.factory/anthropic-api-key",
+      "maxOutputTokens": 64000,
+      "maxContextLimit": 936000
+    },
+    {
+      "model": "claude-haiku-5-5",
+      "displayName": "Haiku 5.5 [Anthropic API]",
+      "baseUrl": "https://api.anthropic.com",
+      "provider": "anthropic",
+      "apiKeyHelper": "cat ~/.factory/anthropic-api-key",
+      "maxOutputTokens": 64000,
+      "maxContextLimit": 936000
+    }
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Create|Execute|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.agents/hooks/agent-guard-bin"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Create|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.agents/hooks/agent-quality-bin",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

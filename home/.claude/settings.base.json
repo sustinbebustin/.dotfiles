@@ -29,7 +29,7 @@
       "Bash(docker:*)",
       "Bash(docker-compose:*)",
       "Bash(supabase db diff:*)",
-      "Bash(*/.claude/hooks/*)",
+      "Bash(*/.agents/hooks/*)",
       "Bash(bash */.claude/skills/*)",
       "Bash(mkdir:*)",
       "Bash(touch:*)",
@@ -137,7 +137,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/claude-hooks-bin"
+            "command": "$HOME/.agents/hooks/agent-guard-bin"
           }
         ]
       }
@@ -148,7 +148,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/claude-quality-bin",
+            "command": "$HOME/.agents/hooks/agent-quality-bin",
             "timeout": 120
           }
         ]
@@ -160,7 +160,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
+            "command": "bash \"$HOME/.agents/hooks/herdr-agent-state.sh\" session",
             "timeout": 10
           }
         ]

@@ -12,23 +12,8 @@
 ^README.*
 ^LICENSE.*
 
-# Go source and build tooling for the hook binary -- only the built
-# *-bin should be linked. config.json.example is the template for the
-# machine-local config.json, which does get linked.
-^/hooks/cmd$
-^/hooks/internal$
-^/hooks/Makefile$
-^/hooks/go\.mod$
-^/hooks/go\.sum$
-^/hooks/\.golangci\.yml$
-^/hooks/config\.json\.example$
-
-# Merged into settings.json by dot's sync_claude_settings() rather than linked.
+# Merged into settings.json by dot's sync_settings() rather than linked.
 ^/settings\.base\.json$
-
-# The skills tree. Published by dot's stow_skills() instead -- categories
-# flattened, each skill linked as a folder.
-^/skills$
 
 # Claude Code mods. Published by dot's stow_mods() into ~/.claude/mods only;
 # every account's settings point there.
