@@ -29,7 +29,7 @@ from collections import Counter, defaultdict
 from itertools import combinations
 from pathlib import Path
 
-from usage import CONFIG_DIR, billing, cost, parse_prices, read_jsonl, subagent_transcripts
+from usage import CONFIG_DIR, billing, cost, model_prices, parse_prices, read_jsonl, subagent_transcripts
 
 SLASH = re.compile(r"<command-name>/?([^<\s]+)</command-name>")
 SKILL_PATH = re.compile(r"skills/([\w.:-]+)/([\w./-]+)")
@@ -84,9 +84,10 @@ def skill_from_path(match, known):
     return None
 
 
-def scan(path, known, prices, acc):
-    """One transcript: returns (loads, requests, write_price)."""
+def scan(path, known, price_for, acc):
+    """One transcript: returns (loads, requests, prices of its last-billed model)."""
     seen, loads, w, pending = set(), [], Counter(), {}
+    prices = price_for("")
     for entry in read_jsonl(path):
         msg = entry.get("message") or {}
         if entry.get("type") == "assistant":
@@ -95,7 +96,9 @@ def scan(path, known, prices, acc):
             if usage and rid not in seen:
                 seen.add(rid)
                 b = billing(usage)
+                prices = price_for(msg.get("model") or "")
                 acc["cost"] += cost(b, prices)
+                acc["read_units"] += prices["read"]
                 acc["requests"] += 1
                 w.update({"w5m": b["w5m"], "w1h": b["w1h"]})
             for block in msg.get("content") or []:
@@ -122,7 +125,7 @@ def scan(path, known, prices, acc):
                 for name in SLASH.findall(text):
                     loads.append((name, "slash", len(seen)))
     write_key = "w1h" if w["w1h"] > w["w5m"] else "w5m"
-    return loads, len(seen), prices[write_key]
+    return loads, len(seen), {"write": prices[write_key], "read": prices["read"]}
 
 
 def orphans(skill_dir):
@@ -163,14 +166,21 @@ def main():
     ap.add_argument("--root", default=str(CONFIG_DIR / "projects"))
     ap.add_argument("--skills-dir", default=str(CONFIG_DIR / "skills"))
     args = ap.parse_args()
-    prices = parse_prices(args.prices)
+    prices, overridden = parse_prices(args.prices)
+    price_cache = {}
+
+    def price_for(model):
+        if model not in price_cache:
+            price_cache[model] = model_prices(model, prices, overridden)
+        return price_cache[model]
+
     cutoff = time.time() - args.days * 86400
 
     settings = CONFIG_DIR / "settings.json"
     overrides = json.loads(settings.read_text()).get("skillOverrides", {}) if settings.exists() else {}
     known = load_skills(Path(args.skills_dir), overrides)
 
-    acc = {"cost": 0.0, "requests": 0, "files": Counter(), "file_errors": Counter()}
+    acc = {"cost": 0.0, "requests": 0, "read_units": 0.0, "files": Counter(), "file_errors": Counter()}
     stats = defaultdict(lambda: {"model": 0, "slash": 0, "sessions": set(), "after": [], "carry": 0.0})
     pairs = Counter()
     sessions = 0
@@ -180,7 +190,7 @@ def main():
         sessions += 1
         in_session = set()
         for path in [main_path, *subagent_transcripts(main_path)]:
-            loads, total, write_price = scan(path, known, prices, acc)
+            loads, total, rates = scan(path, known, price_for, acc)
             for name, via, at in loads:
                 if via == "slash" and name not in known:
                     continue  # built-in command, not a skill
@@ -188,14 +198,14 @@ def main():
                 s[via] += 1
                 s["sessions"].add(main_path.stem)
                 s["after"].append(total - at)
-                s["carry"] += known.get(name, {}).get("body", 0) * (write_price + (total - at) * prices["read"])
+                s["carry"] += known.get(name, {}).get("body", 0) * (rates["write"] + (total - at) * rates["read"])
                 in_session.add(name)
         pairs.update(combinations(sorted(in_session), 2))
 
     if not sessions:
         sys.exit(f"No sessions under {args.root} in the last {args.days:g} days matching {args.project!r}.")
 
-    listing_cost = {n: k["listing"] * acc["requests"] * prices["read"] for n, k in known.items()}
+    listing_cost = {n: k["listing"] * acc["read_units"] for n, k in known.items()}
     scope = args.names or sorted(
         set(known) | set(stats), key=lambda n: -(listing_cost.get(n, 0) + stats[n]["carry"])
     )[: args.top]

@@ -29,7 +29,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from usage import CONFIG_DIR, billing, cost, fmt, parse_prices, read_jsonl
+from usage import CONFIG_DIR, billing, cost, fmt, model_prices, parse_prices, read_jsonl
 
 TTL_SECONDS = {"5m": 300, "1h": 3600}
 BANDS = ("first", "<=5m", "5m-1h", ">1h")
@@ -44,7 +44,7 @@ def gap_band(gap):
 
 
 def timed_requests(path):
-    """(unix time, billing) per API request in one transcript, deduped, in time order."""
+    """(unix time, billing, model) per API request in one transcript, deduped, in time order."""
     by_request = {}
     for entry in read_jsonl(path):
         msg = entry.get("message") or {}
@@ -52,14 +52,17 @@ def timed_requests(path):
         rid = entry.get("requestId") or msg.get("id")
         if entry.get("type") != "assistant" or not usage or not entry.get("timestamp") or rid in by_request:
             continue
-        by_request[rid] = (datetime.fromisoformat(entry["timestamp"]).timestamp(), billing(usage))
+        by_request[rid] = (
+            datetime.fromisoformat(entry["timestamp"]).timestamp(), billing(usage), msg.get("model") or "",
+        )
     return sorted(by_request.values(), key=lambda r: r[0])
 
 
-def replay(requests, prices, kind_acc, band_acc, check):
-    """Accumulate one run's observed and replayed cache cost."""
+def replay(requests, price_for, kind_acc, band_acc, check):
+    """Accumulate one run's observed and replayed cache cost, each request at its model's prices."""
     prev_time = prev_prefix = None
-    for t, b in requests:
+    for t, b, model in requests:
+        prices = price_for(model)
         written = b["w5m"] + b["w1h"]
         prefix = written + b["read"]
         band = "first" if prev_time is None else gap_band(t - prev_time)
@@ -94,7 +97,14 @@ def main():
     ap.add_argument("--top", type=int, default=20)
     ap.add_argument("--root", default=str(CONFIG_DIR / "projects"))
     args = ap.parse_args()
-    prices = parse_prices(args.prices)
+    prices, overridden = parse_prices(args.prices)
+    price_cache = {}
+
+    def price_for(model):
+        if model not in price_cache:
+            price_cache[model] = model_prices(model, prices, overridden)
+        return price_cache[model]
+
     cutoff = time.time() - args.days * 86400
 
     kinds = defaultdict(Counter)
@@ -112,7 +122,7 @@ def main():
         kind = json.loads(meta.read_text()).get("agentType", "?") if meta.exists() else "?"
         kinds[kind]["runs"] += 1
         runs += 1
-        replay(requests, prices, kinds[kind], bands, check)
+        replay(requests, price_for, kinds[kind], bands, check)
 
     if not runs:
         sys.exit(f"No subagent runs with usage under {args.root} in the last {args.days:g} days matching {args.project!r}.")
