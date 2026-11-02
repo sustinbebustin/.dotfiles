@@ -163,6 +163,12 @@ _claude_account_run() {
   done
 }
 
+# Factory Droid
+# Built-in skills can only be turned off per launch -- settings.json has no key
+# for it. The flag is global, so it also rides along on `droid exec`, `resume`,
+# and the management subcommands (mcp, plugin, ...), which all accept it.
+droid() { command droid --disable-builtin-skills "$@" }
+
 # Git
 alias gpl='git pull'
 alias gmain='git checkout main && git pull'
