@@ -42,6 +42,32 @@ type site struct {
 	// for-loop item list of plain words. It only decides whether the rewrite
 	// hint may suggest quoting the variable; nothing is allowed on it.
 	single bool
+	// loop is set on a for-loop variable whose items are all literal text.
+	loop *literalLoop
+}
+
+// literalLoop is a `for NAME in ...` loop whose items are all literal text.
+type literalLoop struct {
+	// values are the items as the loop assigns them, before any splitting.
+	values []string
+	// do and done bound the loop body.
+	do, done syntax.Pos
+}
+
+// literalLoopOf returns x's items and body, or nil for a select, a loop over
+// "$@", or a loop with an item that is not literal text.
+func literalLoopOf(x *syntax.ForClause, it *syntax.WordIter) *literalLoop {
+	if x.Select || !it.InPos.IsValid() || len(it.Items) == 0 {
+		return nil
+	}
+	values := make([]string, 0, len(it.Items))
+	for _, w := range it.Items {
+		if !shellast.IsLiteral(w) {
+			return nil
+		}
+		values = append(values, shellast.WordLit(w))
+	}
+	return &literalLoop{values: values, do: x.DoPos, done: x.DonePos}
 }
 
 // census records every binding of every variable in one parsed command.
@@ -136,18 +162,30 @@ func takeCensus(file *syntax.File) census {
 				c.opaque = true
 			}
 		case *syntax.Assign:
-			if !counted[x] && x.Name != nil {
+			switch {
+			case counted[x]:
+			case x.Name != nil:
 				c.add(x.Name.Value, site{kind: bindOther})
+			case x.Naked:
+				c.addNaked(x)
 			}
 		case *syntax.ForClause:
 			if it, ok := x.Loop.(*syntax.WordIter); ok && it.Name != nil {
-				c.add(it.Name.Value, site{kind: bindOther, single: plainItems(it.Items)})
+				c.add(it.Name.Value, site{kind: bindOther, single: plainItems(it.Items), loop: literalLoopOf(x, it)})
 			}
 		case *syntax.ParamExp:
-			if x.Exp != nil && (x.Exp.Op == syntax.AssignUnset || x.Exp.Op == syntax.AssignUnsetOrNull) && x.Param != nil {
+			assigns := x.Exp != nil && (x.Exp.Op == syntax.AssignUnset || x.Exp.Op == syntax.AssignUnsetOrNull)
+			switch {
+			case assigns && (x.Excl || x.Param == nil || x.NestedParam != nil || x.Flags != nil):
+				// `${!n:=x}` and zsh's `${(P)n:=x}` assign to whatever n names.
+				c.opaque = true
+			case assigns:
+				c.add(x.Param.Value, site{kind: bindOther})
+			case x.Slice != nil && x.Slice.Offset == nil && x.Param != nil:
+				// zsh's unconditional `${c::=x}` parses as a slice with no offset.
 				c.add(x.Param.Value, site{kind: bindOther})
 			}
-		case *syntax.ArithmCmd, *syntax.ArithmExp:
+		case *syntax.ArithmCmd, *syntax.ArithmExp, *syntax.LetClause:
 			// Any name inside arithmetic may be assigned there (`(( E = 1 ))`,
 			// `$(( E++ ))`); treat every one as bound.
 			syntax.Walk(x, func(m syntax.Node) bool {
@@ -164,6 +202,30 @@ func takeCensus(file *syntax.File) census {
 
 func (c *census) add(name string, s site) {
 	c.sites[name] = append(c.sites[name], s)
+}
+
+// addNaked records a declare, export, typeset or local argument the parser
+// did not split into name and value: a flag, which binds nothing, a quoted
+// `"c=x"`, or an expansion that may spell any assignment.
+func (c *census) addNaked(a *syntax.Assign) {
+	if a.Value == nil {
+		return
+	}
+	if !shellast.IsLiteral(a.Value) {
+		c.opaque = true
+		return
+	}
+	text := shellast.WordLit(a.Value)
+	if strings.HasPrefix(text, "-") || strings.HasPrefix(text, "+") {
+		return
+	}
+	name, _, _ := strings.Cut(text, "=")
+	name, _, _ = strings.Cut(name, "[")
+	if !validName(name) {
+		c.opaque = true
+		return
+	}
+	c.add(name, site{kind: bindOther})
 }
 
 func (c *census) addAssign(a *syntax.Assign, kind bindKind, end syntax.Pos, call *syntax.CallExpr) {
@@ -251,19 +313,57 @@ func (c *census) addCall(x *syntax.CallExpr, counted map[*syntax.Assign]bool) {
 	case opaqueCommands[cmd]:
 		c.opaque = true
 	case bindingCommands[cmd]:
+		c.addBound(cmd, rest)
+	case cmd == "set":
+		// zsh's `set -A name ...` assigns an array; bash's `set -a` exports
+		// every later assignment.
 		for _, w := range rest {
-			for _, n := range boundNames(shellast.WordLit(w)) {
-				c.add(n, site{kind: bindOther})
+			text := shellast.WordLit(w)
+			if !shellast.IsLiteral(w) ||
+				(strings.HasPrefix(text, "-") || strings.HasPrefix(text, "+")) && strings.ContainsAny(text, "Aa") {
+				c.opaque = true
 			}
 		}
 	}
 }
 
+// nameAfterV are the binding commands whose only name argument is the value
+// of -v (`printf -v name fmt ...`); their other arguments are data.
+var nameAfterV = map[string]bool{"printf": true, "print": true}
+
+// addBound records the names a binding command's arguments may bind. An
+// argument that could be a name but is not literal (`read "$n"`,
+// `printf -v "$n"`) may bind anything, so the census gives up.
+func (c *census) addBound(cmd string, args []*syntax.Word) {
+	for i, w := range args {
+		text := shellast.WordLit(w)
+		if shellast.IsLiteral(w) {
+			for _, n := range boundNames(text) {
+				c.add(n, site{kind: bindOther})
+			}
+			continue
+		}
+		if nameAfterV[cmd] && !strings.HasPrefix(text, "-") &&
+			(i == 0 || !shellast.IsLiteral(args[i-1]) || !isVOption(shellast.WordLit(args[i-1]))) {
+			continue
+		}
+		c.opaque = true
+		return
+	}
+}
+
+// isVOption reports an option word whose last letter is v, so the next word is
+// its value: `-v`, `-rv`.
+func isVOption(text string) bool {
+	return strings.HasPrefix(text, "-") && strings.HasSuffix(text, "v")
+}
+
 // boundNames returns the variable names a binding command's argument may
 // name. An option can carry its name attached (`printf -vX`, `read -raX`),
 // and which letters are flags depends on the command, so every name-shaped
-// tail of an option word counts.
+// tail of an option word counts. An element (`c[0]`) binds its array.
 func boundNames(arg string) []string {
+	arg, _, _ = strings.Cut(arg, "[")
 	if validName(arg) {
 		return []string{arg}
 	}
@@ -297,6 +397,37 @@ func (c census) literalValue(name string, pos syntax.Pos) (string, bool) {
 	return s.value, true
 }
 
+// loopOperands reports whether an unquoted $name at pos expands only to
+// arguments that cannot be options: name's one binding is a for loop over
+// literal items whose body holds pos, IFS is the default, and no word of any
+// item starts with a dash or holds a glob or brace character. It does not say
+// which item, nor how many arguments, so the expansion stays unknown text.
+func (c census) loopOperands(name string, pos syntax.Pos) bool {
+	if c.opaque || shellSpecials[name] || c.bound("IFS") {
+		return false
+	}
+	ss := c.sites[name]
+	if len(ss) != 1 || ss[0].loop == nil {
+		return false
+	}
+	l := ss[0].loop
+	if !pos.After(l.do) || !l.done.After(pos) {
+		return false
+	}
+	for _, v := range l.values {
+		// globChars, and the `(` of an extglob such as @(...).
+		if strings.ContainsAny(v, globChars+"(") {
+			return false
+		}
+		for f := range strings.FieldsSeq(v) {
+			if strings.HasPrefix(f, "-") {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // bound reports whether the command binds name anywhere, or cannot rule it out.
 func (c census) bound(name string) bool {
 	return c.opaque || len(c.sites[name]) > 0
@@ -322,7 +453,8 @@ type token struct {
 	known bool
 	// mayBeFlags is set on an unknown token that could reach the CLI as an
 	// option or as several arguments (see mayBeOption). Other unknown tokens
-	// are one argument of unknown text that is not an option.
+	// are arguments of unknown text, none an option: one, or for a for-loop
+	// variable (see loopOperands) any number.
 	mayBeFlags bool
 	// word is the source word of a mayBeFlags token, for the rewrite hint.
 	word *syntax.Word
@@ -337,6 +469,10 @@ func (c census) expand(args []*syntax.Word, pos syntax.Pos) []token {
 		if pe, ok := bareParam(w); ok {
 			// Unquoted: the value is split on whitespace and globbed.
 			val, known := c.paramValue(pe, pos)
+			if name, ok := plainName(pe); !known && ok && c.loopOperands(name, pos) {
+				out = append(out, token{text: shellast.WordLit(w)})
+				continue
+			}
 			if !known || c.bound("IFS") || strings.ContainsAny(val, "*?[") {
 				out = append(out, token{text: shellast.WordLit(w), mayBeFlags: true, word: w})
 				continue
@@ -483,9 +619,19 @@ func (c census) render(parts []syntax.WordPart, pos syntax.Pos, quoted bool) (st
 
 // paramValue resolves a plain $NAME or ${NAME}; any modifier is refused.
 func (c census) paramValue(pe *syntax.ParamExp, pos syntax.Pos) (string, bool) {
+	name, ok := plainName(pe)
+	if !ok {
+		return "", false
+	}
+	return c.literalValue(name, pos)
+}
+
+// plainName returns the variable a plain $NAME or ${NAME} expands; ok is false
+// for any modifier.
+func plainName(pe *syntax.ParamExp) (string, bool) {
 	if pe.Param == nil || pe.Excl || pe.Length || pe.Width || pe.Index != nil || pe.Slice != nil ||
 		pe.Repl != nil || pe.Exp != nil || pe.Names != 0 {
 		return "", false
 	}
-	return c.literalValue(pe.Param.Value, pos)
+	return pe.Param.Value, true
 }

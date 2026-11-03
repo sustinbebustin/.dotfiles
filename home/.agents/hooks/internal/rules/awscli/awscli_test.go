@@ -210,7 +210,7 @@ func TestProfilePolicies(t *testing.T) {
 
 		// An expansion in an option's value slot is denied with a rewrite hint
 		// when `--opt="$X"` would pass; anything else keeps asking.
-		{"loop variable as a value", `for f in a; do aws --profile work lambda get-function --function-name $f; done`, "deny"},
+		{"loop variable as a value", `for f in -a; do aws --profile work lambda get-function --function-name $f; done`, "deny"},
 		{"quoted variable as a value", `aws --profile work lambda get-function --function-name "$f"`, "deny"},
 		{"quoted substitution as a value", `aws --profile work logs filter-log-events --log-group-name g --start-time "$(date +%s)"`, "deny"},
 		{"unbound variable may be several values", `aws --profile work lambda get-function --function-name $f`, "ask"},
@@ -231,6 +231,49 @@ func TestProfilePolicies(t *testing.T) {
 		{"s3 boolean flag", `aws --profile work s3 ls --recursive "$P"`, "ask"},
 		{"logs tail positional", `aws --profile work logs tail --follow "$G"`, "ask"},
 		{"double dash is not an option", `aws --profile work s3 cp -- "$f" s3://b/`, "ask"},
+
+		// A for-loop variable over literal items, read inside the loop body,
+		// expands to those items' words, so none can be an option.
+		{"loop items are operations", `export AWS_PROFILE=rec; for c in "sns list-topics" "ses get-send-quota"; do aws $c --max-items 1; done`, "allow"},
+		{"loop item in a substitution in the body", `for c in "sns list-topics" ses; do r=$(aws --profile rec $c 2>&1); done`, "allow"},
+		{"loop variable as a value is proven", `for f in a b; do aws --profile work lambda get-function --function-name $f; done`, "allow"},
+		{"loop items before the operation leave readOnly unsure", `for c in "sns list-topics"; do aws --profile work $c; done`, "ask"},
+		{"loop item word could be --profile", `for c in "s3 ls --profile=prod"; do aws --profile rec $c; done`, "ask"},
+		{"loop item could be --endpoint-url", `for c in "--endpoint-url=http://127.0.0.1:1 s3 ls"; do aws --profile prod $c; done`, "ask"},
+		{"loop item glob could match --profile=x", `for c in 's3 *'; do aws --profile rec $c; done`, "ask"},
+		{"loop item brace list could add --profile", `for c in x{,--profile=prod}; do aws --profile rec s3 ls $c; done`, "ask"},
+		{"ANSI-C loop item spells a dash", `for c in $'\x2d-profile=prod'; do aws --profile rec s3 ls $c; done`, "ask"},
+
+		// Bindings the census must see, or it must give up on every variable.
+		{"printf -v into an element", `for c in a; do printf -v 'c[0]' %s --profile=prod; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"read into an element", `for c in a; do read 'c[0]' <<< --profile=prod; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"printf -v into a variable name", `n=c; for c in a; do printf -v "$n" %s --profile=prod; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"quoted declare assignment", `for c in a; do declare "c=--profile=prod"; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"quoted export assignment", `for c in a; do export "c=--profile=prod"; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"quoted typeset assignment", `for c in a; do typeset "c=--profile=prod"; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"declare from a variable", `for c in a; do declare "$X"; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"indirect default assignment", `n=c; for c in a; do unset "$n"; : "${!n:=--profile=prod}"; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"zsh set -A", `for c in a; do set -A c --profile=prod; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"zsh unconditional assignment", `for c in a; do : ${c::=--profile=prod}; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"quoted declare of IFS", `for c in ax--profile=prod; do declare "IFS=x"; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"printf -v of IFS by name", `n=IFS; for c in ax--profile=prod; do printf -v "$n" x; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"let assigns", `for c in a; do let c=-1; aws --profile rec s3 rb s3://b $c; done`, "ask"},
+		{"rebinding past a loopback endpoint", `for c in a; do declare "c=--endpoint-url=https://x.example.com"; aws --profile prod --endpoint-url http://localhost:4566 s3 rb s3://b $c; done`, "ask"},
+		{"rebinding under readOnly", `for c in a; do declare "c=--profile=prod"; aws --profile work sqs list-queues $c; done`, "ask"},
+		{"quoted declare of an exported variable", `X=a; declare "X=--profile=prod"; aws --profile rec s3 rb s3://b $X`, "ask"},
+		{"printf still allows when it binds nothing watched", `for c in a; do printf '%s\n' "$c"; aws --profile rec s3 ls $c; done`, "allow"},
+		{"loop item from a variable", `for c in "$X"; do aws --profile rec s3 ls $c; done`, "ask"},
+		{"loop over positional parameters", `for c; do aws --profile rec s3 ls $c; done`, "ask"},
+		{"select is not a loop over its items", `select c in a; do aws --profile rec s3 ls $c; done`, "ask"},
+		{"call after the loop", `for c in a; do :; done; aws --profile rec s3 ls $c`, "ask"},
+		{"call before the loop", `aws --profile rec s3 ls $c; for c in a; do :; done`, "ask"},
+		{"loop never runs, so the call is outside it", `false && for c in a; do :; done; aws --profile rec s3 ls $c`, "ask"},
+		{"body reassigns the variable", `for c in a; do c=--profile=prod; aws --profile rec s3 ls $c; done`, "ask"},
+		{"body reads into the variable", `for c in a; do read c; aws --profile rec s3 ls $c; done`, "ask"},
+		{"two loops bind the variable", `for c in a; do aws --profile rec s3 ls $c; done; for c in --profile=prod; do :; done`, "ask"},
+		{"IFS set anywhere", `IFS=x; for c in ax--profile=prod; do aws --profile rec s3 ls $c; done`, "ask"},
+		{"modified expansion", `for c in a; do aws --profile rec s3 ls ${c:-"--profile=prod"}; done`, "ask"},
+		{"eval can bind anything", `for c in a; do eval "$X"; aws --profile rec s3 ls $c; done`, "ask"},
 
 		// Words that expand to several arguments even inside double quotes.
 		{"quoted array after literal text", `ids=(i-1 --profile=prod); aws --profile work ec2 describe-instances --instance-ids="${ids[@]}"`, "ask"},
@@ -334,7 +377,7 @@ func TestProfileFromHookEnvironment(t *testing.T) {
 func TestValueSlotHintSpellsTheRewrite(t *testing.T) {
 	clearAWSEnv(t)
 	cases := []struct{ cmd, want string }{
-		{`for f in a b; do aws --profile work lambda get-function --function-name $f; done`, `--function-name="$f"`},
+		{`for f in a -b; do aws --profile work lambda get-function --function-name $f; done`, `--function-name="$f"`},
 		{`S=$(( 1 )); aws --profile work logs filter-log-events --log-group-name g --start-time $S`, `--start-time="$S"`},
 		{`aws --profile work lambda get-function --function-name "$f"`, `--function-name="$f"`},
 		{`aws --profile work logs filter-log-events --log-group-name g --start-time "$(date +%s)"`, `--start-time="$(date +%s)"`},

@@ -27,7 +27,11 @@
 // Any other call is judged by the policy the machine-local config gives its
 // profile (config.AWSPolicy): allow, readOnly (see readonly.go), ask or deny.
 // A profile the config does not name, or one the hook cannot determine (see
-// profile.go), asks.
+// profile.go), asks. A command that mentions aws but does not parse asks too.
+//
+// Accepted gap: a function the command calls but does not define (one from
+// the shell snapshot) could rebind a variable the census trusts. The hook
+// cannot see such functions, so it assumes they do not.
 package awscli
 
 import (
@@ -35,6 +39,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
@@ -54,10 +59,20 @@ const (
 	endpointFlag      = "--endpoint-url"
 )
 
+// mentionsAWS matches raw command text that may run the aws CLI. It is for
+// commands that did not parse, so it errs toward matching.
+var mentionsAWS = regexp.MustCompile(`\baws\b`)
+
 // Check judges every aws call in req and returns the strictest verdict.
 func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
+		// A command the parser rejects may still run: zsh accepts syntax it
+		// does not (`${c::=x}`), and that syntax can rebind what a call sees.
+		if req.Shell.Status() == shellast.Unparseable && mentionsAWS.MatchString(req.Command) {
+			return hook.Asked("AWS CLI call in a command the hook could not parse, so its profile and endpoint " +
+				"cannot be checked. Allow?")
+		}
 		return hook.Allowed()
 	}
 	environ := os.Environ()
