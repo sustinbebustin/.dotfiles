@@ -23,7 +23,7 @@ A reviewer returns `{lens, files_read[], findings[], open_questions[], passed_ch
 
 The verifier returns, per id, `{verdict, reason, evidence, reachability, variants[]}`. Verdicts: `CONFIRMED` (defect present, reachable path traced), `PLAUSIBLE` (defect present, reachability or trigger unconfirmed), `REFUTED` (false, gated, against a repo rule, or already handled). Its reachability replaces the reviewer's. Two verifiers that disagree on one merged finding yield `PLAUSIBLE`.
 
-The workflow adds `sources[]` (every reviewer that raised it) and `corroborated_by[]` (all but the first), and lists ids it left unverified (`unverified_ids`): verify those yourself by reading the code, and record `verdict` with `verify_note: "verified by orchestrator"`. Synthesis adds `routing` and `outcome`.
+The workflow adds `sources[]` (every reviewer that raised it) and `corroborated_by[]` (all but the first), and lists ids it left unverified (`unverified_ids`): verify those yourself by reading the code, and record `verdict` with `verify_note: "verified by orchestrator"`. Synthesis adds `routing` and `outcome`, and under scope `stack` a `layer`: `{ "branch": "<name>", "pr": "<#n or empty>", "judged": false }`.
 
 Corroboration is shown, never used to route: in the mined history a finding raised by one reviewer of three was fixed as often as one all three raised.
 
@@ -119,8 +119,9 @@ One JSON file per run at `<synthesis dir>/synthesis-<run stamp>.json` (both from
   "version": 1,
   "stamp": "<run stamp>",
   "mode": "report | fix",
-  "scope": { "kind": "all | unstaged | branch | commit | pr", "base_ref": "<--base or trunk>", "bases": { "<repo>": "<sha>" },
-             "repos": ["<repo>"], "files": ["<path>"], "excluded_staged": 0, "note": "<-- note>" },
+  "scope": { "kind": "all | unstaged | branch | commit | pr | stack", "base_ref": "<--base or trunk>", "bases": { "<repo>": "<sha>" },
+             "repos": ["<repo>"], "files": ["<path>"], "excluded_staged": 0, "note": "<-- note>",
+             "layers": [ { "branch": "<name>", "pr": "<#n or empty>", "range": "<base sha>..<head sha>" } ] },
   "tier": "small", "lenses": ["core", "go"],
   "verify": { "command": "<cmd>", "result": "pass | fail | env-failure-proceeded | none" },
   "reviewers": [ "<workflow reviewers[] as returned>" ],

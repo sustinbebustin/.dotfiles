@@ -11,6 +11,8 @@
 #   unstaged        working tree vs index; staged work is out of scope
 #   branch          working tree vs merge-base(trunk, HEAD): committed branch work + uncommitted
 #   --base <ref>    branch scope vs <ref> instead of trunk (stacked branches); implies `branch`
+#   (gh-stack)      no scope or `branch`, without `--base`, on a branch in an open gh-stack stack:
+#                   the whole open stack vs trunk, plus a per-layer map
 #   pr <n|url>      a GitHub PR; report-only unless its head is the checked-out HEAD
 #   commit <ref>    one commit; report-only unless <ref> is HEAD
 #   --repo <name>   limit a multi-repo workspace to these repos (repeatable; overlay aliases apply)
@@ -329,6 +331,74 @@ if [ -n "$unresolved" ]; then
     "fetch it, then re-run. If only one repo carries the parent branch, re-run with \`--repo <name>\`."
 fi
 
+# --- gh-stack detection --------------------------------------------------------
+# A branch in a gh-stack stack is reviewed as the whole open stack, trunk to the top open layer,
+# so cross-layer defects surface; the layer map routes each finding to the PR that introduced it.
+# `--base`, `pr`, `commit`, and `unstaged` each name one slice and skip this. Without gh-stack,
+# jq, or a stack, nothing changes. Layer arrays are indexed bottom first.
+L_NAME=(); L_HEAD=(); L_BASE=(); L_PR=(); L_REBASE=()
+NLAYERS=0; STACK_CUR=-1; STACK_TO=""; STACK_TRUNK=""
+if { [ -z "$SCOPE" ] || [ "$SCOPE" = "branch" ]; } && [ -z "$BASE_ARG" ] && [ "$NSEL" -eq 1 ] \
+  && command -v gh >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  k="${SEL[0]}"; dir="${REPO_DIR[$k]}"
+  # Exit 2 (not in a stack) and a missing extension both leave stack_json empty.
+  stack_json="$(cd "$dir" && gh stack view --json 2>/dev/null </dev/null)" || stack_json=""
+  # One row per branch, bottom first: name, merged (0/1), needs rebase (0/1), "#<n> <url>" or "".
+  rows="$(printf '%s' "$stack_json" | jq -r '.branches[]? | [.name,
+      (if .isMerged or (.pr.state // "") == "MERGED" then 1 else 0 end),
+      (if .needsRebase then 1 else 0 end),
+      (if .pr then "#\(.pr.number) \(.pr.url)" else "" end)] | @tsv' 2>/dev/null)"
+  STACK_TRUNK="$(printf '%s' "$stack_json" | jq -r '.trunk // empty' 2>/dev/null)"
+  # Mid-rebase, HEAD is detached (so `gh stack view` fails) and half the stack is rewritten: no
+  # scope reviews it coherently. gh-stack records its rebase in this state file.
+  if [ -e "$(git -C "$dir" rev-parse --git-path gh-stack-rebase-state)" ]; then
+    stop "A rebase is in progress in this stack, so its layers are partly rewritten and HEAD is detached." \
+      "Nothing was changed. Finish it (resolve, \`git add\`, \`gh stack rebase --continue\`) or undo it" \
+      "(\`gh stack rebase --abort\`), then re-run /vet."
+  fi
+  if [ -n "$rows" ]; then
+    resolve_base "$dir" "${STACK_TRUNK:-$(trunk_of "$dir")}" 0
+    prev="$RESOLVED"
+    pruned=""
+    while IFS="$(printf '\t')" read -r name merged rebase pr; do
+      [ -n "$name" ] || continue
+      head="$(git -C "$dir" rev-parse --verify --quiet "refs/heads/$name^{commit}" 2>/dev/null)"
+      if [ "$merged" = 1 ]; then
+        # A merged layer's head bounds the next layer, so a squash merge does not leak its commits upward.
+        if [ -n "$head" ]; then prev="$head"; else pruned="$pruned \`$name\`"; fi
+        continue
+      fi
+      [ -n "$head" ] || stop "gh-stack lists \`$name\` as an open layer, but no local branch \`$name\` exists." \
+        "Run \`gh stack sync\` (or \`gh stack checkout $name\`) to restore it, then re-run;" \
+        "or review one layer alone with \`--base <parent>\`."
+      lb=""; [ -n "$prev" ] && lb="$(git -C "$dir" merge-base "$prev" "$head" 2>/dev/null)"
+      [ -n "$lb" ] || stop "No merge-base between stack layer \`$name\` and the layer or trunk below it." \
+        "Run \`gh stack view --json\` to inspect the stack, or review one layer alone with \`--base <parent>\`."
+      L_NAME[NLAYERS]="$name"; L_HEAD[NLAYERS]="$head"; L_BASE[NLAYERS]="$lb"
+      L_PR[NLAYERS]="$pr"; L_REBASE[NLAYERS]="$rebase"
+      [ "$name" = "${R_BRANCH[$k]}" ] && STACK_CUR="$NLAYERS"
+      NLAYERS=$(( NLAYERS + 1 ))
+      prev="$head"
+    done <<EOF
+$rows
+EOF
+  fi
+  # Only a checked-out open layer switches the scope; on trunk or a merged layer, review as before.
+  if [ "$STACK_CUR" -ge 0 ]; then
+    SCOPE="stack"
+    top=$(( NLAYERS - 1 ))
+    R_TRUNK[k]="${STACK_TRUNK:-${R_TRUNK[$k]}}"
+    R_MB[k]="${L_BASE[0]}"
+    if [ "$STACK_CUR" -ne "$top" ]; then
+      STACK_TO="${L_HEAD[$top]}"
+      repo_dirty "$dir" && R_BASENOTE[k]="${R_BASENOTE[$k]:+${R_BASENOTE[$k]}; }uncommitted work on \`${R_BRANCH[$k]}\` is OUT of scope: the stack is read at its top layer \`${L_NAME[$top]}\`; commit it, or check out the top layer, to include it"
+    fi
+    [ -n "$pruned" ] && R_BASENOTE[k]="${R_BASENOTE[$k]:+${R_BASENOTE[$k]}; }merged layer(s)$pruned have no local branch; if squash-merged, their commits may show up in \`${L_NAME[0]}\`'s range"
+  else
+    NLAYERS=0
+  fi
+fi
+
 AUTO=""
 if [ -z "$SCOPE" ]; then
   SCOPE="all"
@@ -399,6 +469,12 @@ while [ "$s" -lt "$NSEL" ]; do
       if [ "$MODE" = "fix" ]; then
         MODE="report"; MODE_NOTE="\`fix\` dropped to \`report\`: PR #$PR_NUM's head is not checked out here."
       fi ;;
+    stack)
+      R_FROM[k]="${R_MB[$k]}"; R_TO[k]="$STACK_TO"
+      # Stack fix mode checks out each layer and commits on it, so it needs a clean tree.
+      if [ "$MODE" = "fix" ] && repo_dirty "$dir"; then
+        MODE="report"; MODE_NOTE="\`fix\` dropped to \`report\`: on a stack, fix mode checks out each layer and commits on it, and the tree has uncommitted work a checkout could carry to the wrong layer. Commit or stash it, then re-run \`/vet fix\`."
+      fi ;;
   esac
 done
 
@@ -466,6 +542,11 @@ case "$SCOPE" in
   pr)
     echo "- Scope: **PR #$PR_NUM** ($PR_URL) -- \`$PR_HEAD\` @ ${PR_OID:0:12} vs \`$PR_BASE\`. The PR head is"
     echo "  not checked out: reviewers read files at the PR head with \`git show $PR_OID:<path>\`." ;;
+  stack)
+    echo "- Scope: **gh-stack, $NLAYERS open layer(s)** -- \`${L_NAME[0]}\` .. \`${L_NAME[$(( NLAYERS - 1 ))]}\` vs \`${R_TRUNK[${SEL[0]}]}\`, the"
+    echo "  whole stack in one pass; checked out: \`${L_NAME[$STACK_CUR]}\`. Every finding gets a layer (see Stack layers)."
+    echo "  Say \"stack\" in the report. To review one layer alone, re-run with \`--base <parent layer>\`."
+    [ -n "$STACK_TO" ] && echo "  The top layer is not checked out: reviewers read files at its head with \`git show $STACK_TO:<path>\`." ;;
   *)
     echo "- Scope: **staged + unstaged** (all uncommitted work)." ;;
 esac
@@ -501,7 +582,7 @@ while [ "$s" -lt "$NSEL" ]; do
   echo "### Repo: $label"
   echo ""
   echo "- Branch: ${R_BRANCH[$k]}"
-  if [ "$SCOPE" = "branch" ]; then
+  if [ "$SCOPE" = "branch" ] || [ "$SCOPE" = "stack" ]; then
     echo "- Base: \`${R_TRUNK[$k]}\` merge-base ${R_MB[$k]:-(none)}"
   fi
   [ -n "${R_BASENOTE[$k]}" ] && echo "- Base warning: ${R_BASENOTE[$k]}"
@@ -583,16 +664,16 @@ repo_of() {
 
 # --- commits in range --------------------------------------------------------
 FIX_COMMITS=""
-if [ "$SCOPE" = "branch" ] || [ "$SCOPE" = "commit" ] || [ "$SCOPE" = "pr" ]; then
+if [ "$SCOPE" != "all" ] && [ "$SCOPE" != "unstaged" ]; then
   echo "### Commits in scope"
   echo ""
   echo "Intent source when the conversation does not hold the implementation."
   echo ""
   log_repo() {
     local k="$1" dir="${REPO_DIR[$1]}" range body
-    if [ "$SCOPE" = "branch" ]; then
+    if [ "$SCOPE" = "branch" ] || [ "$SCOPE" = "stack" ]; then
       [ -n "${R_MB[$k]}" ] || { echo "  ${REPO_NAME[$k]}: (no merge-base -- uncommitted work only)"; return; }
-      range="${R_MB[$k]}..HEAD"
+      range="${R_MB[$k]}..${R_TO[$k]:-HEAD}"
     elif [ "${R_FROM[$k]}" = "$EMPTY_TREE" ]; then range="${R_TO[$k]}"
     else range="${R_FROM[$k]}..${R_TO[$k]}"; fi
     body="$(git -C "$dir" log --format='%h %s' "$range" 2>/dev/null | head -40)"
@@ -607,6 +688,51 @@ if [ "$SCOPE" = "branch" ] || [ "$SCOPE" = "commit" ] || [ "$SCOPE" = "pr" ]; th
   for_changed log_repo
   echo ""
   FIX_COMMITS="$(printf '%s' "$FIX_COMMITS" | grep . || true)"
+fi
+
+# --- stack layers ------------------------------------------------------------
+if [ "$SCOPE" = "stack" ]; then
+  k="${SEL[0]}"; dir="${REPO_DIR[$k]}"
+  blame_rev=""; [ -n "$STACK_TO" ] && blame_rev="$STACK_TO "
+  echo "### Stack layers"
+  echo ""
+  echo "Bottom first; each layer is one PR, ranges are pinned. A finding belongs to the layer that"
+  echo "introduced its line: a file listed under one layer belongs to it. For a file under several, run"
+  echo "\`git blame -l -s -L <line>,<line> ${blame_rev}-- <file>\` and take the lowest layer whose head contains"
+  echo "that commit (\`git merge-base --is-ancestor <sha> <head>\`); an all-zero sha is uncommitted work,"
+  echo "owned by the checked-out layer. A finding with no line of its own (something missing) goes to the"
+  echo "layer whose change created the need; say it was judged."
+  echo ""
+  i=0
+  while [ "$i" -lt "$NLAYERS" ]; do
+    mark=""; [ "$i" -eq "$STACK_CUR" ] && mark=" (checked out)"
+    echo "$(( i + 1 )). \`${L_NAME[$i]}\`$mark ${L_PR[$i]:-(no PR yet)}"
+    echo "   - Range: ${L_BASE[$i]}..${L_HEAD[$i]}"
+    [ "${L_REBASE[$i]}" = 1 ] && echo "   - WARNING: needs rebase onto the layer below; its range may carry stale or missing parent work."
+    layer_files="$(gd "$dir" --name-status "${L_BASE[$i]}" "${L_HEAD[$i]}" 2>/dev/null)"
+    if [ -n "$layer_files" ]; then
+      printf '%s\n' "$layer_files" | sed "s|	|	${REPO_PREFIX[$k]}|" | indent
+    else
+      echo "    (no committed changes)"
+    fi
+    [ "$i" -eq "$STACK_CUR" ] && [ -z "$STACK_TO" ] && repo_dirty "$dir" \
+      && echo "   - Also owns the uncommitted and untracked work in the tree."
+    i=$(( i + 1 ))
+  done
+  echo ""
+  if [ "$MODE" = "fix" ]; then
+    # gh-stack wants --remote when several remotes exist and remote.pushDefault is unset.
+    remote_flag=""
+    if [ -z "$(git -C "$dir" config remote.pushDefault 2>/dev/null)" ] \
+      && [ "$(git -C "$dir" remote | count_lines)" -gt 1 ]; then
+      if git -C "$dir" remote | grep -qx origin; then remote_flag=" --remote origin"
+      else remote_flag=" --remote <name>"; fi
+    fi
+    echo "Fix mode: start branch \`${L_NAME[$STACK_CUR]}\`. After committing on a layer with layers above it, run"
+    echo "\`gh stack rebase --upstack --no-trunk$remote_flag\` (\`--no-trunk\`: trunk's new work stays out of the stack)."
+    case "$remote_flag" in *"<name>"*) echo "Several remotes, no \`origin\`, and no \`remote.pushDefault\`: ask the user which remote." ;; esac
+    echo ""
+  fi
 fi
 
 # --- what `unstaged` drops ---------------------------------------------------
@@ -656,7 +782,8 @@ for_changed print_cmd
 echo ""
 case "$SCOPE" in
   unstaged) echo "Forbidden in this scope: \`git diff HEAD\`, \`--staged\`, \`--cached\`." ;;
-  branch)   echo "The merge-base SHAs are pinned: never substitute a branch name, \`HEAD~n\`, or three-dot syntax"
+  branch|stack)
+            echo "The merge-base SHAs are pinned: never substitute a branch name, \`HEAD~n\`, or three-dot syntax"
             echo "(three-dot drops uncommitted work; a branch name drifts when it moves)." ;;
 esac
 [ "$SCOPE" = "commit" ] || [ "$SCOPE" = "pr" ] || \
@@ -1105,6 +1232,7 @@ echo "Verify covers the whole working tree; it cannot be scoped."
 [ "$REPO_FILTERED" -eq 1 ] && echo "Filtered-out repos are not verified; do not present the result as covering them."
 case "$SCOPE" in
   commit|pr) echo "The tree is not the reviewed revision (scope \`$SCOPE\`): a failure may come from other work. Report it; the review can proceed on your call." ;;
+  stack) [ -n "$STACK_TO" ] && echo "The tree is layer \`${L_NAME[$STACK_CUR]}\`, not the stack's top: verify does not cover the layers above it. Say so in the report." ;;
 esac
 echo ""
 
@@ -1121,10 +1249,14 @@ elif [ "$SCOPE" = "branch" ] && command -v gh >/dev/null 2>&1; then
     return 0
   }
   for_changed pr_find
+elif [ "$SCOPE" = "stack" ]; then
+  echo "- PRs: one per layer, listed under Stack layers"
 fi
-# Re-review lookup key: the branch(es) under review, or the PR / commit when that is the target.
+# Re-review lookup key: the branch(es) under review, the stack's bottom open layer, or the PR /
+# commit when that is the target.
 case "$SCOPE" in
   pr)     branches="pr-$PR_NUM" ;;
+  stack)  branches="stack-$(printf '%s' "${L_NAME[0]}" | sed 's|/|_|g')" ;;
   commit) branches="commit-$(printf '%s' "${R_TO[${SEL[0]}]}" | cut -c1-12)" ;;
   *)      branches="$(s=0; while [ "$s" -lt "$NSEL" ]; do k="${SEL[$s]}"; s=$(( s + 1 )); [ -n "${R_FILES[$k]:-}" ] && printf '%s\n' "${R_BRANCH[$k]}"; done | sort -u | tr '\n' '+' | sed 's/+$//; s|/|_|g')" ;;
 esac

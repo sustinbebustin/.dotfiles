@@ -33,6 +33,8 @@ That block is authoritative: repos, base SHAs, file lists, untracked and partial
 
 `Verdict: STOP` means stop and tell the user why. `Verdict: PROCEED` means continue.
 
+On a branch in an open gh-stack stack, no scope or `branch` (without `--base`) becomes scope `stack`: the whole open stack against trunk in one run, so defects that cross layers surface, plus a **Stack layers** map giving each layer's PR, pinned range, and files. Every finding is assigned to a layer (synthesis step 3), and fix mode commits each fix on its own layer ([Fix mode on a stack](#fix-mode-on-a-stack)). `--base <parent layer>` reviews, and fixes, one layer alone.
+
 For fresh numbers later, re-run `bash ${CLAUDE_SKILL_DIR}/scope.sh <the same arguments>`. When the block auto-selected a scope, pass that scope explicitly on a re-run: once fixes dirty the tree, an empty argument would select a different one.
 
 ### No overlay
@@ -81,7 +83,7 @@ Stack lenses are `go`, `react-next`, `typescript`, `supabase`, and `shell`. When
 
 Reviewers see nothing of this conversation. Write the briefing to the scratchpad as `vet-briefing-<run stamp>.md`, with these sections:
 
-- **Scope.** Mode, scope line, repos and any repo filter, the diff commands verbatim, untracked files to read in full, partially staged files (only their worktree hunks are in scope), the count of excluded staged files. For a PR not checked out, how to read files at its head. One line: findings land only in these hunks and files.
+- **Scope.** Mode, scope line, repos and any repo filter, the diff commands verbatim, untracked files to read in full, partially staged files (only their worktree hunks are in scope), the count of excluded staged files. For a PR not checked out, or a stack whose top layer is not checked out, how to read files at that head. Under `stack`, the Stack layers section verbatim, with one line: a defect that spans layers is in scope, and the reviewer names the layers it crosses. One line: findings land only in these hunks and files.
 - **Intent.** What the change is for, from this conversation (cite a plan file by path when one exists), the user's `-- note`, and the commits in scope. When intent comes only from commit subjects, say so rather than inventing it.
 - **Changes.** Intentional behaviour changes per file, and files that are refactor-only and must behave identically. Cite a commit or `file:line` for every claim that something moved, was removed, or was replaced: an uncited claim misleads every reviewer at once.
 - **Consumers and call sites.** The block's consumer list, plus the entry points and gates you know: routes and their auth, UI triggers and the conditions around them, flags, product constraints, callers that will never reach the code. Cite `file:line`. Write "single area, no cross-boundary gates" when that is the case. Missing gates are the main source of false blockers.
@@ -117,9 +119,10 @@ Pass `args` as an object, not a JSON string. Labels are unique; `files` limits a
 
 1. **Close verification.** Verify every id in `unverified_ids` yourself: read the cited lines and trace one real entry point; record the verdict with `verify_note: "verified by orchestrator"`. A finding that cites a line that does not exist is dropped and noted.
 2. **Variants.** Each variant of a CONFIRMED finding becomes a finding of its own ("variant of `<id>`"), routed like its parent unless it sits out of scope.
-3. **Route** every finding per [contract.md](contract.md).
-4. **PR comments.** When the block lists a PR, read its review comments now, after the reviewers had fresh eyes (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`). Verify each defect raised there that this run missed by reading the code, and add the survivors with source `pr-comment`.
-5. **Verdict**, worst of: `NEEDS_CHANGES` (a blocking finding survives), `APPROVED_WITH_NOTES` (notes only), `APPROVED`.
+3. **Layer** (scope `stack` only). Set every finding's `layer` by the Stack layers rules: a file under one layer is that layer's; for a file under several, blame the cited line and take the lowest layer whose head contains the commit. Mark a layer you judged rather than looked up (a missing-code finding) as judged.
+4. **Route** every finding per [contract.md](contract.md).
+5. **PR comments.** When the block lists a PR (under `stack`, each layer's PR), read its review comments now, after the reviewers had fresh eyes (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`). Verify each defect raised there that this run missed by reading the code, and add the survivors with source `pr-comment`.
+6. **Verdict**, worst of: `NEEDS_CHANGES` (a blocking finding survives), `APPROVED_WITH_NOTES` (notes only), `APPROVED`.
 
 ## 6. Report
 
@@ -146,6 +149,8 @@ Verdict: <verdict>
 | Reviewer | Lenses | Blocking / notes | Status |
 ```
 
+Under `stack`, group Blocking and Notes by layer, bottom first, each group under a `#### <n>. <branch> <PR>` heading; omit layers with no findings, and append `(layer judged)` to a finding whose layer was judged. The verdict covers the whole stack; add one `Layer verdicts:` line after it (`l1 #12 APPROVED, l2 #13 NEEDS_CHANGES`).
+
 Show at most 10 notes and 10 open questions, most severe first; the rest stay in the log with a count here. Then write the synthesis log, and in report mode call `ReportFindings`, both per [contract.md](contract.md). Report mode then runs only [overlay upkeep](#8-overlay-upkeep): it edits no code.
 
 ## 7. Fix mode
@@ -154,7 +159,7 @@ Only when the block's mode is `fix`, and only with something routed `auto` or `a
 
 1. **Context check.** Run `bash ~/.claude/scripts/context-usage.sh`. Under 200k used, print the line and continue. Otherwise ask, with that line at the top of the question: continue here (recommended) or hand off, per [handoff.md](handoff.md).
 2. **Snapshot.** Per changed repo, `git -C <repo> stash create`: it records the tree without touching it; empty output means the tree is clean and the snapshot is `HEAD`. A stash commit leaves out untracked files, so copy each untracked in-scope file into the scratchpad before editing it.
-3. **Apply** every `auto` finding with Edit. Never edit outside the scope; never amend, rebase, or commit.
+3. **Apply** every `auto` finding with Edit. Never edit outside the scope; never amend, rebase, or commit (scope `stack` commits per layer; see below).
 4. **Ask** about every `ask` finding and open question per [contract.md](contract.md), up to four questions per `AskUserQuestion` call, in contract order. Apply the approved fixes.
 5. **Verify once** over all fixes with the gate's command. Skip it when every fix is a comment or docs edit, and say so. When it fails on a fix you cannot repair minimally, revert that fix and report it as reverted; if it is still red after that, stop and report. When the gate proceeded past an environment failure and this verify fails the same way, verify is blocked, not failed: keep the fixes, report verify as blocked by the environment, and go on to the delta review.
 6. **Delta review.** Write a delta briefing: scope is `git -C <repo> diff <snapshot>` per repo plus `git diff --no-index <copy> <file>` for edited untracked files; fix context is the finding each edit addressed. Dispatch the workflow once with `reviewers: [{ label: "delta", agent: "vet-reviewer", lenses: ["core"] }]` and `verify: { slots: 1, inline_max: 0 }`. Route what it finds as above (apply, ask, verify), but never start a second delta review.
@@ -172,6 +177,23 @@ Verify (`<command>`): PASS
 ```
 
 Then run overlay upkeep and stop. The user decides what to commit.
+
+### Fix mode on a stack
+
+Scope `stack` in `fix` mode: the block already checked that the tree is clean and no rebase is in progress. Each layer is its own PR, so each fix is committed on the layer that owns it and carried up with an upstack rebase. `/vet fix` on a stack is the user's request for these commits; nothing is pushed. Steps 1 and 4 hold; the rest change:
+
+- **Snapshot.** The Stack layers ranges are the snapshot: each layer's head before any fix. No stash.
+- **Ask before any checkout.** Finish step 4's questions for every layer first, so no layer is left half-fixed while waiting on an answer.
+- **Per layer, bottom first**, for each layer with fixes to apply:
+  1. `git checkout <layer>`.
+  2. Apply that layer's fixes with Edit. A lower layer's fix may have moved lines: re-read each cited span before editing.
+  3. `git add` the edited files, then `git commit -m "fix: address vet findings" -m "<one line per fix: path:line -- description>"`. Record the SHA; an upstack rebase moves only the layers above, so it stays valid.
+  4. When layers sit above it, run the rebase command the block printed. Exit 0: next layer. Anything else: stop, below.
+- **Rebase conflict.** Stop where it is, with the rebase in progress: never resolve, `--continue`, or `--abort` it yourself. Report the layer being rebased and its conflicted files (`git status --short`), the fix commits made (layer, SHA), and the layers left unfixed with their findings. Next steps for the user: resolve, `git add`, `gh stack rebase --continue`; or `gh stack rebase --abort`, which restores the layers above and keeps the fix commits below. Then close (step 7) with outcomes as they stand.
+- **Verify** once, on the top layer (`git checkout <top>`), which carries every fix; say the lower layers were not verified alone. On a failure, do not revert: report the failure and the fix commits, and let the user decide.
+- **Return** to the start branch the block printed.
+- **Delta review.** Scope is the fix commits, `git show <sha>` each, plus `git diff --no-index` for edited untracked files. The briefing gives each fix's layer and its finding, and says the layers above now carry it: read them at the top layer's head and look for breakage there. Dispatch once as step 6. Route its findings to **present**, with their layer: applying one means another commit and rebase cycle, so the user decides.
+- **Close** as step 7, adding a `Commits:` line per layer (`<n>. <branch> <sha> -- <k> fix(es)`), and end with: the commits are local; `gh stack push` (or `submit`) publishes them.
 
 ## 8. Overlay upkeep
 
