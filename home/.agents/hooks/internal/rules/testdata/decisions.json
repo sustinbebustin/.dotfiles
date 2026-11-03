@@ -1041,5 +1041,11 @@
     "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"sudo -Eu root git push origin main\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
     "reason": "git push to main detected - allow?"
+  },
+  {
+    "name": "wrapper-env-dash-aws",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"env - aws s3 rm s3://b --recursive\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI call, and the profile it uses cannot be determined: env - clears the environment AWS_PROFILE comes from. Allow?"
   }
 ]

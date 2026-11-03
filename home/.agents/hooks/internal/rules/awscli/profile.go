@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
-
-	"agent-hooks/internal/shellast"
 )
 
 const (
@@ -24,13 +22,9 @@ var redirectingVars = []string{"AWS_CONFIG_FILE", "AWS_SHARED_CREDENTIALS_FILE"}
 // AWS_PROFILE, though not to an explicit --profile.
 var credentialVars = []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"}
 
-// envResettingWrappers start the command with a fresh or filtered environment,
-// so an inherited AWS_PROFILE may not reach it.
-var envResettingWrappers = map[string]bool{"sudo": true, "doas": true}
-
-// envResettingFlags are env's options that drop variables from the command's
-// environment.
-var envResettingFlags = []string{"-i", "--ignore-environment", "-u", "--unset", "-S", "--split-string"}
+// profileSourceVars are the variables whose removal changes which profile a
+// call runs under, or which ~/.aws defines it.
+var profileSourceVars = []string{profileVar, defaultProfileVar, "HOME"}
 
 // profileEnv is what the command and the hook's own environment say about the
 // profile, before looking at any one call.
@@ -67,8 +61,9 @@ func unknownProfile(format string, args ...any) error {
 
 // resolve returns the profile call runs under, following the CLI's precedence:
 // --profile, then AWS_PROFILE as the call sees it, then "default". toks are the
-// call's aws arguments and wrappers the words that run it (sudo, env ...).
-func (pe profileEnv) resolve(call *syntax.CallExpr, wrappers []*syntax.Word, toks []token) (string, error) {
+// call's aws arguments and wrappers what the words that run it (sudo, env ...)
+// do to its environment.
+func (pe profileEnv) resolve(call *syntax.CallExpr, wrappers wrapperEnv, toks []token) (string, error) {
 	for _, name := range redirectingVars {
 		if pe.census.bound(name) || pe.hookVars[name] {
 			return "", unknownProfile("%s is set, so profiles may come from another file", name)
@@ -125,18 +120,19 @@ func describeWord(text string) string {
 	return fmt.Sprintf("word %q", text)
 }
 
-// checkWrappers refuses wrappers that may hand aws a different environment
-// from the one the hook sees.
-func checkWrappers(wrappers []*syntax.Word) error {
-	for _, w := range wrappers {
-		text := shellast.WordLit(w)
-		if envResettingWrappers[shellast.CommandName(text)] {
-			return unknownProfile("%s may reset the environment and home directory the profile comes from", text)
-		}
-		for _, f := range envResettingFlags {
-			if text == f || (strings.HasPrefix(f, "--") && strings.HasPrefix(text, f+"=")) {
-				return unknownProfile("env %s may drop AWS_PROFILE", text)
-			}
+// checkWrappers refuses wrappers that may hand aws a different profile
+// environment from the one the hook sees. Unsetting any other variable
+// (`env -u AWS_ENDPOINT_URL`) leaves the profile as it was.
+func checkWrappers(e wrapperEnv) error {
+	switch {
+	case e.unknown != "":
+		return unknownProfile("%s", e.unknown)
+	case e.clears != "":
+		return unknownProfile("%s clears the environment AWS_PROFILE comes from", e.clears)
+	}
+	for _, name := range profileSourceVars {
+		if e.unset[name] {
+			return unknownProfile("env -u %s changes where the profile comes from", name)
 		}
 	}
 	return nil

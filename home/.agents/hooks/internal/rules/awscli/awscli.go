@@ -132,17 +132,21 @@ func (s *scope) checkAWS(c *syntax.CallExpr) (v hook.Verdict, hit bool) {
 }
 
 // judge applies the endpoint and profile rules to the call's tokens.
+// The environment route is refused when a wrapper may drop AWS_ENDPOINT_URL:
+// a loopback endpoint the call would not inherit, or one set by an outer env
+// and unset by an inner one, leaves the CLI on real AWS.
 func (s *scope) judge(c *syntax.CallExpr, wrapperArgs int, toks []token) hook.Verdict {
+	wrappers := readWrappers(c.Args[:wrapperArgs])
 	if local, found := flagEndpoint(toks); found {
 		if local {
 			return hook.Allowed()
 		}
-	} else if !s.env.poisoned && (callSetsLocalEndpoint(c, wrapperArgs) ||
+	} else if !s.env.poisoned && !wrappers.drops(endpointVar) && (callSetsLocalEndpoint(c, wrapperArgs) ||
 		(s.env.exported && c.Pos().After(s.env.exportedFrom))) {
 		return hook.Allowed()
 	}
 
-	profile, err := s.profiles.resolve(c, c.Args[:wrapperArgs], toks)
+	profile, err := s.profiles.resolve(c, wrappers, toks)
 	if err != nil {
 		return hook.Asked(fmt.Sprintf("AWS CLI call, and %v. Allow?", err))
 	}
