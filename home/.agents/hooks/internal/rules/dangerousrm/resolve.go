@@ -432,11 +432,122 @@ func hasFlag(words []*syntax.Word, flag string) bool {
 //
 // Brace and glob characters are passed through as literal text; callers that
 // care reject them.
+//
+// A leading unquoted, unescaped `~` alone or before `/` expands to HOME as of
+// at (see homeAt); its result is not split. Any other tilde stays literal.
 func (s *scope) resolveWord(w *syntax.Word, at uint, split bool) ([]string, bool) {
 	if w == nil {
 		return nil, false
 	}
+	if len(w.Parts) > 0 {
+		// bash leaves `~"/x"` and `~$X` unexpanded, so a bare `~` counts only
+		// as the whole word.
+		lit, ok := w.Parts[0].(*syntax.Lit)
+		if ok && ((lit.Value == "~" && len(w.Parts) == 1) || strings.HasPrefix(lit.Value, "~/")) {
+			home, ok := s.homeAt(at)
+			if !ok {
+				return nil, false
+			}
+			parts := append([]syntax.WordPart{&syntax.Lit{Value: lit.Value[1:]}}, w.Parts[1:]...)
+			rest, ok := s.resolveParts(parts, at, split)
+			if !ok {
+				return nil, false
+			}
+			for i, r := range rest {
+				rest[i] = home + r
+			}
+			return rest, true
+		}
+	}
 	return s.resolveParts(w.Parts, at, split)
+}
+
+// homeUntouched reports whether the command text provably leaves HOME as the hook found it,
+// apart from the bindings the resolver models, so an unbound HOME may fall
+// back to the hook's own home directory. The resolver's poison list was built
+// for variables the command sets itself, where a missed rebind only leaves a
+// value unknown; for HOME it would trade a prompt for the wrong directory. So
+// it gives up on any mention of HOME other than a plain `$HOME` or `${HOME}`
+// read (a quoted declare, a trap action, `print -vHOME`, zstyle, `{HOME}>`),
+// and on anything that could name it without spelling it: a variable command
+// word, a binding builtin or declaration with a non-literal argument, a trap,
+// or an indirect assigning expansion.
+func homeUntouched(file *syntax.File, text string) bool {
+	for i := strings.Index(text, "HOME"); i >= 0; {
+		after := i + len("HOME")
+		plain := strings.HasSuffix(text[:i], "$") && (after == len(text) || !isNameChar(text[after]))
+		braced := strings.HasSuffix(text[:i], "${") && after < len(text) && text[after] == '}'
+		if !plain && !braced {
+			return false
+		}
+		next := strings.Index(text[after:], "HOME")
+		if next < 0 {
+			break
+		}
+		i = after + next
+	}
+	untouched := true
+	syntax.Walk(file, func(n syntax.Node) bool {
+		switch x := n.(type) {
+		case *syntax.CallExpr:
+			if len(x.Args) > 0 && !shellast.IsLiteral(x.Args[0]) {
+				untouched = false
+			}
+			name, rest := shellast.Invocation(x.Args, shellast.WordLit)
+			cmd := shellast.CommandName(name)
+			_, flagged := flagRebinders[cmd]
+			if cmd == "trap" {
+				untouched = false
+			}
+			if operandRebinders[cmd] || flagged || zshNameWriters[cmd] {
+				for _, w := range rest {
+					if !shellast.IsLiteral(w) {
+						untouched = false
+					}
+				}
+			}
+		case *syntax.DeclClause:
+			for _, a := range x.Args {
+				if a.Name == nil && a.Value != nil && !shellast.IsLiteral(a.Value) {
+					untouched = false
+				}
+			}
+		case *syntax.ParamExp:
+			if x.Exp != nil && (x.Excl || x.Flags != nil || x.NestedParam != nil) {
+				untouched = false
+			}
+		}
+		return untouched
+	})
+	return untouched
+}
+
+// zshNameWriters are zsh builtins that write a variable named by an operand,
+// beyond operandRebinders and flagRebinders.
+var zshNameWriters = map[string]bool{
+	"zstyle": true, "zformat": true, "sysread": true, "zparseopts": true, "zstat": true, "getln": true,
+}
+
+func isNameChar(c byte) bool {
+	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
+// homeAt returns HOME's one value at at: its binding when the command makes
+// one, and the hook's own home directory when it makes none. A poison, or a
+// binding to anything but one value, fails.
+func (s *scope) homeAt(at uint) (string, bool) {
+	b := s.bindingAt("HOME", at)
+	if b == nil {
+		return s.home, s.home != ""
+	}
+	if b.words == nil {
+		return "", false
+	}
+	vals, ok := s.values(b)
+	if !ok || len(vals) != 1 {
+		return "", false
+	}
+	return vals[0], true
 }
 
 func (s *scope) resolveParts(parts []syntax.WordPart, at uint, split bool) ([]string, bool) {
@@ -539,6 +650,10 @@ func (s *scope) lookupParam(pe *syntax.ParamExp, at uint) ([]string, bool) {
 	}
 	if pe.Param == nil {
 		return nil, false
+	}
+	if pe.Param.Value == "HOME" {
+		home, ok := s.homeAt(at)
+		return []string{home}, ok
 	}
 	b := s.bindingAt(pe.Param.Value, at)
 	if b == nil || b.words == nil {

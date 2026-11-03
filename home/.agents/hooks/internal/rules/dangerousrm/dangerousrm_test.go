@@ -787,6 +787,91 @@ func evaluateIn(cwd, cmd string) hook.Verdict {
 	return Check(req)
 }
 
+// TestHomeExpansion pins that $HOME and a leading ~ resolve to the hook's own
+// home directory when the command never binds HOME, and through the binding
+// when it does.
+func TestHomeExpansion(t *testing.T) {
+	t.Setenv("HOME", "/home/tester")
+	cases := []struct {
+		name     string
+		cmd      string
+		decision string
+	}{
+		{"tilde below the root", `rm -rf ~/dev/app/backend/tmp`, "allow"},
+		{"bare tilde below the root", `rm -rf ~/dev/app/x ~/dev/app/y`, "allow"},
+		{"$HOME below the root", `rm -rf $HOME/dev/app/backend/tmp`, "allow"},
+		{"quoted $HOME below the root", `rm -rf "$HOME/dev/app/x"`, "allow"},
+		{"variable built on $HOME", `R=$HOME/dev/app/x; rm -rf $R/y`, "allow"},
+		{"variable built on tilde", `R=~/dev/app/x; rm -rf $R/y`, "allow"},
+		{"climbing within the root", `RS=$HOME/dev/app/x/s; R=$RS/..; rm -rf $R/a $R/b`, "allow"},
+
+		{"the root itself through tilde", `rm -rf ~/dev/app`, "ask"},
+		{"outside the root through tilde", `rm -rf ~/dev`, "ask"},
+		{"the home directory", `rm -rf ~`, "ask"},
+		{"the home directory through $HOME", `rm -rf $HOME`, "ask"},
+		{"HOME reassigned before tilde", `HOME=/srv; rm -rf ~/dev/app/x`, "ask"},
+		{"HOME exported before $HOME", `export HOME=/srv; rm -rf $HOME/dev/app/x`, "ask"},
+		{"HOME maybe reassigned", `if [ -n "$X" ]; then HOME=/srv; fi; rm -rf $HOME/dev/app/x`, "ask"},
+		{"HOME read", `read HOME; rm -rf ~/dev/app/x`, "ask"},
+		{"HOME unset", `unset HOME; rm -rf $HOME/dev/app/x`, "ask"},
+		{"HOME as a loop variable", `for HOME in /srv; do rm -rf ~/dev/app/x; done`, "ask"},
+
+		// Rebinds the resolver does not model must still keep the fallback off.
+		{"quoted export of HOME", `export "HOME=/srv"; rm -rf ~/dev/app/x`, "ask"},
+		{"quoted declare of HOME", `declare "HOME=/srv"; rm -rf "$HOME/dev/app/x"`, "ask"},
+		{"partly quoted export of HOME", `export HOME"=/srv"; rm -rf ~/dev/app/x`, "ask"},
+		{"quoted typeset name", `typeset 'HOME'=/srv; rm -rf ~/dev/app/x`, "ask"},
+		{"trap action", `trap 'HOME=/srv' DEBUG; rm -rf ~/dev/app/x`, "ask"},
+		{"trap action from a variable", `trap "$C" DEBUG; rm -rf ~/dev/app/x`, "ask"},
+		{"zsh print -v attached", `print -vHOME /srv; rm -rf ~/dev/app/x`, "ask"},
+		{"printf -v attached", `printf -vHOME /srv; rm -rf ~/dev/app/x`, "ask"},
+		{"read -a attached", `read -aHOME <<< /srv; rm -rf ~/dev/app/x`, "ask"},
+		{"zstyle -s", `zstyle :x y /srv; zstyle -s :x y HOME; rm -rf ~/dev/app/x`, "ask"},
+		{"zformat", `zformat -f HOME /srv; rm -rf ~/dev/app/x`, "ask"},
+		{"variable command word", `E=export; $E HOME=/srv; rm -rf ~/dev/app/x`, "ask"},
+		{"variable command word with a built name", `E=export; N=HO; $E "${N}ME=/srv"; rm -rf ~/dev/app/x`, "ask"},
+		{"printf -v to a variable name", `N=HO; printf -v "${N}ME" /srv; rm -rf ~/dev/app/x`, "ask"},
+		{"declare from a variable", `declare "$X"; rm -rf ~/dev/app/x`, "ask"},
+		{"indirect assignment", `n=HOME; : "${!n:=/srv}"; rm -rf ~/dev/app/x`, "ask"},
+		{"bash function substitution", `${ HOME=/srv; }; rm -rf ~/dev/app/x`, "ask"},
+		{"fd variable redirect", `exec {HOME}>/dev/null; rm -rf ~/dev/app/x`, "ask"},
+		{"zsh typeset padding", `typeset -L3 HOME; rm -rf $HOME/dev/app/x`, "ask"},
+		{"bash keeps a tilde before quotes literal", `rm -rf ~"/dev/app/x"`, "ask"},
+		{"bash keeps a tilde before an expansion literal", `X=/dev/app/x; rm -rf ~$X`, "ask"},
+		{"HOME bound inside a function body", `f() { rm -rf ~/dev/app/x; }; HOME=/srv; f`, "ask"},
+		{"another user's home", `rm -rf ~tester/dev/app/x`, "ask"},
+		{"quoted tilde is a literal directory", `rm -rf "~/dev/app/x"`, "ask"},
+		{"escaped tilde is a literal directory", `rm -rf \~/dev/app/x`, "ask"},
+		{"tilde inside a word is literal", `rm -rf x~/dev/app/x`, "ask"},
+		{"HOME through eval", `eval "$X"; rm -rf ~/dev/app/x`, "ask"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := evaluateIn("/elsewhere", tc.cmd); got.Decision.String() != tc.decision {
+				t.Errorf("Check(%q) = %s (%s), want %s", tc.cmd, got.Decision, got.Reason, tc.decision)
+			}
+		})
+	}
+
+	t.Run("a nested script may inherit another HOME", func(t *testing.T) {
+		// `HOME=/srv bash -c '...'`: the inner script is checked on its own.
+		req := hook.NewRequest("Bash", "", "", `rm -rf ~/dev/app/x`)
+		req.Cwd = "/elsewhere"
+		req.Config = config.Config{AllowedRmRoots: []string{allowedRoot}}
+		req.Origin = hook.Nested
+		if got := Check(req); got.Decision != hook.Ask {
+			t.Errorf("nested tilde = %s, want ask", got.Decision)
+		}
+	})
+
+	t.Run("no home directory", func(t *testing.T) {
+		t.Setenv("HOME", "")
+		if got := evaluateIn("/elsewhere", `rm -rf $HOME/home/tester/dev/app/x`); got.Decision != hook.Ask {
+			t.Errorf("empty HOME = %s, want ask", got.Decision)
+		}
+	})
+}
+
 // TestAllowedRoots covers the machine-local exemption: a recursive rm below a
 // configured root runs unprompted, and everything the resolver cannot place
 // below one still asks.
@@ -843,12 +928,6 @@ func TestAllowedRoots(t *testing.T) {
 			name:     "a relative target with no cwd cannot be placed",
 			cwd:      "",
 			cmd:      `rm -rf backend/tmp`,
-			decision: "ask",
-		},
-		{
-			name:     "a tilde target is not expanded",
-			cwd:      "/elsewhere",
-			cmd:      `rm -rf ~/dev/app/backend/tmp`,
 			decision: "ask",
 		},
 		{

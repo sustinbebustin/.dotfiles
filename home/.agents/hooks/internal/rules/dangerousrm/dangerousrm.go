@@ -13,7 +13,8 @@
 // and `for d in a b; do rm -rf "$d"; done` shapes are recognised as scratch
 // rather than prompting. A binding only counts where the shell is known to
 // hold it, and one that may or may not have been replaced is unknown; see
-// resolve.go. Anything the resolver cannot pin down to literals fails closed
+// resolve.go. HOME, and with it a leading ~, is the hook's own home directory
+// until the command binds it. Anything the resolver cannot pin down to literals fails closed
 // and reads as a non-scratch path.
 //
 // A relative target is placed against every directory the shell may be in when
@@ -41,6 +42,7 @@
 package dangerousrm
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -123,6 +125,12 @@ type scope struct {
 	// allowedRoots are absolute, cleaned directories from the machine-local
 	// config, already validated by package config.
 	allowedRoots []string
+	// home is the hook's own home directory, which $HOME and a leading ~ name
+	// where the command never binds HOME (see homeAt). Empty for a nested
+	// script, whose parent may have handed it another HOME, for a command that
+	// may rebind HOME out of the resolver's sight (see homeUntouched), and when
+	// unknown.
+	home string
 }
 
 // scan collects bindings and created paths. Bindings come first, since created
@@ -133,6 +141,12 @@ func scan(req *hook.Request, file *syntax.File, assumeChainsRun bool) *scope {
 		allowedRoots:    req.Config.AllowedRmRoots,
 		assumeChainsRun: assumeChainsRun,
 		lossy:           req.Origin == hook.NestedLossy,
+	}
+	if req.Origin == hook.Direct && homeUntouched(file, req.Command) {
+		// Claude Code runs the command with the environment the hook inherits.
+		if home, err := os.UserHomeDir(); err == nil && filepath.IsAbs(home) {
+			s.home = filepath.Clean(home)
+		}
 	}
 	everywhere := assignedIn(file)
 	s.ifsChanged = everywhere.all || everywhere.names["IFS"]
@@ -433,9 +447,9 @@ func (s *scope) belowARoot(abs string) bool {
 // It reports false for anything it cannot pin down, which leaves the target
 // matching no root and prompting as before.
 //
-// A `~` is an ordinary literal to the shell parser, and expanding it would need
-// the home directory this rule does not go looking for, so tilde targets never
-// match a root. Any `..` is resolved away by Clean before matching, so a target
+// The resolver expands a leading `~` or `~/` (see resolveWord); one it leaves
+// in place (`~user`, `~+`, a nested script's tilde) never matches a root. Any
+// `..` is resolved away by Clean before matching, so a target
 // cannot climb out of a root and back in under a name that still looks like it.
 func absTargets(p string, dirs []string) ([]string, bool) {
 	if p == "" || p == unresolvedPath || strings.HasPrefix(p, "~") {
