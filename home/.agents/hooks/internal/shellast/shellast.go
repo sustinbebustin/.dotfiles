@@ -177,9 +177,12 @@ var wrapperFlags = map[string]map[string]bool{
 	"sudo": {
 		"-u": true, "-g": true, "-p": true, "-C": true,
 		"-D": true, "-h": true, "-R": true, "-T": true, "-U": true,
-		"--chdir": true,
+		"-a": true, "-c": true, "-r": true, "-t": true,
+		"--chdir": true, "--user": true, "--group": true, "--prompt": true,
+		"--close-from": true, "--host": true, "--chroot": true,
+		"--command-timeout": true, "--other-user": true, "--role": true, "--type": true,
 	},
-	"doas": {"-u": true, "-C": true},
+	"doas": {"-u": true, "-C": true, "-a": true},
 	"env": {
 		"-u": true, "--unset": true, "-C": true, "--chdir": true,
 		"-S": true, "--split-string": true,
@@ -259,28 +262,40 @@ func (inv *wrapperScan) skipWrapperArgs(args []*syntax.Word, i int, wrapper stri
 ) (next int, lookup bool) {
 	for i < len(args) {
 		a := render(args[i])
+		if strings.HasPrefix(a, "-") && !IsLiteral(args[i]) {
+			// `env "-$X"` renders as `-`, but $X may spell -C/dir.
+			inv.unknownDir = true
+		}
 		switch {
 		case a == "--":
 			// End of the wrapper's options; the command word is next.
 			return i + 1, false
+		case a == "-" && wrapper == "env":
+			// A lone dash is env's -i.
+			i++
 		case len(a) > 1 && strings.HasPrefix(a, "-"):
-			flag, value, inline := strings.Cut(a, "=")
-			switch {
-			case chdirFlags[wrapper][flag] && inline:
-				inv.addDir(value, IsLiteral(args[i]))
-			case !strings.HasPrefix(a, "--") && len(a) > 2 && chdirFlags[wrapper][a[:2]]:
-				// A short flag with its value attached: `env -C/dir`.
-				inv.addDir(a[2:], IsLiteral(args[i]))
-			case chdirFlags[wrapper][flag] && i+1 < len(args):
-				inv.addDir(WordLit(args[i+1]), IsLiteral(args[i+1]))
-			case chdirFlags[wrapper][flag]:
-				inv.unknownDir = true
-			case !strings.HasPrefix(a, "--") && strings.ContainsAny(a[1:], lookupFlags[wrapper]):
+			if !strings.HasPrefix(a, "--") && strings.ContainsAny(a[1:], lookupFlags[wrapper]) {
 				return i, true
 			}
-			if flags[a] {
+			flag, value, attached := SplitOption(a, flags)
+			chdir := chdirFlags[wrapper][flag]
+			switch {
+			case !flags[flag]:
+				i++
+			case attached:
+				if chdir {
+					inv.addDir(value, IsLiteral(args[i]))
+				}
+				i++
+			case i+1 < len(args):
+				if chdir {
+					inv.addDir(WordLit(args[i+1]), IsLiteral(args[i+1]))
+				}
 				i += 2
-			} else {
+			default:
+				if chdir {
+					inv.unknownDir = true
+				}
 				i++
 			}
 		case isEnvAssign(a):
@@ -290,6 +305,22 @@ func (inv *wrapperScan) skipWrapperArgs(args []*syntax.Word, i int, wrapper stri
 		}
 	}
 	return i, false
+}
+
+// SplitOption reads one option word a against valueFlags, the options that take
+// a value. A long option carries its value after `=`. A short cluster ends at
+// its first value-taking letter: `-iu` is -u waiting for the next word, `-uFOO`
+// is -u with FOO attached. When a takes no value, flag is a itself.
+func SplitOption(a string, valueFlags map[string]bool) (flag, value string, attached bool) {
+	if strings.HasPrefix(a, "--") {
+		return strings.Cut(a, "=")
+	}
+	for j := 1; j < len(a); j++ {
+		if f := "-" + a[j:j+1]; valueFlags[f] {
+			return f, a[j+1:], j+1 < len(a)
+		}
+	}
+	return a, "", false
 }
 
 func (inv *wrapperScan) addDir(dir string, literal bool) {

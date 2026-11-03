@@ -1035,5 +1035,11 @@
     "name": "droid-applypatch-unguarded",
     "stdin": "{\"cwd\":\"/tmp\",\"hook_event_name\":\"PreToolUse\",\"tool_input\":{\"input\":\"*** Begin Patch\\n*** Add File: /tmp/app/.env\\n+SECRET=1\\n*** End Patch\"},\"tool_name\":\"ApplyPatch\"}",
     "decision": "allow"
+  },
+  {
+    "name": "wrapper-short-cluster-sudo-push-main",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"sudo -Eu root git push origin main\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push to main detected - allow?"
   }
 ]

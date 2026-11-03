@@ -153,6 +153,18 @@ func TestInvocation(t *testing.T) {
 		{`env -u FOO git push`, "git", []string{"push"}},
 		{`sudo env FOO=1 command git push`, "git", []string{"push"}},
 		{`nohup git push`, "git", []string{"push"}},
+		// A value flag ending a short cluster takes the next word.
+		{`env -iu FOO git push`, "git", []string{"push"}},
+		{`sudo -Eu root git push`, "git", []string{"push"}},
+		{`env -uFOO git push`, "git", []string{"push"}},
+		{`exec -ca name git push`, "git", []string{"push"}},
+		// A lone dash is env's -i.
+		{`env - git push`, "git", []string{"push"}},
+		// A cluster ends at its first value flag, so a value ending in another
+		// value letter is not read as a second flag.
+		{`sudo -cu git push`, "git", []string{"push"}},
+		{`doas -au git push`, "git", []string{"push"}},
+		{`sudo --user root git push`, "git", []string{"push"}},
 		// No command word to find.
 		{`sudo`, "", nil},
 		{`sudo -u deploy`, "", nil},
@@ -215,6 +227,11 @@ func TestWorkDirs(t *testing.T) {
 		{`pushd`, cwd, []string{cwd}, true},
 		{`env -C /srv/x ls`, cwd, []string{cwd, "/srv/x"}, true},
 		{`env --chdir=/srv/x ls`, cwd, []string{cwd, "/srv/x"}, true},
+		{`env -iC /srv/x ls`, cwd, []string{cwd, "/srv/x"}, true},
+		{`env -iC/srv/x ls`, cwd, []string{cwd, "/srv/x"}, true},
+		{`env "-$X" rm -rf build`, cwd, nil, false},
+		{`env "--$X" rm -rf build`, cwd, nil, false},
+		{`env -i$X rm -rf build`, cwd, nil, false},
 		{`sudo -D /srv/x ls`, cwd, []string{cwd, "/srv/x"}, true},
 		{`cd src`, cwd, nil, false},
 		{`cd ./sub && cd ..`, cwd, []string{cwd, cwd + "/sub", "/home/me"}, true},
