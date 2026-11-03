@@ -1047,5 +1047,16 @@
     "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"env - aws s3 rm s3://b --recursive\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
     "reason": "AWS CLI call, and the profile it uses cannot be determined: env - clears the environment AWS_PROFILE comes from. Allow?"
+  },
+  {
+    "name": "sed-substitution-naming-process-env",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"sed -i 's/press(\\\"Tab\\\");/press(\\\"Tab\\\"); await wait(Number(process.env.TAB_WAIT ?? 0));/' probe.cjs\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "sed-e-flag-runs-reader",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"sed 's/x/cat .env/e' f\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
   }
 ]

@@ -19,8 +19,11 @@
 // carry inside a credential directory; see classify. So do the system apt
 // keyrings, mws's generated port lease, and quoted regex words that only look
 // like a path. For Bash, an operand that names a file only to keep it out of a
-// search -- an rg exclusion glob, a negated find name test -- is skipped; see
-// unreadOperands.
+// search -- an rg exclusion glob, a negated find name test -- is skipped, and
+// so is a sed script that is a single s command; see unreadOperands. Any other
+// sed script is classified piece by piece, since it can open a file it names
+// (`1r .env`, `s/x/cat .env/e`). The cost is accepted: a sed address that
+// mentions an env-like word (`sed -n '/process.env.X/p'`) is denied too.
 package credfiles
 
 import (
@@ -554,10 +557,15 @@ func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 		}
 		switch x := n.(type) {
 		case *syntax.CallExpr:
-			skip := unreadOperands(x)
+			skip, programs := unreadOperands(x)
 			for _, arg := range x.Args {
 				if !skip[arg] {
 					consider(shellast.WordLit(arg))
+				}
+			}
+			for _, p := range programs {
+				for _, piece := range programPieces(p) {
+					consider(piece)
 				}
 			}
 		case *syntax.Redirect:
@@ -575,13 +583,21 @@ func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 //     operand and is classified on its own as a derived request (`sh -c 'cat
 //     .env'` would otherwise name a file called "cat .env");
 //   - an exclusion glob given to rg (`-g '!.env'`) or a negated find name test
-//     (`-not -name .env`), which keep the file out of what the tool reads.
+//     (`-not -name .env`), which keep the file out of what the tool reads;
+//   - a sed script that is one plain s command (`s/x/process.env.X/g`), which
+//     edits the pattern space and opens no file (see sedScripts).
 //
 // Commands that seem to read nothing (test, touch) get no exemption: the name
 // proves nothing about what runs, since a function, an alias or a binary of
 // that name elsewhere on PATH can take it.
-func unreadOperands(c *syntax.CallExpr) map[*syntax.Word]bool {
-	skip := map[*syntax.Word]bool{}
+//
+// programs are the sed scripts that are not plain s commands. Such a script
+// can open a file named anywhere inside it (`1r .env`, `s/x/cat .env/e`),
+// which classifying the whole word misses, since its basename is whatever
+// follows the last slash; each is classified piece by piece instead (see
+// programPieces).
+func unreadOperands(c *syntax.CallExpr) (skip map[*syntax.Word]bool, programs []string) {
+	skip = map[*syntax.Word]bool{}
 	if script, nested := shellast.ScriptWord(c); nested {
 		skip[script] = true
 	}
@@ -591,8 +607,188 @@ func unreadOperands(c *syntax.CallExpr) map[*syntax.Word]bool {
 		rgExclusions(rest, skip)
 	case "find":
 		findExclusions(rest, skip)
+	case "sed":
+		programs = sedScripts(rest, skip)
 	}
-	return skip
+	return skip, programs
+}
+
+// programPieces splits a sed program into the words a file name could be:
+// runs of the characters a path component is spelled with. Splitting at `/`
+// still catches a secret path, because each of its components is classified
+// on its own and the credential directories (.ssh, .aws) are secret by name.
+func programPieces(program string) []string {
+	return strings.FieldsFunc(program, func(r rune) bool {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			return false
+		}
+		return !strings.ContainsRune("._-~*?", r)
+	})
+}
+
+// sedValueFlags are GNU sed's short options that take a value, attached or as
+// the next word. -i is not one: it takes the rest of its cluster as an
+// optional backup suffix, so `-ie` is -i with suffix e, not -i then -e.
+const sedValueFlags = "efl"
+
+// sedLongValue and sedLongPlain are GNU sed's long options with and without a
+// required value. --in-place takes its suffix only attached.
+var (
+	sedLongValue = map[string]bool{"--expression": true, "--file": true, "--line-length": true}
+	sedLongPlain = map[string]bool{
+		"--quiet": true, "--silent": true, "--debug": true, "--posix": true, "--regexp-extended": true,
+		"--separate": true, "--sandbox": true, "--unbuffered": true, "--null-data": true,
+		"--follow-symlinks": true, "--in-place": true, "--binary": true,
+	}
+)
+
+// sedScript is one script a sed call runs: its text, and the word that is
+// nothing but that text (nil when the script shares a word with its option,
+// as in `-es/x/y/`).
+type sedScript struct {
+	word *syntax.Word
+	text string
+}
+
+// sedScripts finds the scripts of a sed call with arguments args. A script
+// word that is one plain s command (see isPlainSubstitution) goes into skip:
+// it is the program, not a file, so `process.env.X` inside it names nothing.
+// Every other script is returned as a program to classify piece by piece.
+//
+// The scripts are every -e value, or, when no -e or -f is given, the first
+// operand; GNU sed permutes, so an -e anywhere turns every operand into a
+// file. An option it does not know makes any word a possible script, so then
+// every word is returned as a program and none is skipped.
+func sedScripts(args []*syntax.Word, skip map[*syntax.Word]bool) []string {
+	var scripts []sedScript
+	var operands []*syntax.Word
+	unknown := func() []string {
+		programs := make([]string, len(args))
+		for i, w := range args {
+			programs[i] = shellast.WordLit(w)
+		}
+		return programs
+	}
+	hasScriptFlag := false
+	for i := 0; i < len(args); i++ {
+		tok := shellast.WordLit(args[i])
+		switch {
+		case tok == "--":
+			operands = append(operands, args[i+1:]...)
+			i = len(args)
+		case strings.HasPrefix(tok, "--"):
+			name, value, attached := strings.Cut(tok, "=")
+			switch {
+			case sedLongValue[name]:
+				hasScriptFlag = hasScriptFlag || name != "--line-length"
+				var word *syntax.Word
+				if !attached {
+					if i+1 >= len(args) {
+						return unknown()
+					}
+					i++
+					word, value = args[i], shellast.WordLit(args[i])
+				}
+				if name == "--expression" {
+					scripts = append(scripts, sedScript{word, value})
+				}
+			case !sedLongPlain[name]:
+				return unknown()
+			}
+		case len(tok) > 1 && strings.HasPrefix(tok, "-"):
+			flag, value, ok := sedShortCluster(tok)
+			if !ok {
+				return unknown()
+			}
+			hasScriptFlag = hasScriptFlag || flag == 'e' || flag == 'f'
+			var word *syntax.Word
+			if flag != 0 && value == "" {
+				if i+1 >= len(args) {
+					return unknown()
+				}
+				i++
+				word, value = args[i], shellast.WordLit(args[i])
+			}
+			if flag == 'e' {
+				scripts = append(scripts, sedScript{word, value})
+			}
+		default:
+			operands = append(operands, args[i])
+		}
+	}
+	if !hasScriptFlag && len(operands) > 0 {
+		scripts = append(scripts, sedScript{operands[0], shellast.WordLit(operands[0])})
+	}
+	var programs []string
+	for _, s := range scripts {
+		if s.word != nil && shellast.IsLiteral(s.word) && isPlainSubstitution(s.text) {
+			skip[s.word] = true
+		} else {
+			programs = append(programs, s.text)
+		}
+	}
+	return programs
+}
+
+// sedShortCluster reads a short option cluster. flag is the value-taking
+// letter that ends it (0 when none) and value what follows it in the cluster,
+// "" when its value is the next word. ok is false for a letter GNU sed does
+// not have.
+func sedShortCluster(tok string) (flag byte, value string, ok bool) {
+	for j := 1; j < len(tok); j++ {
+		c := tok[j]
+		switch {
+		case c == 'i':
+			// The rest of the cluster is the backup suffix.
+			return 0, "", true
+		case strings.IndexByte(sedValueFlags, c) >= 0:
+			return c, tok[j+1:], true
+		case strings.IndexByte("nrEsuzb", c) < 0:
+			return 0, "", false
+		}
+	}
+	return 0, "", true
+}
+
+// sedSafeFlags are the s command flags that touch no file: not w (write), e
+// (execute) or anything else.
+const sedSafeFlags = "gpiImM0123456789"
+
+// isPlainSubstitution reports whether script is exactly one s command whose
+// flags are all sedSafeFlags. Such a command reads and writes only the pattern
+// space; a second command, an address, or a w or e flag could reach a file.
+// The delimiter scan matches GNU sed's: a backslash escapes the next byte, and
+// nothing else (not even a bracket expression) hides a delimiter.
+func isPlainSubstitution(script string) bool {
+	if len(script) < 4 || script[0] != 's' {
+		return false
+	}
+	delim := script[1]
+	if delim == '\\' || delim == '\n' {
+		return false
+	}
+	seen := 0
+	k := 2
+	for ; k < len(script) && seen < 2; k++ {
+		switch script[k] {
+		case '\\':
+			k++
+		case '\n':
+			return false
+		case delim:
+			seen++
+		}
+	}
+	if seen < 2 {
+		return false
+	}
+	for _, c := range []byte(script[k:]) {
+		if strings.IndexByte(sedSafeFlags, c) < 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // rgGlobFlags are rg's flags whose value is a glob; a value with one leading

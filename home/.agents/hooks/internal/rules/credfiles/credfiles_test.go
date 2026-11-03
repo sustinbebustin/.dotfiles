@@ -222,6 +222,30 @@ func TestCheckBash(t *testing.T) {
 		{name: "echo of a secret name is denied", cmd: `echo .env | xargs cat`, decision: "deny"},
 		{name: "ls of a secret is denied", cmd: `ls .env | xargs cat`, decision: "deny"},
 
+		// a sed substitution script is a program, not a path, unless it can
+		// reach a file itself (w, e) or is more than one s command
+		{name: "sed substitution mentioning process.env is allowed", cmd: `sed -i 's/await page.keyboard.press("Tab");/await page.keyboard.press("Tab"); await page.waitForTimeout(Number(process.env.TAB_WAIT ?? 0));/' trap-probe.cjs`, decision: "allow"},
+		{name: "sed -e substitution is allowed", cmd: `sed -n -e 's/a/process.env.A/gp' f.js`, decision: "allow"},
+		{name: "sed other delimiter and flags is allowed", cmd: `sed -E 's#x#.env.local#2I' f`, decision: "allow"},
+		{name: "sed -ie takes e as the backup suffix", cmd: `sed -ie 's/a/.env.x/' f`, decision: "allow"},
+		{name: "sed script after -- is allowed", cmd: `sed -- 's/a/.env.x/' f`, decision: "allow"},
+		{name: "sed w flag is denied", cmd: `sed 's/a/b/w .env' f`, decision: "deny"},
+		{name: "sed e flag is denied", cmd: `sed 's/a/.env.x/e' f`, decision: "deny"},
+		{name: "sed e flag running a reader is denied", cmd: `sed 's/a/cat .env/e' f`, decision: "deny"},
+		{name: "sed e flag with another delimiter is denied", cmd: `sed 's|a|cat .env|e' f`, decision: "deny"},
+		{name: "sed e command is denied", cmd: `sed -n '1e cat .env' f`, decision: "deny"},
+		{name: "sed attached -e script is pieced", cmd: `sed '-es/a/cat .env/e' f`, decision: "deny"},
+		{name: "sed --expression= script is pieced", cmd: `sed --expression='1r ~/.aws/credentials' f`, decision: "deny"},
+		{name: "sed r command is denied", cmd: `sed '1r .env' f`, decision: "deny"},
+		{name: "sed second command is denied", cmd: `sed 's/a/b/;r .env' f`, decision: "deny"},
+		{name: "sed file operand is denied", cmd: `sed 's/a/b/' .env`, decision: "deny"},
+		{name: "sed -ie file operand is denied", cmd: `sed -ie 's/a/b/' .env`, decision: "deny"},
+		{name: "sed operand beside -e is a file", cmd: `sed -e 's/a/b/' 's/x/.env.y/'`, decision: "deny"},
+		{name: "sed -e after the operand makes it a file", cmd: `sed 's/x/.env.y/' -e 's/c/d/' f`, decision: "deny"},
+		{name: "sed -f script file is denied", cmd: `sed -f .env.sed f`, decision: "deny"},
+		{name: "sed unknown flag skips nothing", cmd: `sed --frobnicate 's/a/.env.x/' f`, decision: "deny"},
+		{name: "sed script with an expansion is classified", cmd: `sed "s/a/$X/" .env.x`, decision: "deny"},
+
 		{name: "mws port lease is allowed", cmd: `cat .mws-ports.env | rg DB_PORT`, decision: "allow"},
 		{name: "public apt keyring is allowed", cmd: `gpg --no-default-keyring --keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg --list-keys`, decision: "allow"},
 	}
