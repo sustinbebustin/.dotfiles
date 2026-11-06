@@ -57,15 +57,13 @@ Add MCP servers for fetching docs:
 ```yaml
 mcpServers:
   - context7
-  - opensrc
 ```
 
 Then in the body:
 
 ```markdown
 For unfamiliar third-party libraries, use the context7 MCP to fetch current
-documentation rather than guessing from training data. Use opensrc to read
-the actual source when docs are insufficient.
+documentation rather than guessing from training data.
 ```
 
 ### Background Research

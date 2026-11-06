@@ -43,7 +43,6 @@ venv
 
 # Project-specific
 .overseer
-opensrc
 .docs
 .worktreeinclude
 .scratch
