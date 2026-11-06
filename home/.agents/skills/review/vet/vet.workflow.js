@@ -4,7 +4,7 @@ export const meta = {
   whenToUse: 'Dispatched by the /vet skill with args built from its scope block; not for direct use.',
   phases: [
     { title: 'Review', detail: 'one agent per reviewer instance, each on its lens files' },
-    { title: 'Verify', detail: 'refute or confirm blocking and medium-confidence findings, sweep variants' },
+    { title: 'Verify', detail: 'refute or confirm every finding through its full flow, check each fix, sweep variants' },
   ],
 }
 
@@ -18,7 +18,6 @@ const CATEGORIES = [
   'type-safety', 'structure', 'duplication', 'naming', 'tests', 'comments', 'docs', 'a11y', 'ux',
   'design-system', 'shell',
 ]
-const SUBSTANTIVE = new Set(CATEGORIES.slice(0, 12))
 const str = { type: 'string' }
 const strs = { type: 'array', items: str }
 const REACHABILITY = {
@@ -85,6 +84,17 @@ const VERDICT = {
     reason: str,
     evidence: str,
     reachability: REACHABILITY,
+    unresolved: {
+      type: 'object',
+      description: 'PLAUSIBLE only: the one fact that would settle the verdict, and who can supply it',
+      properties: {
+        kind: { enum: ['code', 'intent', 'data'] },
+        question: str,
+      },
+      required: ['kind', 'question'],
+    },
+    fix_sound: { type: 'boolean', description: 'the proposed fix removes the failure without breaking the traced callers' },
+    fix_note: { type: 'string', description: 'when fix_sound is false: the corrected fix, or why no safe fix exists' },
     variants: {
       type: 'array',
       items: {
@@ -94,7 +104,7 @@ const VERDICT = {
       },
     },
   },
-  required: ['id', 'verdict', 'reason', 'evidence', 'reachability', 'variants'],
+  required: ['id', 'verdict', 'reason', 'evidence', 'reachability', 'fix_sound', 'variants'],
 }
 const VERIFY_SCHEMA = {
   type: 'object',
@@ -193,11 +203,8 @@ async function review(r) {
   return { reviewer: r, failed: false, ...out, findings }
 }
 
-const needsVerify = f =>
-  f.blocking
-  || (f.confidence === 'medium' && SUBSTANTIVE.has(f.category))
-  || (f.reachability && f.reachability.status === 'unverified-cross-boundary')
-
+// Every finding is verified: a reviewer's confidence says where the verifier must dig, never
+// whether a finding is worth checking.
 let slotsLeft = V.slots
 const capped = []
 
@@ -223,17 +230,18 @@ async function verifyBatch(batch, label) {
       verify_note: v.reason,
       verify_evidence: v.evidence,
       reachability: v.reachability || f.reachability,
+      unresolved: v.unresolved,
+      fix_sound: v.fix_sound,
+      fix_note: v.fix_note,
       variants: v.variants,
     }
   })
 }
 
 async function verifyReview(rev) {
-  const want = rev.findings.filter(needsVerify)
-  if (!want.length) return rev
-  const verified = want.length <= V.inline_max ? inline(want) : await verifyBatch(want, rev.reviewer.label)
-  const byId = new Map(verified.map(f => [f.id, f]))
-  return { ...rev, findings: rev.findings.map(f => byId.get(f.id) || f) }
+  const fs = rev.findings
+  if (!fs.length) return rev
+  return { ...rev, findings: fs.length <= V.inline_max ? inline(fs) : await verifyBatch(fs, rev.reviewer.label) }
 }
 
 // --- merge ----------------------------------------------------------------------
@@ -283,25 +291,22 @@ function mergePrior(reviews) {
 let reviews
 let findings
 if (V.batched) {
-  // Deep tier: dedupe across every reviewer before spending the verifier slots on batches.
+  // Standard and deep tiers: dedupe across every reviewer before spending the verifier slots on batches.
   phase('Review')
   reviews = (await parallel(A.reviewers.map(r => () => review(r)))).filter(Boolean)
   const merged = dedupe(reviews.flatMap(r => r.findings))
-  const want = merged.filter(needsVerify)
-  let verified = []
-  if (want.length <= V.inline_max) {
-    verified = inline(want)
-  } else if (want.length) {
+  findings = merged
+  if (merged.length && merged.length <= V.inline_max) {
+    findings = inline(merged)
+  } else if (merged.length) {
     phase('Verify')
     // Keep one file's findings in one batch so a verifier traces each call path once.
-    const files = [...new Set(want.map(f => f.file))]
+    const files = [...new Set(merged.map(f => f.file))]
     const n = Math.max(1, Math.min(V.slots, files.length))
     const batches = Array.from({ length: n }, () => [])
-    files.forEach((file, i) => batches[i % n].push(...want.filter(f => f.file === file)))
-    verified = (await parallel(batches.map((b, i) => () => verifyBatch(b, `batch-${i + 1}`)))).filter(Boolean).flat()
+    files.forEach((file, i) => batches[i % n].push(...merged.filter(f => f.file === file)))
+    findings = (await parallel(batches.map((b, i) => () => verifyBatch(b, `batch-${i + 1}`)))).filter(Boolean).flat()
   }
-  const byId = new Map(verified.map(f => [f.id, f]))
-  findings = merged.map(f => byId.get(f.id) || f)
 } else {
   reviews = (await pipeline(A.reviewers, r => review(r), rev => verifyReview(rev))).filter(Boolean)
   findings = dedupe(reviews.flatMap(r => r.findings))
@@ -327,6 +332,6 @@ return {
   refuted: findings.filter(f => f.verdict === 'REFUTED'),
   open_questions: reviews.flatMap(r => (r.open_questions || []).map(q => ({ ...q, source: r.reviewer.label }))),
   previous_findings_status: mergePrior(reviews),
-  unverified_ids: findings.filter(f => needsVerify(f) && !f.verdict).map(f => f.id),
+  unverified_ids: findings.filter(f => !f.verdict).map(f => f.id),
   agents_used: reviews.length + (V.slots - slotsLeft),
 }

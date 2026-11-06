@@ -33,7 +33,7 @@ That block is authoritative: repos, base SHAs, file lists, untracked and partial
 
 `Verdict: STOP` means stop and tell the user why. `Verdict: PROCEED` means continue.
 
-On a branch in an open gh-stack stack, no scope or `branch` (without `--base`) becomes scope `stack`: the whole open stack against trunk in one run, so defects that cross layers surface, plus a **Stack layers** map giving each layer's PR, pinned range, and files. Every finding is assigned to a layer (synthesis step 3), and fix mode commits each fix on its own layer ([Fix mode on a stack](#fix-mode-on-a-stack)). `--base <parent layer>` reviews, and fixes, one layer alone.
+On a branch in an open gh-stack stack, no scope or `branch` (without `--base`) becomes scope `stack`: the whole open stack against trunk in one run, so defects that cross layers surface, plus a **Stack layers** map giving each layer's PR, pinned range, and files. Every finding is assigned to a layer (synthesis step 5), and fix mode commits each fix on its own layer ([Fix mode on a stack](#fix-mode-on-a-stack)). `--base <parent layer>` reviews, and fixes, one layer alone.
 
 For fresh numbers later, re-run `bash ${CLAUDE_SKILL_DIR}/scope.sh <the same arguments>`. When the block auto-selected a scope, pass that scope explicitly on a re-run: once fixes dirty the tree, an empty argument would select a different one.
 
@@ -63,7 +63,7 @@ The block proposes a tier, lenses, and risk triggers. Add the judgment it cannot
 - **Trivial** holds only when the diff has no logic change (formatting, comments, a pure rename, docs). Then print a report with verdict `APPROVED_TRIVIAL` and the reason, write the synthesis log, and stop. Any logic change makes it `small`.
 - **Judged triggers.** A contract change the patterns missed (status codes, error shapes, queue or webhook payloads, auth model) is a risk trigger: raise the tier one step (small to standard, standard to deep).
 - **Design** is a judgment, never a file type. Add `design-consultant` for a design decision: a new surface or flow with no pattern to follow, a new component, a redesign, a changed layout, hierarchy, interaction, or state model, or a deliberate design pass (responsive, accessibility remediation, motion, theming and tokens, a copy overhaul). Skip it for pattern extension -- a tile, row, column, field, option, or route cloned from a working sibling -- and for wiring, data, hooks, and tests. When in doubt, skip: a design reviewer sent at a correct clone invents findings. Give it only the design-bearing files and a `Surface:` note naming the app and who uses it.
-- **Chunked.** Show the block's proposed chunks and ask the user to approve or adjust them. When the block's mode is `fix (default)`, ask in the same `AskUserQuestion` call whether to fix or only report: a chunked branch yields more findings than one session applies comfortably, so recommend report. Then:
+- **Chunked.** Show the block's proposed chunks and ask the user to approve or adjust them. The mode stays as the block printed it. Then:
   - Run the chunks one at a time, each a deep run without `boundaries` (its files as each reviewer's `files`). Sequential runs let each chunk inherit what earlier ones settled and keep the box's agent count bounded.
   - After each chunk, append to the briefing's settled facts every question its verifiers or the user settled, and drop open questions those facts answer.
   - Last, one run with one `boundaries` reviewer covers the whole diff. Its briefing lists the findings already reported (`file:line`, summary), so it reports only defects that cross chunks.
@@ -74,7 +74,7 @@ Reviewer set per tier (`slots` and `inline_max` are the workflow's `verify` args
 | Tier | Reviewers | Verify |
 |---|---|---|
 | small | one `vet-reviewer` on `core` with the top stack lens attached; `doc-comment-reviewer` when `comments` is detected | `slots: 1, inline_max: 3` |
-| standard | `core`; `quality`; up to two stack lenses, one instance each; comments; design when judged in. At most 5 | `slots: 4, inline_max: 0` |
+| standard | `core`; `quality`; up to two stack lenses, one instance each; comments; design when judged in. At most 5 | `slots: 4, inline_max: 0, batched: true` |
 | deep | `core` twice, split by the block's areas (`files`); `quality`; up to two stack lenses; `boundaries`; comments. At most 7 | `slots: 2, inline_max: 0, batched: true` |
 
 Stack lenses are `go`, `react-next`, `typescript`, `supabase`, and `shell`. When there are more lenses than instances, attach the extras to an existing instance's `lenses` list (core first) rather than dropping them, and say so in the report. The workflow refuses more than nine agents counting verifier slots: fold the two core instances into one, then attach lenses, until the set fits.
@@ -117,12 +117,16 @@ Pass `args` as an object, not a JSON string. Labels are unique; `files` limits a
 
 ## 5. Synthesis
 
-1. **Close verification.** Verify every id in `unverified_ids` yourself: read the cited lines and trace one real entry point; record the verdict with `verify_note: "verified by orchestrator"`. A finding that cites a line that does not exist is dropped and noted.
-2. **Variants.** Each variant of a CONFIRMED finding becomes a finding of its own ("variant of `<id>`"), routed like its parent unless it sits out of scope.
-3. **Layer** (scope `stack` only). Set every finding's `layer` by the Stack layers rules: a file under one layer is that layer's; for a file under several, blame the cited line and take the lowest layer whose head contains the commit. Mark a layer you judged rather than looked up (a missing-code finding) as judged.
-4. **Route** every finding per [contract.md](contract.md).
-5. **PR comments.** When the block lists a PR (under `stack`, each layer's PR), read its review comments now, after the reviewers had fresh eyes (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`). Verify each defect raised there that this run missed by reading the code, and add the survivors with source `pr-comment`.
-6. **Verdict**, worst of: `NEEDS_CHANGES` (a blocking finding survives), `APPROVED_WITH_NOTES` (notes only), `APPROVED`.
+1. **Close verification.** Verify every id in `unverified_ids` yourself by the vet-verifier procedure (`~/.claude/agents/review/vet-verifier.md`): trace the whole flow, check the fix, and return the verifier's fields with `verify_note: "verified by orchestrator"`. A finding that cites a line that does not exist is dropped and noted.
+2. **PR comments.** When the block lists a PR (under `stack`, each layer's PR), read its review comments now, after the reviewers had fresh eyes (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`). Verify each defect raised there that this run missed by the same procedure, and add the survivors with source `pr-comment`.
+3. **Close the gaps the code can close.** Before anything reaches the user, settle what reading more code settles:
+   - **PLAUSIBLE, `unresolved.kind: code`.** Read where the verifier said the answer lives. When you can reach it, decide the verdict. When you cannot, the finding asks the user, with the question rewritten as the fact the code could not show.
+   - **Open questions.** Answer each one the code answers (a caller, a config value, a test that pins the behaviour), citing `file:line`; an answer that reveals a defect becomes a finding, verified like any other. Only questions about intent reach the user.
+   - **PLAUSIBLE, `intent` or `data`.** Read the cited code and the verifier's evidence yourself, so the question you ask carries your own recommendation ([contract.md](contract.md), Asking).
+4. **Variants.** Each variant of a CONFIRMED finding becomes a finding of its own ("variant of `<id>`"), routed like its parent unless it sits out of scope.
+5. **Layer** (scope `stack` only). Set every finding's `layer` by the Stack layers rules: a file under one layer is that layer's; for a file under several, blame the cited line and take the lowest layer whose head contains the commit. Mark a layer you judged rather than looked up (a missing-code finding) as judged.
+6. **Route** every finding per [contract.md](contract.md).
+7. **Verdict**, worst of: `NEEDS_CHANGES` (a blocking finding survives), `APPROVED_WITH_NOTES` (notes only), `APPROVED`.
 
 ## 6. Report
 
@@ -139,7 +143,7 @@ Verdict: <verdict>
 ### Blocking (<n>)
 - [CONFIRMED] path:line -- summary (core, go) -> auto
 ### Notes (<n>)
-- path:line -- summary (quality) -> present
+- [CONFIRMED] path:line -- summary (quality) -> ask
 ### Open questions (<n>)
 ### Previous findings
 - [FIXED] summary @ path:line
@@ -155,12 +159,12 @@ Show at most 10 notes and 10 open questions, most severe first; the rest stay in
 
 ## 7. Fix mode
 
-Only when the block's mode is `fix`, and only with something routed `auto` or `ask`.
+Only when the block's mode is `fix` (the default; never ask whether to fix), and only with something routed `auto` or `ask`. Every in-scope finding ends applied, or decided by the user: **auto** is applied without asking, **ask** goes to the user, and only an out-of-scope **present** is left for the user to act on later.
 
 1. **Context check.** Run `bash ~/.claude/scripts/context-usage.sh`. Under 200k used, print the line and continue. Otherwise ask, with that line at the top of the question: continue here (recommended) or hand off, per [handoff.md](handoff.md).
 2. **Snapshot.** Per changed repo, `git -C <repo> stash create`: it records the tree without touching it; empty output means the tree is clean and the snapshot is `HEAD`. A stash commit leaves out untracked files, so copy each untracked in-scope file into the scratchpad before editing it.
 3. **Apply** every `auto` finding with Edit. Never edit outside the scope; never amend, rebase, or commit (scope `stack` commits per layer; see below).
-4. **Ask** about every `ask` finding and open question per [contract.md](contract.md), up to four questions per `AskUserQuestion` call, in contract order. Apply the approved fixes.
+4. **Ask** about every `ask` finding and open question per [contract.md](contract.md), up to four questions per `AskUserQuestion` call, in contract order, each carrying your recommendation. Apply the approved fixes. An answer that settles an intent question either resolves its finding (apply or skip) or is project knowledge for [overlay upkeep](#8-overlay-upkeep).
 5. **Verify once** over all fixes with the gate's command. Skip it when every fix is a comment or docs edit, and say so. When it fails on a fix you cannot repair minimally, revert that fix and report it as reverted; if it is still red after that, stop and report. When the gate proceeded past an environment failure and this verify fails the same way, verify is blocked, not failed: keep the fixes, report verify as blocked by the environment, and go on to the delta review.
 6. **Delta review.** Write a delta briefing: scope is `git -C <repo> diff <snapshot>` per repo plus `git diff --no-index <copy> <file>` for edited untracked files; fix context is the finding each edit addressed. Dispatch the workflow once with `reviewers: [{ label: "delta", agent: "vet-reviewer", lenses: ["core"] }]` and `verify: { slots: 1, inline_max: 0 }`. Route what it finds as above (apply, ask, verify), but never start a second delta review.
 7. **Close.** Call `ReportFindings` with each finding's `outcome`, update the synthesis log (outcomes, `delta_run_id`), and print:
@@ -170,6 +174,7 @@ Only when the block's mode is `fix`, and only with something routed `auto` or `a
 Auto-applied: path:line -- description
 Approved: path:line -- description
 Skipped: path:line -- description
+Out of scope: path:line -- description (cause in <file>)
 Reverted (broke verify): path:line -- description
 Delta review: clean | <n> finding(s), <routes>
 Not reviewed: <n staged files | filtered-out repos>

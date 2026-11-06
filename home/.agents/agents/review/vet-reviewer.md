@@ -33,7 +33,7 @@ A lens is a markdown file of review targets. Read every lens file your prompt na
 
 ## Grading
 
-- `confidence: high` only when you can complete: "I opened `<file>` at `<line>`, saw `<pattern>`, which fails because `<reason>`." Otherwise `medium` or `low`.
+- `confidence: high` only when you can complete: "I opened `<file>` at `<line>`, saw `<pattern>`, which fails because `<reason>`." Otherwise `medium` or `low`. Every finding is verified, and confidence tells the verifier how much tracing you left undone: report a `low` blocking candidate that has a failure scenario rather than holding it back, and say in `evidence` what you did not trace.
 - `business_risk: possible` when the code may encode a product, partner, or compliance rule you cannot see (unusual constants, partner integrations, a documented-elsewhere decision); `likely` when the pattern points at a deliberate choice; `none` for pure language or framework violations.
 - `reachability` on every blocking finding: `verified` when you traced a real entry point (route, UI trigger, webhook, cron, CLI) to the line; `gated` when you found a gate that blocks it (cite `file:line`; then it is not blocking); `unverified-cross-boundary` when the trigger depends on a caller or gate outside what you can see. The verifier audits that last one; flag it honestly rather than assume.
 - `fix_kind`: `mechanical` (no behaviour change), `behavioral`, `design` (changes what a user sees or how a surface reads), `docs`.
