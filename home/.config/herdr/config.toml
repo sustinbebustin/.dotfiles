@@ -110,6 +110,12 @@ accent = "#9580FF"
 # Active bindings follow ~/.config/tmux/tmux.conf, or tmux's own defaults where
 # it set none. Arrays give one action several shortcuts and keep Herdr's
 # default alongside the tmux key.
+#
+# The desktop app ignores this file; ../herdr-app/keys.json mirrors these
+# prefix bindings as two-key sequences. Keep the two in step. The app has no
+# command for worktrees, navigate/copy/resize mode, reload_config,
+# open_notification_target, rename_pane, edit_scrollback, cycle_pane,
+# last_pane, resize_pane_*, or break-pane, so those stay terminal-only.
 
 [keys]
 # Prefix key used to enter prefix mode. An array accepts several prefixes.
