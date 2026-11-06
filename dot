@@ -35,10 +35,9 @@ readonly NODE_VERSION="24"
 # provides often differs from its name (a scoped @owner/tool -> tool), and
 # `dot doctor` needs the command to check the install. Assigned then marked
 # readonly separately so this still parses under bash 3.2 on stock macOS.
-PNPM_GLOBALS=(
-    "opensrc:opensrc"
-    "effect-solutions:effect-solutions"
-)
+# May be empty: bash 3.2 treats "${arr[@]}" of an empty array as unbound
+# under `set -u`, so every loop over it checks the length first.
+PNPM_GLOBALS=()
 readonly PNPM_GLOBALS
 
 # --- Output helpers ---
@@ -913,6 +912,8 @@ install_node_toolchain() {
     fi
     ok "Node $(node --version 2>/dev/null || echo "$NODE_VERSION") active"
 
+    [[ ${#PNPM_GLOBALS[@]} -gt 0 ]] || return 0
+
     local packages=()
     local entry
     for entry in "${PNPM_GLOBALS[@]}"; do
@@ -1134,7 +1135,7 @@ cmd_doctor() {
     done
 
     local entry pkg cmd cmd_path
-    for entry in "${PNPM_GLOBALS[@]}"; do
+    [[ ${#PNPM_GLOBALS[@]} -gt 0 ]] && for entry in "${PNPM_GLOBALS[@]}"; do
         pkg="${entry%%:*}"
         cmd="${entry##*:}"
         if ! command_exists "$cmd"; then
