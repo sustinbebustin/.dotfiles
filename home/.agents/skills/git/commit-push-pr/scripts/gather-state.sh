@@ -17,6 +17,10 @@
 #                                       -> selection flags, echoed for the agent
 #                                          to forward to the commit skill, which
 #                                          owns their meaning and conflicts
+# - "--no-push" / "--np" anywhere before " -- "
+#                                       -> stop after commits + release notes;
+#                                          no push, PR, or merge (conflicts with
+#                                          the merge flags)
 #
 # Subdir names with spaces are not supported in the multi-scope form;
 # use the single-scope form for those.
@@ -47,10 +51,11 @@ else
   args_raw="$raw"
 fi
 
-# Split scopes on whitespace, pulling out the merge and selection flags
-# wherever they appear.
+# Split scopes on whitespace, pulling out the merge, no-push, and selection
+# flags wherever they appear.
 merge=0
 bypass=0
+no_push=0
 selection_flags=()
 scopes=()
 read -r -a raw_scopes <<< "$args_raw"
@@ -58,6 +63,7 @@ for tok in ${raw_scopes[@]+"${raw_scopes[@]}"}; do
   case "$tok" in
     --merge) merge=1 ;;
     --bypass|--merge-bypass) merge=1; bypass=1 ;;
+    --no-push|--np) no_push=1 ;;
     --all|--yours) selection_flags+=("$tok") ;;
     *) scopes+=("$tok") ;;
   esac
@@ -75,7 +81,16 @@ if [ "${#selection_flags[@]}" -gt 0 ]; then
   echo ""
 fi
 
-if [ "$merge" = "1" ]; then
+if [ "$no_push" = "1" ] && [ "$merge" = "1" ]; then
+  echo "### Flag conflict"
+  echo "--no-push/--np cannot combine with --merge/--bypass/--merge-bypass: merging needs a pushed PR."
+  echo "STOP before step 2 and ask the user which mode they want. Nothing has been committed."
+  echo ""
+elif [ "$no_push" = "1" ]; then
+  echo "### No-push mode: ON"
+  echo "Stop after step 3 (commits + release notes) for every target; skip push, PR, and merge."
+  echo ""
+elif [ "$merge" = "1" ]; then
   echo "### Merge mode: ON"
   echo "After the PR is created, run the merge flow (step 6) for that target."
   if [ "$bypass" = "1" ]; then

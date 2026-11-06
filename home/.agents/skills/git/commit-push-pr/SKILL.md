@@ -2,7 +2,7 @@
 name: commit-push-pr
 allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git add:*), Bash(git rm:*), Bash(git status:*), Bash(git diff:*), Bash(git push:*), Bash(git pull:*), Bash(git commit:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh pr merge:*), Bash(bash:*), Read, Write, Edit, AskUserQuestion, Skill(commit), Skill(pr), Skill(watch-ci)
 description: Commit, push, and open a GitHub PR in one flow; optionally watch CI and merge.
-argument-hint: [repo...] [--merge|--bypass] [--all|--yours] [-- note]
+argument-hint: [repo...] [--merge|--bypass|--no-push] [--all|--yours] [-- note]
 metadata:
   author: sustinbebustin
 ---
@@ -20,11 +20,14 @@ Accepts zero or more repo subdirs and/or a free-form user note separated by ` --
 - `/commit-push-pr frontend backend -- skip lockfile` -> scopes + note
 - `/commit-push-pr --merge` -> also watch CI, merge the PR, and sync local default branch
 - `/commit-push-pr --bypass` -> merge mode without waiting for CI (alias: `--merge-bypass`)
+- `/commit-push-pr --no-push` -> branch, commit, and write release notes; no push or PR (alias: `--np`)
 - `/commit-push-pr --all` -> commit everything in the worktree
 - `/commit-push-pr --yours` -> commit only what this session changed
 - `/commit-push-pr frontend --merge --yours -- skip lockfile` -> scope + merge + selection + note
 
 `--merge`, `--bypass`, and `--merge-bypass` may appear anywhere before the ` -- ` note separator and apply to every target in the invocation. When any is present the gathered state below starts with a `### Merge mode: ON` block carrying a `**Bypass CI:**` line. `--bypass` implies `--merge`; `--merge --bypass` is the same thing.
+
+`--no-push` (alias `--np`) follows the same placement rule and applies to every target. When present the gathered state starts with a `### No-push mode: ON` block. It cannot combine with the merge flags; that combination yields a `### Flag conflict` block instead -- stop and ask the user which mode they want before committing anything.
 
 `--all` and `--yours` may likewise appear anywhere before the ` -- ` note separator and apply to every target. They select which files get committed; step 2 hands them to the `commit` skill, which owns their meaning.
 
@@ -54,7 +57,8 @@ __SKILL_ARGUMENTS__
 
 1. **Determine the target repo(s):**
    - If the context above shows one or more `### Target:` blocks, the repo(s) are already known — run steps 2-7 independently for each target.
-   - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then re-invoke this skill scoped to the chosen repo (carrying `--merge` through if it was passed) so the gather script produces a full `### Target:` block (branch, recent commits, commits-ahead-of-default, cumulative diff stat, release-notes verdict). Don't try to reassemble that state from ad-hoc `git` calls -- the PR description needs the commits-ahead view that the script computes.
+   - If the context shows `### Flag conflict`, call `AskUserQuestion` to pick no-push or merge mode, then re-invoke this skill with only the chosen flag.
+   - If the context lists `### Available repos`, call `AskUserQuestion` with those repo names as options, then re-invoke this skill scoped to the chosen repo (carrying every flag through) so the gather script produces a full `### Target:` block (branch, recent commits, commits-ahead-of-default, cumulative diff stat, release-notes verdict). Don't try to reassemble that state from ad-hoc `git` calls -- the PR description needs the commits-ahead view that the script computes.
    - If no repos were found, STOP and tell the user.
 2. **Commit through the `commit` skill.** Call the Skill tool for `commit` once for all targets, with arguments `[<target>...] [--all|--yours] [-- <user note>]`: the targets as named in the `### Target:` blocks (none when the only target is `current directory`), the selection flag if one was passed, and the user note if there is one. Its gathered state holds each target's full diff; work its workflow per target, with one addition:
    - **Before a target's first commit, branch if it is on its default branch.** Create `<type>/<short-description>` per the Branch Naming the `commit` skill carries, typed by the dominant change across the whole branch.
@@ -65,6 +69,7 @@ __SKILL_ARGUMENTS__
    - `skip` -> do nothing for release notes.
    - `rebuild-changelog` -> restore the file with `git -C <target> checkout <merge base> -- CHANGELOG.md`, then add entries under `[Unreleased]` following [references/changelog.md](references/changelog.md). If the result differs from `HEAD`, commit it separately as `docs(changelog): ...`.
    - `rebuild-changeset` -> delete every file under **Changeset files added on this branch** (`git -C <target> rm -f <file>`; `rm` for one still untracked), then write new file(s) under `.changeset/<kebab-name>.md` per [Changeset handling](#changeset-handling), using **Candidate packages for changeset frontmatter** from the gathered state. Commit the deletions and new files together as `docs(changeset): ...`.
+   - **No-push mode (`### No-push mode: ON` in the gathered state):** the target is done after this step. Report its branch and new commits in one line, then skip steps 4-6.
 4. **Push the branch to origin** with the branch named literally: `git -C <target> push -u origin <branch>`. A bare `git push`, a `HEAD` refspec, or a force push prompts for approval.
 5. **Create a pull request** using `gh pr create`. The PR title and body must describe the **entire branch** -- every commit shown in **Branch commits ahead of origin/<default>** plus the new commit(s) you just created -- not only the latest commit. If that list shows the branch is introducing a feature from scratch, the PR title must reflect "add X", not "update X" or "fix X in the new feature". When the cumulative scope spans multiple logical units, summarize them; don't anchor on the working-tree diff alone. The PR title should still be a conventional-commit subject and should match the dominant change type across the branch. Write the body through the `pr` skill (call the Skill tool for `pr`).
 6. **Merge mode (only if `### Merge mode: ON` appears in the gathered state).** Watch CI, merge the PR, and resync the local default branch. See [Merge mode](#merge-mode). Without that block, stop after step 5 -- never merge a PR that wasn't asked to be merged.
