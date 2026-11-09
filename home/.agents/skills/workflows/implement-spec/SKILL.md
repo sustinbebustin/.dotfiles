@@ -34,17 +34,19 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 5. Once an **implementer subagent** completes, merge its work to the integration branch with a **merger subagent**. Its prompt tells it to:
    - call the Skill tool with `fix-merge-conflicts` before anything else;
-   - merge the reported branch; never read or modify the implementer's worktree directory. The merger, not the implementer, closes work in the issue tracker;
-   - after merging, run in the integration checkout any check the implementer reported its worktree skipped or refused (e.g. a database test), before closing the ticket;
-   - read `~/.claude/skills/commit/references/conventions.md` and write the merge commit subject as a conventional commit naming what the merged work changes (e.g. `feat(auth): add token refresh`), not which ticket merged. A ticket reference, if any, goes in the footer.
+   - squash-merge the reported branch (`git merge --squash`), so the integration branch stays linear, one commit per ticket, and later rebases onto main without replaying resolved conflicts; never read or modify the implementer's worktree directory. The merger, not the implementer, closes work in the issue tracker;
+   - after merging, run in the integration checkout any check the implementer reported its worktree skipped or refused (e.g. a database test), and the matching verify suite if the squash conflicted, before closing the ticket;
+   - read `~/.claude/skills/commit/references/conventions.md` and write the squash commit subject as a conventional commit naming what the merged work changes (e.g. `feat(auth): add token refresh`), not which ticket merged. The footer carries a `Squashed-from: <branch>@<tip-sha>` trailer, plus a ticket reference if any.
+
+   A squashed branch is closed: git records no ancestry for a squash, so squashing the same branch again re-applies its whole diff. Follow-up work on a ticket starts a fresh branch from the integration tip.
 
 6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
 
-7. Once all tickets are complete, call the Skill tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent**.
+7. Once all tickets are complete, call the Skill tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent** on a fresh branch, merged like any ticket.
 
 8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
-9. Clean up all **implementer subagent** worktrees. Remove them with the project's worktree removal command when it has one (it must refuse to discard uncommitted work and keep branches holding unmerged commits); otherwise `git worktree remove`.
+9. Clean up all **implementer subagent** worktrees. Remove them with the project's worktree removal command when it has one (it must refuse to discard uncommitted work and keep branches holding unmerged commits); otherwise `git worktree remove`. Squashed branches still read as unmerged to git: delete each with `git branch -D` once its tip matches its `Squashed-from` trailer on the integration branch (`git log --grep 'Squashed-from: <branch>@'`). A tip past the trailer holds unmerged work; keep that branch and report it.
 
 ```!
 awk '/^### /{p=/^### Branch Naming$/} p' "$HOME/.claude/skills/commit/references/conventions.md"
