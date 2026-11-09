@@ -116,6 +116,18 @@ git -C <repo> rebase "$T"
 - Multi-repo: one repo can rebase clean while the other stops on a conflict. Never leave
   the workspace half-synced without saying so explicitly.
 
+Before the `rebase`, run `git -C <repo> rev-list --count --merges "$T"..HEAD`. A nonzero
+count means the branch carries merge commits (trunk merged in, or branches merged into it).
+Each holds conflict resolutions a rebase discards: it replays every commit beneath them one
+at a time and raises those conflicts again. Leave that repo unrebased, report the count,
+and ask the user to pick:
+
+- **Merge** `$T` into the branch: conflicts already resolved stay resolved.
+- **Squash**: merge `$T`, then `git reset --soft "$(git merge-base "$T" HEAD)"` and commit,
+  for one linear commit on `$T`.
+
+Steps 4-8 apply to either.
+
 ### 4. Resolve conflicts -- neither side is presumed right
 
 Call the Skill tool for `fix-merge-conflicts` at the first stop: it carries the standard
