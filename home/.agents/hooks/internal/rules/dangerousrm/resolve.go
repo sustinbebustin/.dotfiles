@@ -171,13 +171,13 @@ func (s *scope) collectCmd(cmd syntax.Command, end uint) {
 func (s *scope) collectAndChain(x *syntax.BinaryCmd, end uint) {
 	parts := andParts(x)
 	chainEnd := off(x.End())
-	if s.assumeChainsRun {
+	if s.assume == assumeChainsRun {
 		chainEnd = end
 	}
 	s.collectStmt(parts[0], end)
 	for _, st := range parts[1:] {
 		s.collectStmt(st, chainEnd)
-		if !s.assumeChainsRun {
+		if s.assume != assumeChainsRun {
 			s.poison(assignedIn(st), chainEnd, end)
 		}
 	}
@@ -571,7 +571,9 @@ func (s *scope) resolveParts(parts []syntax.WordPart, at uint, split bool) ([]st
 				return nil, false
 			}
 			for _, val := range v {
-				if split && (s.ifsChanged || strings.ContainsAny(val, " \t\n") || strings.Contains(val, freshTempDir)) {
+				quotedTemp := s.assume == assumeTempQuoted && val == freshTempDir
+				if split && !quotedTemp &&
+					(s.ifsChanged || strings.ContainsAny(val, " \t\n") || strings.Contains(val, freshTempDir)) {
 					return nil, false
 				}
 			}

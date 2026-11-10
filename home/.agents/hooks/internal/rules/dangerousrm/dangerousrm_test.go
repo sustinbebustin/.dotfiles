@@ -609,6 +609,29 @@ func TestEvaluate(t *testing.T) {
 			decision: "allow",
 		},
 		{
+			name:     "an unquoted mktemp directory is denied with the quoting rewrite",
+			cmd:      `d=$(mktemp -d); echo 22 > $d/.nvmrc; (cd $d && node --version); rm -rf $d`,
+			decision: "deny",
+			reason:   reasonUnquotedTemp,
+		},
+		{
+			name:     "an unquoted path below a mktemp directory still asks",
+			cmd:      `d=$(mktemp -d); rm -rf $d/x`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "an unquoted mktemp directory beside another target still asks",
+			cmd:      `d=$(mktemp -d); rm -rf $d /home/me/src`,
+			decision: "ask",
+			reason:   reasonGeneric,
+		},
+		{
+			name:     "an unquoted mktemp directory with a redefined mktemp still asks",
+			cmd:      `mktemp() { echo /; }; d=$(mktemp -d); rm -rf $d`,
+			decision: "ask",
+		},
+		{
 			name:     "a path below a mktemp directory asks, since a failed mktemp leaves it at the root",
 			cmd:      `d=$(mktemp -d); rm -rf "$d/x"`,
 			decision: "ask",
@@ -619,9 +642,10 @@ func TestEvaluate(t *testing.T) {
 			decision: "ask",
 		},
 		{
-			name:     "an unquoted mktemp directory may word-split and asks",
+			name:     "an unquoted mktemp directory may word-split and is denied with the rewrite",
 			cmd:      `d=$(mktemp -d); rm -rf $d`,
-			decision: "ask",
+			decision: "deny",
+			reason:   reasonUnquotedTemp,
 		},
 		{
 			name:     "a mktemp variable rebound before the rm asks",

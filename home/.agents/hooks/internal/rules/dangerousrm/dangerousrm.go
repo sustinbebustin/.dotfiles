@@ -67,6 +67,25 @@ const (
 		"and it runs even when that chain stops early -- then the variable is unset and the rm targets " +
 		"something else. Nothing was deleted. Rewrite so the assignment runs unconditionally: put it " +
 		"before the chain (`S=/tmp/x; cd dir && ...; rm -rf \"$S/out\"`), or join the rm to the chain with &&."
+
+	reasonUnquotedTemp = "Blocked: this recursive rm names a `mktemp -d` directory through an unquoted variable. " +
+		"Unquoted, the shell splits the path into words, so a TMPDIR with spaces in it would delete other " +
+		"paths. Nothing was deleted. Quote it -- `rm -rf \"$d\"` -- and the rm runs without a prompt."
+)
+
+// assumption is a what-if the rewrite hints in Check rescan a command under.
+// Neither decides an allow on its own: it only shows that a mechanical
+// rewrite would make the command exempt.
+type assumption int
+
+const (
+	// assumeNothing is the real scan.
+	assumeNothing assumption = iota
+	// assumeChainsRun treats every && chain as having run to its end.
+	assumeChainsRun
+	// assumeTempQuoted treats an unquoted variable holding a fresh `mktemp -d`
+	// directory as if it were quoted.
+	assumeTempQuoted
 )
 
 // Check decides whether a recursive rm in req needs approval. The whole tree is
@@ -74,20 +93,30 @@ const (
 // && / || chains is still caught.
 //
 // A command whose removals would all be exempt if every && chain in it ran to
-// the end is denied instead, with a rewrite hint: the target really is unsafe
-// if a chain stops early, but the fix is mechanical, and a denial lets the
-// agent make it without waiting on a human.
+// the end, or if its unquoted `mktemp -d` variables were quoted, is denied
+// instead, with a rewrite hint: the target really is unsafe as written, but
+// the fix is mechanical, and a denial lets the agent make it without waiting
+// on a human.
 func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
 		return hook.Allowed()
 	}
-	v, hit := shellast.FirstCall(file, scan(req, file, false).checkRm)
+	v, hit := shellast.FirstCall(file, scan(req, file, assumeNothing).checkRm)
 	if !hit {
 		return hook.Allowed()
 	}
-	if _, stillHit := shellast.FirstCall(file, scan(req, file, true).checkRm); !stillHit {
-		return hook.Denied(reasonChainVar)
+	hints := []struct {
+		assume assumption
+		reason string
+	}{
+		{assumeChainsRun, reasonChainVar},
+		{assumeTempQuoted, reasonUnquotedTemp},
+	}
+	for _, h := range hints {
+		if _, stillHit := shellast.FirstCall(file, scan(req, file, h.assume).checkRm); !stillHit {
+			return hook.Denied(h.reason)
+		}
 	}
 	return v
 }
@@ -113,10 +142,9 @@ type scope struct {
 	// lossy marks a nested script whose text had expansions dropped from it,
 	// so no target in it is exempt: `/tmp$X/home` reads as /tmp/home.
 	lossy bool
-	// assumeChainsRun treats every && chain as having run to its end, for
-	// the rewrite hint in Check. Never decides an allow on its own.
-	assumeChainsRun bool
-	created         []createdPath
+	// assume is the rewrite-hint what-if this scan runs under (see Check).
+	assume  assumption
+	created []createdPath
 	// cwd is the directory the command starts in, used to place relative
 	// targets against allowedRoots until a cd moves it (see dirsAt). Empty when
 	// the payload carried none, which leaves relative targets unplaceable and
@@ -135,12 +163,12 @@ type scope struct {
 
 // scan collects bindings and created paths. Bindings come first, since created
 // paths are resolved against the bindings in force at their own position.
-func scan(req *hook.Request, file *syntax.File, assumeChainsRun bool) *scope {
+func scan(req *hook.Request, file *syntax.File, assume assumption) *scope {
 	s := &scope{
-		cwd:             req.Cwd,
-		allowedRoots:    req.Config.AllowedRmRoots,
-		assumeChainsRun: assumeChainsRun,
-		lossy:           req.Origin == hook.NestedLossy,
+		cwd:          req.Cwd,
+		allowedRoots: req.Config.AllowedRmRoots,
+		assume:       assume,
+		lossy:        req.Origin == hook.NestedLossy,
 	}
 	if req.Origin == hook.Direct && homeUntouched(file, req.Command) {
 		// Claude Code runs the command with the environment the hook inherits.
