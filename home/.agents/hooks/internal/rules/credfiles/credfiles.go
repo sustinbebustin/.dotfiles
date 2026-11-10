@@ -18,7 +18,16 @@
 // documented shape of a config remains readable. The example markers do not
 // carry inside a credential directory; see classify. So do the system apt
 // keyrings, mws's generated port lease, and quoted regex words that only look
-// like a path. For Bash, an operand that names a file only to keep it out of a
+// like a path, including a wholly quoted `^`-anchored one (see
+// isAnchoredRegex). A Bash word holding whitespace is also classified field by
+// field (see wordTier), so a sentence for echo is not one file name.
+//
+// In a test fixture directory (fixtures, __fixtures__, testdata) the name-word
+// heuristics are relaxed as in a configured relaxed root; see inFixtureDir.
+// The accepted cost: a real secret saved there under a vocabulary name
+// (fixtures/credentials.json) is not caught by its name.
+//
+// For Bash, an operand that names a file only to keep it out of a
 // search -- an rg exclusion glob, a negated find name test -- is skipped, and
 // so is a sed script that is a single s command; see unreadOperands. Any other
 // sed script is classified piece by piece, since it can open a file it names
@@ -66,11 +75,46 @@ func Check(req *hook.Request) hook.Verdict {
 	return hook.Allowed()
 }
 
-// relaxedIn returns whether a path named in req lies under one of the
-// configured relaxed roots, where the name-word heuristics are skipped (see
-// classifyIn). A relative path must lie under one from every directory the
-// tool may run in (see workDirs); one that cannot be placed is never relaxed.
+// relaxedIn returns whether a path named in req lies in a test fixture
+// directory (see inFixtureDir) or under one of the configured relaxed roots,
+// where the name-word heuristics are skipped (see classifyIn).
+//
+// Only a plain path is relaxed. Its cleaned text is what the shell hands the
+// command only when nothing in it expands or separates: a brace list climbs
+// out (`testdata/{x,..}/secrets.json` reaches ./secrets.json while path.Clean
+// keeps `{x,..}` as one component), a glob can match a symlink, and a word
+// that is code for eval or ssh (`cd${IFS}/testdata/;cat${IFS}secrets.json`)
+// names other files than its own parents suggest.
 func relaxedIn(req *hook.Request) func(string) bool {
+	underRoot := underRelaxedRoot(req)
+	return func(p string) bool {
+		return plainPath(p) && (inFixtureDir(p) || underRoot(p))
+	}
+}
+
+// plainPath reports whether p holds none of the characters the shell
+// expands, separates commands with, or splits words on.
+func plainPath(p string) bool {
+	return !strings.ContainsAny(p, "{}*?[]$`;&|<>()!\\") && strings.IndexFunc(p, unicode.IsSpace) < 0
+}
+
+// fixtureDirs are the directories test fixtures conventionally live in. A
+// fixture is fake by construction, and its name says what it stands in for
+// (app-token.json, client-credentials.json), so the name words prove nothing
+// there.
+var fixtureDirs = map[string]bool{"fixtures": true, "__fixtures__": true, "testdata": true}
+
+// inFixtureDir reports whether p, once cleaned, has a fixtureDirs directory
+// among its parents. Cleaning first keeps `fixtures/../secrets.json` out.
+func inFixtureDir(p string) bool {
+	return touchesAnyDir(path.Dir(path.Clean(strings.TrimSpace(p))), fixtureDirs)
+}
+
+// underRelaxedRoot returns whether a path named in req lies under one of the
+// configured relaxed roots. A relative path must lie under one from every
+// directory the tool may run in (see workDirs); one that cannot be placed is
+// never relaxed.
+func underRelaxedRoot(req *hook.Request) func(string) bool {
 	roots := req.Config.RelaxedCredRoots
 	if len(roots) == 0 {
 		return func(string) bool { return false }
@@ -411,6 +455,7 @@ func fileExt(base string) string {
 // ordinary config that gets edited by hand.
 var sensitiveNames = map[string]bool{
 	".npmrc":       true,
+	"auth.ini":     true, // pnpm's token file, ~/.config/pnpm/auth.ini
 	".pypirc":      true,
 	".gemrc":       true,
 	".terraformrc": true,
@@ -546,11 +591,14 @@ func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 
 	found := tierNone
 	var foundPath string
-	consider := func(lit string) {
-		if t := classifyIn(lit, relaxed(lit)); t > found {
-			found, foundPath = t, lit
+	consider := func(lit string, mayRelax bool) {
+		if t, name := wordTier(lit, func(p string) bool { return mayRelax && relaxed(p) }); t > found {
+			found, foundPath = t, name
 		}
 	}
+	// A word with an expansion is never relaxed: WordLit drops the expansion,
+	// so `fixtures/$X/secrets.json` would read as a fixture whatever X climbs to.
+	considerWord := func(w *syntax.Word) { consider(shellast.WordLit(w), shellast.IsLiteral(w)) }
 	syntax.Walk(file, func(n syntax.Node) bool {
 		if found == tierSecret {
 			return false
@@ -559,21 +607,101 @@ func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 		case *syntax.CallExpr:
 			skip, programs := unreadOperands(x)
 			for _, arg := range x.Args {
-				if !skip[arg] {
-					consider(shellast.WordLit(arg))
+				if !skip[arg] && !isAnchoredRegex(arg) {
+					considerWord(arg)
 				}
 			}
 			for _, p := range programs {
 				for _, piece := range programPieces(p) {
-					consider(piece)
+					consider(piece, true)
 				}
 			}
 		case *syntax.Redirect:
-			consider(shellast.WordLit(x.Word))
+			considerWord(x.Word)
 		}
 		return true
 	})
 	return bashVerdict(found, foundPath)
+}
+
+// wordTier classifies one command word and returns the worst tier found with
+// the text that reached it. A trailing `:` or `,` is prose punctuation and is
+// dropped; no credential file is named with one.
+//
+// A word holding whitespace -- a sentence for echo, a script for an
+// interpreter -- is classified field by field, so an example marker at its end
+// (`"... missing in .env.example:"`) neither hides an env file named earlier
+// (`"open('.env.prod') # .env.example"`) nor makes a sentence that merely
+// mentions one (`"   .env.example missing in infra:"`) read as a file. Every
+// other signal classify reads -- an env-file affix, a secret directory, a key
+// extension or name -- sits inside one field, so the fields see it. The one
+// that can span fields, a secret word in a name with a data extension
+// (`"my secret notes.txt"`), is also checked on the whole word.
+func wordTier(lit string, relaxed func(string) bool) (worst tier, name string) {
+	trim := func(s string) string { return strings.TrimRight(s, ":,") }
+	note := func(t tier, s string) {
+		if t > worst {
+			worst, name = t, s
+		}
+	}
+	whole := trim(lit)
+	if strings.IndexFunc(lit, unicode.IsSpace) < 0 {
+		if !isCodeField(whole) {
+			note(classifyIn(whole, relaxed(whole)), whole)
+			return worst, name
+		}
+		for _, piece := range programPieces(whole) {
+			note(classify(piece), piece)
+		}
+		return worst, name
+	}
+	if isSecretName(whole) {
+		note(tierSecret, whole)
+	}
+	for field := range strings.FieldsSeq(lit) {
+		f := trim(field)
+		if !isCodeField(f) {
+			note(classifyIn(f, relaxed(f)), f)
+			continue
+		}
+		for _, piece := range programPieces(f) {
+			note(classify(piece), piece)
+		}
+	}
+	return worst, name
+}
+
+// isCodeField reports a word, or a field of a spaced word, that is code rather
+// than a name: it holds a statement separator, redirect, call or quote. Its suffix
+// says nothing about what it reads -- `readFileSync('.env.local');s.example`
+// and `cat<~/.ssh/id_rsa;:<x.pub` end in an example marker and a public key
+// extension -- so it is classified piece by piece instead (see
+// programPieces). A search pattern (`(process\.env|x)`) keeps the exemption
+// isPattern gives it, as the whole word did before it was split.
+func isCodeField(f string) bool {
+	return strings.ContainsAny(f, ";&<>()'\"`$") && !isPattern(f)
+}
+
+// isAnchoredRegex reports a word that is wholly one quoted, plain string
+// starting with `^`: a search pattern anchored to the start of a line
+// (`'^./.dev.env'`), not a file name. Quoted, the `^` reaches the command as
+// written, and no credential file sits under a directory whose name starts
+// with one. Unquoted, zsh's extendedglob reads `^x` as a glob, so that word is
+// classified. So is one holding whitespace, an expansion or a command
+// separator: it may be code for eval, ssh or trap (`eval '^x; cat .env'`),
+// where the `^x` is just a failing command before the real one.
+func isAnchoredRegex(w *syntax.Word) bool {
+	if len(w.Parts) != 1 || !shellast.IsLiteral(w) {
+		return false
+	}
+	switch w.Parts[0].(type) {
+	case *syntax.SglQuoted, *syntax.DblQuoted:
+	default:
+		return false
+	}
+	text := shellast.WordLit(w)
+	return strings.HasPrefix(text, "^") && !strings.ContainsAny(text, ";&|<>()$`{}") &&
+		strings.IndexFunc(text, unicode.IsSpace) < 0
 }
 
 // unreadOperands returns the words of c that name a file without anything

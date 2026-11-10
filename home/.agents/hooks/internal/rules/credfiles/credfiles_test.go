@@ -93,6 +93,7 @@ func TestClassify(t *testing.T) {
 		// ask tier
 		{"/home/me/.npmrc", tierSensitive},
 		{"home/.npmrc", tierSensitive},
+		{"~/.config/pnpm/auth.ini", tierSensitive},
 		{".pypirc", tierSensitive},
 		{"~/.kube/config", tierSensitive},
 		{"~/.docker/config.json", tierSensitive},
@@ -214,6 +215,55 @@ func TestCheckBash(t *testing.T) {
 		{name: "ANSI-C escaped env name is denied", cmd: `cat $'\x2eenv'`, decision: "deny"},
 		{name: "ANSI-C escaped aws path is denied", cmd: `cat $'\x2fhome\x2fme\x2f.aws\x2fcredentials'`, decision: "deny"},
 		{name: "ANSI-C regex alternation is allowed", cmd: `rg $'a|process\\.env' src`, decision: "allow"},
+		{name: "quoted anchored regex is allowed", cmd: `rg -n x --glob '!*.env' . | rg -v '^./.dev.env'`, decision: "allow"},
+		{name: "double-quoted anchored regex is allowed", cmd: `grep -v "^.env.local" list.txt`, decision: "allow"},
+		{name: "unquoted caret word still names the file", cmd: `cat ^./.env`, decision: "deny"},
+		{name: "quoted caret after text names a file", cmd: `cat x'^'/.env`, decision: "deny"},
+		{name: "anchored regex beside a secret operand is denied", cmd: `rg -v '^./.dev.env' .dev.env`, decision: "deny"},
+		{name: "caret redirect target still counts", cmd: `cat < '^x/.env'`, decision: "deny"},
+		{name: "caret word that is code for eval is denied", cmd: `eval '^x; cat .env'`, decision: "deny"},
+		{name: "caret word that is code for ssh is denied", cmd: `ssh h '^x; cat ~/.aws/credentials'`, decision: "deny"},
+		{name: "caret word with an expansion is denied", cmd: `eval '^x;cat${IFS}.env'`, decision: "deny"},
+		{name: "caret word for trap is denied", cmd: `trap '^x; cat .env' EXIT`, decision: "deny"},
+
+		// prose: a quoted sentence is not one file name
+		{name: "echoed sentence naming an example file is allowed", cmd: `echo "== $app: infra keys missing in .env.example:"`, decision: "allow"},
+		{name: "sentence naming an example file, comma", cmd: `echo "see .env.example, then run"`, decision: "allow"},
+		{name: "sentence leading with an example file", cmd: `echo "   .env.example missing in infra:"`, decision: "allow"},
+		{name: "sentence naming a real env file is denied", cmd: `echo "copy .env: then go"`, decision: "deny"},
+		{name: "spaced path into ssh dir is denied", cmd: `cat "/home/me/my .ssh/id"`, decision: "deny"},
+		{name: "node read behind an example suffix is denied", cmd: `node -e "s=require('fs').readFileSync('.env.local','utf8');console.log(s);s.example ;"`, decision: "deny"},
+		{name: "node read behind a pub suffix is denied", cmd: `node -e "s=require('fs').readFileSync('.env.local','utf8');console.log(s);s.pub ;"`, decision: "deny"},
+		{name: "python read behind a dist suffix is denied", cmd: `python3 -c "print(open('.env.production').read());x=1;x.dist ;"`, decision: "deny"},
+		{name: "python key read behind a crt suffix is denied", cmd: `python3 -c "import os;print(open(os.path.expanduser('~/.ssh/id_ed25519')).read());id.crt ;"`, decision: "deny"},
+		{name: "eval key read behind a pub redirect is denied", cmd: `eval "cat<~/.ssh/id_rsa;:<x.pub ;"`, decision: "deny"},
+		{name: "ssh key read behind a pub redirect is denied", cmd: `ssh host "cat<~/.ssh/id_rsa;:<x.pub ;"`, decision: "deny"},
+		{name: "ssh aws read behind a pub redirect is denied", cmd: `ssh host "cat ~/.aws/credentials>/dev/stderr;:<x.pub ;"`, decision: "deny"},
+		{name: "spaced regex with a group keeps the pattern exemption", cmd: `rg 'foo (process\.env|bar)' src`, decision: "allow"},
+		{name: "unspaced eval read behind a pub redirect is denied", cmd: `eval 'cat<.env;:<x.pub'`, decision: "deny"},
+		{name: "unspaced ssh netrc read behind a template redirect is denied", cmd: `ssh h 'cat<~/.netrc;:<x.template'`, decision: "deny"},
+		{name: "unspaced ssh npmrc read behind a pub redirect asks", cmd: `ssh h 'cat<~/.npmrc;:<x.pub'`, decision: "ask"},
+		{name: "unspaced env read behind a sample redirect is denied", cmd: `ssh h 'cat<.env;:<a.sample'`, decision: "deny"},
+		{name: "regex with a group and quotes is allowed", cmd: `rg -o '"([A-Z][A-Z0-9_]+)",?$' turbo.json`, decision: "allow"},
+		{name: "unspaced example file call is allowed", cmd: `node -e 'load(".env.example")'`, decision: "allow"},
+		{name: "spaced name with a key extension is denied", cmd: `cat "prod server.pem"`, decision: "deny"},
+		{name: "spaced name with an example marker and a secret word is denied", cmd: `cat "my secret.example notes.txt"`, decision: "deny"},
+		{name: "path with a space to an env file is denied", cmd: `cat "/home/me/my dir/.env"`, decision: "deny"},
+		{name: "path with a space inside the aws dir is denied", cmd: `cat "/home/me/.aws/my creds"`, decision: "deny"},
+		{name: "spaced name with a secret word is denied", cmd: `cat "my secret notes.txt"`, decision: "deny"},
+		{name: "example marker after a real env word is denied", cmd: `python3 -c "print(open('.env.prod').read()) # .env.example"`, decision: "deny"},
+		{name: "trailing colon on a secret is denied", cmd: `cat secrets.json:`, decision: "deny"},
+
+		// a fixture directory relaxes only a plain path
+		{name: "fixture token file is allowed", cmd: `cat src/fixtures/graph/app-token.json`, decision: "allow"},
+		{name: "brace climbing out of testdata is denied", cmd: `cat testdata/{x,..}/secrets.json`, decision: "deny"},
+		{name: "brace with an empty climb out of testdata is denied", cmd: `cat testdata/{,../}client_secret.json`, decision: "deny"},
+		{name: "absolute brace climb is denied", cmd: `cat /tmp/testdata/{x,..}/{x,..}/home/me/token.json`, decision: "deny"},
+		{name: "brace climb to a key name is denied", cmd: `cat testdata/{x,..}/id_deploy`, decision: "deny"},
+		{name: "glob under testdata is denied", cmd: `cat testdata/*/../secrets.json`, decision: "deny"},
+		{name: "variable under testdata is denied", cmd: `cat testdata/$X/secrets.json`, decision: "deny"},
+		{name: "eval code word through testdata is denied", cmd: `eval 'cat${IFS}/testdata/..;cat${IFS}secrets.json'`, decision: "deny"},
+		{name: "ssh code word through testdata is denied", cmd: `ssh h 'cd${IFS}/testdata/;cat${IFS}~/app/credentials.json'`, decision: "deny"},
 
 		// a command name proves nothing about what runs: a function, alias or
 		// another binary on PATH can take it
@@ -271,10 +321,25 @@ func TestCheckPath(t *testing.T) {
 		{"Read", "~/.npmrc", "ask"},
 		{"Read", ".env.example", "allow"},
 		{"Write", "main.go", "allow"},
+
+		// test fixtures: name words are vocabulary there, credential material
+		// proper is not
+		{"Write", "/w/frontend/src/core/fixtures/microsoft-graph/app-token.json", "allow"},
+		{"Write", "/w/src/core/fixtures/graph/client-credentials.json", "allow"},
+		{"Write", "/w/pkg/testdata/credentials.json", "allow"},
+		{"Write", "/w/src/__fixtures__/token-error.json", "allow"},
+		{"Write", "/w/src/fixtures/.env", "deny"},
+		{"Write", "/w/src/fixtures/server.key", "deny"},
+		{"Write", "/w/src/fixtures/.netrc", "deny"},
+		{"Write", "/home/me/fixtures/.aws/credentials", "deny"},
+		{"Read", "/w/fixtures/../secrets.json", "deny"},
+		{"Write", "/w/fixtures-old/secrets.json", "deny"},
+		{"Write", "/w/src/fixtures", "allow"},
+		{"Write", "/w/fixtures.json/secrets.json", "deny"},
 	}
 
 	for _, tc := range cases {
-		if got := checkPath(tc.tool, tc.path, false).Decision.String(); got != tc.decision {
+		if got := Check(hook.NewRequest(tc.tool, tc.path, "", "")).Decision.String(); got != tc.decision {
 			t.Errorf("checkPath(%s, %q) = %s, want %s", tc.tool, tc.path, got, tc.decision)
 		}
 	}
@@ -307,6 +372,8 @@ func TestRelaxedRoots(t *testing.T) {
 		{"a cd out of the root takes relative paths with it", "Bash", root, `cd /home/tester && cat secrets.json`, "deny"},
 		{"a cd within the root keeps relative paths relaxed", "Bash", root, `cd ` + root + `/sub && cat secrets.json`, "allow"},
 		{"an unknown cd leaves relative paths unplaced", "Bash", root, `cd "$D" && cat secrets.json`, "deny"},
+		{"a brace climbing out of the root is not relaxed", "Bash", root, `cat {x,../..}/secrets.json`, "deny"},
+		{"a variable climbing out of the root is not relaxed", "Bash", "", `cat ` + root + `/$X/secrets.json`, "deny"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
