@@ -868,15 +868,8 @@ install_brew_packages() {
 install_node_toolchain() {
     if ! command_exists pnpm; then
         info "Installing pnpm..."
-        local tmp_dir throwaway_zdotdir zsh_path
+        local tmp_dir
         tmp_dir="$(mktemp -d)"
-        # The installer runs `pnpm setup`, which appends its own PNPM_HOME
-        # block to the shell rc it detects. Our tracked .zshenv already
-        # carries that block, so point ZDOTDIR at a throwaway directory and
-        # discard whatever setup writes there.
-        throwaway_zdotdir="$tmp_dir/zdotdir"
-        mkdir -p "$throwaway_zdotdir"
-        zsh_path="$(command -v zsh || echo /bin/sh)"
 
         if ! curl -fsSL https://get.pnpm.io/install.sh -o "$tmp_dir/install.sh"; then
             err "Could not download the pnpm installer from get.pnpm.io"
@@ -884,8 +877,9 @@ install_node_toolchain() {
             rm -rf "$tmp_dir"
             return 1
         fi
-        if ! PNPM_HOME="$PNPM_HOME_DIR" ZDOTDIR="$throwaway_zdotdir" SHELL="$zsh_path" \
-            sh "$tmp_dir/install.sh"; then
+        # PNPM_NO_MODIFY_PATH makes the installer's `pnpm setup` leave shell
+        # rc files alone: the tracked .zshenv already sets PNPM_HOME and PATH.
+        if ! PNPM_HOME="$PNPM_HOME_DIR" PNPM_NO_MODIFY_PATH=1 sh "$tmp_dir/install.sh"; then
             err "pnpm installer failed"
             info "  -> install manually: https://pnpm.io/installation"
             rm -rf "$tmp_dir"
