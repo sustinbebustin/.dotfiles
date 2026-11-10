@@ -83,13 +83,6 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME/bin:$PATH" ;;
 esac
 
-# Keep auth tokens (`pnpm login`) out of the tracked ~/.npmrc by redirecting
-# the userconfig to an untracked file. The tracked dotfile is promoted to
-# globalconfig so its settings still apply. pnpm honours both vars; non-auth
-# pnpm settings live in ~/.config/pnpm/config.yaml instead.
-export NPM_CONFIG_USERCONFIG="$HOME/.npmrc.local"
-export NPM_CONFIG_GLOBALCONFIG="$HOME/.npmrc"
-
 # ===== Bun =====
 export BUN_INSTALL="$HOME/.bun"
 case ":$PATH:" in

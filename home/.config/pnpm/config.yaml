@@ -1,11 +1,10 @@
 # pnpm global settings
 # Docs: https://pnpm.io/settings
-# Non-auth/non-registry settings must live here (or in a project's
-# pnpm-workspace.yaml) -- .npmrc only carries auth/registry config.
+# Settings live here (or in a project's pnpm-workspace.yaml). Registry tokens
+# go in the untracked ~/.config/pnpm/auth.ini, which `pnpm login` writes.
 
-# Block install-time scripts globally. Migrated from ~/.npmrc (v11 only reads
-# auth/registry from .npmrc). Individual projects re-assert this in their
-# pnpm-workspace.yaml so the constraint is portable across teammates.
+# Block install-time scripts globally. Individual projects re-assert this in
+# their pnpm-workspace.yaml so the constraint is portable across teammates.
 ignoreScripts: true
 
 # Supply-chain cooldown: don't install a package version until it has been

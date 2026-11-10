@@ -13,7 +13,6 @@ GNU Stow-based dotfiles system. `dot` bootstraps everything. A single stow packa
 │   └── Brewfile                 # Homebrew deps
 ├── home/                        # stow package -> $HOME
 │   ├── .zshenv                  # sets ZDOTDIR, delegates to it
-│   ├── .npmrc                   # registry settings (auth in ~/.npmrc.local)
 │   ├── .agents/                 # agent config shared by Claude Code and Droid
 │   ├── .claude/                 # Claude Code only
 │   ├── .factory/                # Factory Droid only: settings (BYOK models, hooks)
@@ -72,11 +71,11 @@ Key tools loaded: pnpm, bun, starship, eza, zsh-autosuggestions, zsh-syntax-high
 
 ## Node Toolchain
 
-pnpm is the single source of truth, installed by `dot init` from the standalone `get.pnpm.io` installer -- deliberately not via corepack, which pnpm upstream advises against. `pnpm runtime set node <version> -g` then provides it, pinned by `NODE_VERSION` in `dot`.
+pnpm is the single source of truth, installed by `dot init` from the standalone `get.pnpm.io` installer -- deliberately not via corepack, which pnpm upstream advises against. `pnpm runtime set node <version> -g` then provides it, pinned by `NODE_VERSION` in `dot`. pnpm v12's `globalShims` makes that global `node` project-aware: inside a project that pins Node (`devEngines.runtime`, `.nvmrc`, `.node-version`) it runs the pinned version, elsewhere `NODE_VERSION`. `PNPM_SHIM_BYPASS=1` skips the dispatch for one command.
 
 Global packages are declared in `PNPM_GLOBALS` in `dot` and installed with `pnpm add -g`. `dot doctor` warns if node resolves outside `$PNPM_HOME`, which means a second manager (nvm, brew, corepack) is competing for PATH.
 
-Registry config is split: `~/.npmrc` is tracked and holds settings, while auth tokens go to the untracked `~/.npmrc.local` via `NPM_CONFIG_USERCONFIG`. Non-auth pnpm settings live in `~/.config/pnpm/config.yaml`, since pnpm v11 reads only auth and registry config from `.npmrc`.
+pnpm settings live in the tracked `~/.config/pnpm/config.yaml`. Registry tokens live beside it in the untracked `~/.config/pnpm/auth.ini`, which `pnpm login` writes. There is no tracked `.npmrc`: pnpm reads only auth and certificate settings from INI files.
 
 ## Packages
 
@@ -210,4 +209,4 @@ Subagents are grouped by domain under `.agents/agents/` (Claude Code reads the s
 2. **XDG-compliant** -- all config under `~/.config/`, `.zshenv` bootstraps `ZDOTDIR`
 3. **Single bootstrap** -- `dot` handles Homebrew, packages, stow, shell in one pass
 4. **Hook-enforced safety** -- the Go guards deny or ask before destructive or outward-facing tool calls
-5. **Secrets excluded** -- `mcp.json`, `settings.json`, `.env*`, hook `config.json`, `~/.npmrc.local`, `~/.factory/anthropic-api-key` all untracked
+5. **Secrets excluded** -- `mcp.json`, `settings.json`, `.env*`, hook `config.json`, `~/.config/pnpm/auth.ini`, `~/.factory/anthropic-api-key` all untracked

@@ -54,7 +54,7 @@ autoload -Uz add-zsh-hook
 zle -N zle-line-init _compinit_kick
 
 # ===== Node toolchain =====
-# PATH, PNPM_HOME, BUN_INSTALL and the npm config vars are all set in
+# PATH, PNPM_HOME and BUN_INSTALL are all set in
 # .zshenv so scripts and interactive shells resolve the same node. Only the
 # interactive-only completion wiring belongs here.
 #
