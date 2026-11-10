@@ -156,6 +156,41 @@ func IsLiteral(w *syntax.Word) bool {
 	return true
 }
 
+// IsParamWord reports whether w is nothing but one plain parameter expansion,
+// `$R`, `${R}`, `"$R"` or `"${R}"` with R a name: a value the guard cannot
+// know, standing where a single argument was written. It may still become
+// several arguments -- unquoted by splitting, quoted through a bash nameref to
+// an array -- so it proves nothing on its own; a rule uses it to tell a
+// variable the agent could write out from any other expansion.
+func IsParamWord(w *syntax.Word) bool {
+	if w == nil || len(w.Parts) != 1 {
+		return false
+	}
+	switch x := w.Parts[0].(type) {
+	case *syntax.ParamExp:
+		return plainParam(x)
+	case *syntax.DblQuoted:
+		if len(x.Parts) != 1 {
+			return false
+		}
+		pe, ok := x.Parts[0].(*syntax.ParamExp)
+		return ok && plainParam(pe)
+	}
+	return false
+}
+
+// plainParam reports a bare `$NAME` / `${NAME}` with NAME an identifier, so
+// none of the special parameters (`$@`, `$*`), and no operator, subscript or
+// zsh flag.
+func plainParam(pe *syntax.ParamExp) bool {
+	if pe.Param == nil || pe.Flags != nil || pe.Excl || pe.Length || pe.Width || pe.IsSet ||
+		pe.NestedParam != nil || pe.Index != nil || len(pe.Modifiers) > 0 || pe.Slice != nil ||
+		pe.Repl != nil || pe.Names != 0 || pe.Exp != nil {
+		return false
+	}
+	return syntax.ValidName(pe.Param.Value)
+}
+
 // CommandName strips any leading path, so `/usr/local/bin/aws` and `aws` both
 // resolve to "aws".
 func CommandName(tok string) string {

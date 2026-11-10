@@ -32,21 +32,66 @@ const pushQuietShorthands = "uvqn"
 // `git push` or `git push origin HEAD`: which branch they write depends on
 // what is checked out, and this guard cannot see that.
 //
-// prefix is the git top-level flags before `push`; args are the tokens after
-// it. literal reports whether every word of the command was plain text, with
+// A `-C` directory given as a variable (`git -C $R push origin feat/x`) is
+// never proven safe, quoted or not: unquoted it splits into words, and even
+// `"$R"` becomes several when R is a bash nameref to an array (`declare -n
+// R='a[@]'`, possibly from a sourced file), any of which can be a subcommand
+// or a refspec for main. A push that would otherwise run unprompted is denied
+// with the rewrite instead: the agent knows the directory and can write it
+// literally. A literal -C value holding a `$` asks, since zsh expands `$=R`,
+// which the bash-mode parser reads as plain text.
+//
+// lossy marks a nested script whose text had the outer shell's expansions
+// dropped from it (hook.NestedLossy): `bash -c "git push origin feat/$B"` reads
+// as feat/ while B may hold `x:main`, so every push there asks.
+//
+// prefix is the git top-level flags before `push`, with prefixLiterals and
+// prefixParams describing each word (see checkGit); args are the tokens after
+// it. argsLiteral reports whether every word after push was plain text, with
 // no expansion whose value the guard cannot know.
-func checkPush(prefix, args []string, literal bool) (hook.Verdict, bool) {
-	if !literal {
-		return hook.Asked("git push with a shell expansion in its arguments - allow?"), true
+func checkPush(prefix, args []string, prefixLiterals, prefixParams []bool, argsLiteral, lossy bool) (hook.Verdict, bool) {
+	const expansionReason = "git push with a shell expansion in its arguments - allow?"
+	if lossy {
+		return hook.Asked("git push inside a nested script whose text lost the outer shell's expansions - allow?"), true
 	}
+	if !argsLiteral {
+		return hook.Asked(expansionReason), true
+	}
+	variableDir := false
 	for i := 0; i < len(prefix); i++ {
-		if prefix[i] == "-C" {
-			i++
-			continue
+		if !prefixLiterals[i] {
+			return hook.Asked(expansionReason), true
 		}
-		return hook.Asked(fmt.Sprintf("git push with top-level %s detected - allow?", prefix[i])), true
+		if prefix[i] != "-C" {
+			return hook.Asked(fmt.Sprintf("git push with top-level %s detected - allow?", prefix[i])), true
+		}
+		i++
+		switch {
+		case i >= len(prefix):
+		case prefixLiterals[i] && strings.Contains(prefix[i], "$"):
+			return hook.Asked(expansionReason), true
+		case prefixLiterals[i]:
+		case prefixParams[i]:
+			variableDir = true
+		default:
+			return hook.Asked(expansionReason), true
+		}
 	}
+	if v, hit := checkPushTargets(args); hit {
+		return v, true
+	}
+	if variableDir {
+		return hook.Denied("Blocked: git push with a variable as its -C directory. The variable can expand " +
+			"to several words (unquoted it is split; quoted, a bash nameref to an array still is), which can " +
+			"become a different subcommand or branch. Nothing was pushed. Write the directory literally -- " +
+			"`git -C /path/to/repo push ...` -- and run it again."), true
+	}
+	return hook.Verdict{}, false
+}
 
+// checkPushTargets asks unless args, the tokens after `push`, write only
+// literally named, unprotected branches with no flag beyond pushQuietFlags.
+func checkPushTargets(args []string) (hook.Verdict, bool) {
 	var operands []string
 	for i, a := range args {
 		if a == "--" {

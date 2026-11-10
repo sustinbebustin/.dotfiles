@@ -20,6 +20,29 @@
     "decision": "allow"
   },
   {
+    "name": "git-push-nested-lossy-refspec",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"git push origin feat/$B\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: git push inside a nested script whose text lost the outer shell's expansions - allow?"
+  },
+  {
+    "name": "git-push-nested-lossy-dir",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"git -C $R push origin feat/x\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script passed to a nested shell: git with top-level options inside a nested script whose text lost the outer shell's expansions - allow?"
+  },
+  {
+    "name": "git-push-nested-literal-feature",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c 'git push -u origin feat/x'\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-push-variable-dir-then-pr",
+    "stdin": "{\"tool_input\":{\"command\":\"R=/x; git -C $R push -qu origin fix/y \\u0026\\u0026 (cd $R \\u0026\\u0026 gh pr create --fill)\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: git push with a variable as its -C directory. The variable can expand to several words (unquoted it is split; quoted, a bash nameref to an array still is), which can become a different subcommand or branch. Nothing was pushed. Write the directory literally -- `git -C /path/to/repo push ...` -- and run it again."
+  },
+  {
     "name": "cd-top-level",
     "stdin": "{\"tool_input\":{\"command\":\"cd /tmp \\u0026\\u0026 ls\"},\"tool_name\":\"Bash\"}",
     "decision": "rewrite",

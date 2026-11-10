@@ -95,6 +95,44 @@ func TestWordLit(t *testing.T) {
 	}
 }
 
+func TestIsParamWord(t *testing.T) {
+	cases := []struct {
+		word string
+		want bool
+	}{
+		{`"$R"`, true},
+		{`"${R}"`, true},
+		{`$R`, true},
+		{`${R}`, true},
+		{`dir`, false},
+		{`"$R/x"`, false},
+		{`"x$R"`, false},
+		{`$R"$S"`, false},
+		{`"$@"`, false},
+		{`"$*"`, false},
+		{`"$1"`, false},
+		{`"${a[@]}"`, false},
+		{`"${!p@}"`, false},
+		{`"${!R}"`, false},
+		{`"${R:-/}"`, false},
+		{`"${#R}"`, false},
+		{`"$(pwd)"`, false},
+		{`'$R'`, false},
+	}
+	for _, tc := range cases {
+		file, ok := Parse("x " + tc.word).File()
+		if !ok {
+			t.Fatalf("Parse(%q) did not produce an AST", tc.word)
+		}
+		got, _ := FirstCall(file, func(c *syntax.CallExpr) (bool, bool) {
+			return IsParamWord(c.Args[1]), true
+		})
+		if got != tc.want {
+			t.Errorf("IsParamWord(%s) = %t, want %t", tc.word, got, tc.want)
+		}
+	}
+}
+
 func TestWordLitNilWord(t *testing.T) {
 	if got := WordLit(nil); got != "" {
 		t.Errorf("WordLit(nil) = %q, want empty", got)

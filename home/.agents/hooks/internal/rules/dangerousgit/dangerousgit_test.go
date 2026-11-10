@@ -123,6 +123,38 @@ func TestDecide(t *testing.T) {
 		{"push with -c config", `git -c remote.origin.push=HEAD:main push origin feat/x`, "ask"},
 		{"push second push to main", `git push -u origin feat/x && git push origin main`, "ask"},
 
+		// git push -C with a variable: unquoted it splits, and quoted a bash
+		// nameref to an array still expands to several words, so a push that
+		// would otherwise run is denied with the rewrite to a literal path.
+		{"push -C quoted var", `R=/x; git -C "$R" push -qu origin fix/cask`, "deny"},
+		{"push -C quoted braced var", `git -C "${W}" push -u origin feat/x`, "deny"},
+		{"push -C quoted nameref", `a=(x push origin main); declare -n R='a[@]'; git -C "$R" push origin feat/x`, "deny"},
+		{"push -C zsh split flag", `git -C "$=R" push origin feat/x`, "ask"},
+		{"push -C zsh split flag unquoted", `git -C $=R push origin feat/x`, "ask"},
+		{"push -C quoted var to main", `git -C "$R" push origin main`, "ask"},
+		{"push -C quoted var bare", `git -C "$R" push`, "ask"},
+		{"push -C quoted var variable branch", `git -C "$R" push origin "$B"`, "ask"},
+		{"push -C quoted positional list", `git -C "$@" push origin feat/x`, "ask"},
+		{"push -C quoted star", `git -C "$*" push origin feat/x`, "ask"},
+		{"push -C quoted array", `git -C "${a[@]}" push origin feat/x`, "ask"},
+		{"push -C quoted indirect list", `git -C "${!p@}" push origin feat/x`, "ask"},
+		{"push -C quoted command substitution", `git -C "$(pwd)" push origin feat/x`, "ask"},
+		{"push -c quoted var", `git -c "$X" push origin feat/x`, "ask"},
+		{"push -C unquoted var", `R=/x; git -C $R push -qu origin fix/cask`, "deny"},
+		// An expansion attached to a top-level flag hides where its value ends.
+		{"push attached -C var", `git -C$R push origin feat/x`, "ask"},
+		{"push attached quoted -C var", `git -C"$R" push origin feat/x`, "ask"},
+		{"push attached literal -C", `git -C/r push origin feat/x`, "ask"},
+		{"status with attached -C var", `git -C$R status`, "ask"},
+		{"status with literal -C", `git -C /r status`, "allow"},
+		// A command the bash-mode parser rejects (zsh syntax) is read as text.
+		{"unparseable zsh split push", `git -C "${=R}" push origin feat/x`, "ask"},
+		{"unparseable zsh flag push", `git -C "${(s: :)R}" push origin feat/x`, "ask"},
+		{"unparseable without push", `echo "${=R}"`, "allow"},
+		{"unparseable git status", `git -C "${=R}" status`, "allow"},
+		{"push -C unquoted var to main", `git -C $R push origin main`, "ask"},
+		{"push -C unquoted var and variable branch", `git -C $R push origin $B`, "ask"},
+
 		// Other ways to write a remote branch.
 		{"inline alias", `git -c alias.p='push origin main' p`, "ask"},
 		{"inline alias upper", `git -c Alias.p=push p`, "ask"},
@@ -236,6 +268,29 @@ func TestDecide(t *testing.T) {
 				t.Fatalf("decide(%q) = %q, want %q (reason: %s)", tc.cmd, got.Decision, tc.decision, got.Reason)
 			}
 		})
+	}
+}
+
+// TestLossyNestedGit pins that a nested script which lost the outer shell's
+// expansions gets no benefit of the doubt: `bash -c "git -C $R push ..."`
+// arrives as `git -C push ...`, where push reads as -C's value.
+func TestLossyNestedGit(t *testing.T) {
+	cases := []struct {
+		cmd      string
+		decision string
+	}{
+		{`git -C push origin feat/x`, "ask"},
+		{`git -C reset --hard`, "ask"},
+		{`git push -u origin feat/`, "ask"},
+		{`git status`, "allow"},
+		{`git log --oneline`, "allow"},
+	}
+	for _, tc := range cases {
+		req := hook.NewRequest("Bash", "", "", tc.cmd)
+		req.Origin = hook.NestedLossy
+		if got := Check(req).Decision.String(); got != tc.decision {
+			t.Errorf("lossy Check(%q) = %s, want %s", tc.cmd, got, tc.decision)
+		}
 	}
 }
 

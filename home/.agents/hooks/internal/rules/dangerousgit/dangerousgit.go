@@ -36,6 +36,7 @@ package dangerousgit
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -55,26 +56,42 @@ const Name = "block-dangerous-git"
 func Check(req *hook.Request) hook.Verdict {
 	file, ok := req.Shell.File()
 	if !ok {
+		// The bash-mode parser rejects zsh syntax that still runs, and some
+		// of it splits a word into a subcommand and refspecs (`git -C "${=R}"
+		// push ...`), so a push named in text it cannot read asks.
+		if req.Shell.Status() == shellast.Unparseable && gitPushText.MatchString(req.Command) {
+			return hook.Asked("git push in a command the guard could not parse - allow?")
+		}
 		return hook.Allowed()
 	}
-	if v, hit := shellast.FirstCall(file, checkCall); hit {
+	lossy := req.Origin == hook.NestedLossy
+	if v, hit := shellast.FirstCall(file, func(c *syntax.CallExpr) (hook.Verdict, bool) {
+		return checkCall(c, lossy)
+	}); hit {
 		return v
 	}
 	return hook.Allowed()
 }
 
-func checkCall(c *syntax.CallExpr) (hook.Verdict, bool) {
+// gitPushText matches text that names git and then push as whole words.
+var gitPushText = regexp.MustCompile(`\bgit\b[\s\S]*\bpush\b`)
+
+// checkCall judges one call. lossy marks a nested script whose text had the
+// outer shell's expansions dropped from it (see checkPush).
+func checkCall(c *syntax.CallExpr, lossy bool) (hook.Verdict, bool) {
 	name, operands := shellast.Invocation(c.Args, shellast.WordLit)
 	args := make([]string, len(operands))
 	literals := make([]bool, len(operands))
+	params := make([]bool, len(operands))
 	for i, a := range operands {
 		args[i] = shellast.WordLit(a)
 		literals[i] = shellast.IsLiteral(a)
+		params[i] = shellast.IsParamWord(a)
 	}
 
 	switch shellast.CommandName(name) {
 	case "git":
-		return checkGit(args, literals, noopSequenceEditor(c, len(c.Args)-len(operands)-1))
+		return checkGit(args, literals, params, noopSequenceEditor(c, len(c.Args)-len(operands)-1), lossy)
 	case "gh":
 		return checkGh(args)
 	}
@@ -137,13 +154,34 @@ func isEnvAssignment(tok string) bool {
 }
 
 // checkGit judges one git call. literals[i] reports whether args[i] was plain
-// text, with no expansion the guard cannot read. noopEditor reports a sequence
-// editor that leaves an interactive rebase's plan as it is.
-func checkGit(args []string, literals []bool, noopEditor bool) (hook.Verdict, bool) {
+// text, with no expansion the guard cannot read, and params[i] whether it was
+// a lone variable (see shellast.IsParamWord). noopEditor reports a sequence
+// editor that leaves an interactive rebase's plan as it is; lossy marks a
+// nested script whose text lost the outer shell's expansions (see checkPush).
+func checkGit(args []string, literals, params []bool, noopEditor, lossy bool) (hook.Verdict, bool) {
+	// A top-level flag with an expansion in its own word (`-C$R`) renders as
+	// the bare flag, so the guard would take the next word as its value and
+	// misread the subcommand.
+	for i, a := range args {
+		if !strings.HasPrefix(a, "-") {
+			break
+		}
+		if !literals[i] {
+			return hook.Asked(fmt.Sprintf("git with an expansion inside its top-level option %q - allow?", a)), true
+		}
+	}
 	sub, rest := shellast.GitSubcommand(args)
 	var prefix []string
 	if sub != "" {
 		prefix = args[:len(args)-len(rest)-1]
+	}
+	// In a lossy script a dropped expansion may have been a top-level
+	// option's value (`bash -c "git -C $R push ..."` arrives as `git -C push
+	// ...`), so the subcommand read here may be the wrong word, or none
+	// (`git -C reset --hard`).
+	if lossy && len(args) > 0 && strings.HasPrefix(args[0], "-") {
+		return hook.Asked("git with top-level options inside a nested script whose text lost the outer " +
+			"shell's expansions - allow?"), true
 	}
 	for i, a := range prefix {
 		// An alias defined inline runs under a name no case below matches:
@@ -155,7 +193,8 @@ func checkGit(args []string, literals []bool, noopEditor bool) (hook.Verdict, bo
 
 	switch sub {
 	case "push":
-		return checkPush(prefix, rest, allLiteral(literals))
+		n := len(prefix)
+		return checkPush(prefix, rest, literals[:n], params[:n], allLiteral(literals[n:]), lossy)
 	case "send-pack", "http-push":
 		return hook.Asked(fmt.Sprintf("git %s pushes refs to a remote - allow?", sub)), true
 	case "subtree":
