@@ -109,7 +109,7 @@ func checkCall(c *syntax.CallExpr) (hook.Verdict, bool) {
 // runners launch a package's binary, so `pnpm exec supabase` or
 // `npx supabase@x` runs the same CLI as `supabase` does.
 var runners = map[string]bool{
-	"npx": true, "pnpx": true, "bunx": true, "pnpm": true, "yarn": true, "bun": true, "npm": true,
+	"npx": true, "pnpx": true, "pnx": true, "pn": true, "bunx": true, "pnpm": true, "yarn": true, "bun": true, "npm": true,
 }
 
 // supabaseArgs returns the words following the supabase command word, and

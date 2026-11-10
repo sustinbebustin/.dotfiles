@@ -63,6 +63,8 @@ func TestCheck(t *testing.T) {
 		{"pnpm exec", `pnpm exec supabase db reset --linked`, "deny"},
 		{"pnpm -C exec", `pnpm -C frontend exec supabase db reset --linked`, "deny"},
 		{"pnpm dlx", `pnpm dlx supabase db reset --linked`, "deny"},
+		{"pnx", `pnx supabase db reset --linked`, "deny"},
+		{"pn exec", `pn exec supabase db reset --linked`, "deny"},
 		{"npx", `npx supabase db reset --linked`, "deny"},
 		{"npx pinned version", `npx supabase@2.117.0 db reset --linked`, "deny"},
 		{"bunx", `bunx supabase db push`, "ask"},
