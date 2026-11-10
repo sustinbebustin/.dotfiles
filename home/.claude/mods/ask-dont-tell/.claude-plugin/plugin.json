@@ -1,0 +1,7 @@
+{
+  "name": "ask-dont-tell",
+  "displayName": "Ask, Don't Tell",
+  "version": "0.1.0",
+  "description": "Blocks a turn from ending when the final reply leaves questions, decisions or offers inline, and tells Claude to ask them with AskUserQuestion.",
+  "author": { "name": "sustinbebustin" }
+}
