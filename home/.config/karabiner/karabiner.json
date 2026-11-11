@@ -18,6 +18,21 @@
                                     }
                                 ],
                                 "type": "basic"
+                            },
+                            {
+                                "description": "Change mouse button4 (back) to control+b (tmux/herdr prefix).",
+                                "from": {
+                                    "pointing_button": "button4",
+                                    "modifiers": { "optional": ["any"] }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "b",
+                                        "modifiers": ["left_control"]
+                                    },
+                                    { "key_code": "vk_none" }
+                                ],
+                                "type": "basic"
                             }
                         ]
                     },
@@ -106,6 +121,16 @@
                     }
                 ]
             },
+            "devices": [
+                {
+                    "identifiers": {
+                        "is_pointing_device": true,
+                        "product_id": 33322,
+                        "vendor_id": 2362
+                    },
+                    "ignore": false
+                }
+            ],
             "name": "Default profile",
             "selected": true,
             "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
