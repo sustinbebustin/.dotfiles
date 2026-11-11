@@ -1,11 +1,45 @@
 # .zshrc - Configuration for interactive shells
 
 # ===== Key bindings =====
+# Pin emacs keys: zsh otherwise switches to vi keys when EDITOR contains "vi".
+bindkey -e
 bindkey '^[^?' backward-kill-word  # Option+Backspace: delete word
+bindkey '^[[1;5D' backward-word    # Ctrl+Left
+bindkey '^[[1;5C' forward-word     # Ctrl+Right: also accepts one word of a suggestion
+bindkey '^[[3~' delete-char        # Delete
+# Home/End, in the three encodings terminals and multiplexers send.
+bindkey '^[[H' beginning-of-line
+bindkey '^[OH' beginning-of-line
+bindkey '^[[1~' beginning-of-line
+bindkey '^[[F' end-of-line
+bindkey '^[OF' end-of-line
+bindkey '^[[4~' end-of-line
+# Up/Down walk only the history entries that start with what is already typed.
+autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
+bindkey '^[[A' up-line-or-beginning-search
+bindkey '^[OA' up-line-or-beginning-search
+bindkey '^[[B' down-line-or-beginning-search
+bindkey '^[OB' down-line-or-beginning-search
 
 # ===== Completions =====
 fpath=("$ZDOTDIR/functions" $fpath)
 typeset -U fpath path  # dedupe fpath/path so compinit scans each dir once
+# Completion menu: Tab opens a list navigable with the arrow keys; matching
+# falls back from exact to case-insensitive to substring.
+zmodload zsh/complist  # must load before compinit for `menu select`
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list '' 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%F{#7970A9}-- %d --%f'
+zstyle ':completion:*:warnings' format '%F{#FF9580}no matches%f'
+zstyle ':completion:*' squeeze-slashes true
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompcache"
+bindkey '^[[Z' reverse-menu-complete                # Shift+Tab
+bindkey -M menuselect '^[[Z' reverse-menu-complete
 autoload -Uz compinit
 # Defer compinit until just after the first prompt is drawn. We register a
 # zle file-descriptor handler on a no-op fd; zle invokes it once the line
@@ -197,16 +231,6 @@ export LESS_TERMCAP_so=$'\e[1;38;2;248;248;242;48;2;69;65;88m'
 export LESS_TERMCAP_ue=$'\e[0m'
 export LESS_TERMCAP_us=$'\e[1;38;2;138;255;128m'
 
-# ===== Linux/Arch plugins =====
-if [[ "$OSTYPE" == "linux"* ]]; then
-  [ -f /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ] && \
-    source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-  [ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && \
-    source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-  [ -f /usr/share/fzf/key-bindings.zsh ] && \
-    source /usr/share/fzf/key-bindings.zsh
-fi
-
 # ===== Plugins (via homebrew) =====
 # Source these lazily inside the deferred-compinit handler so they don't
 # block the first prompt render (they cost ~90 ms together).
@@ -263,6 +287,22 @@ HISTSIZE=50000
 SAVEHIST=50000
 setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_VERIFY EXTENDED_HISTORY
 
+# ===== fzf =====
+# Ctrl-T inserts a file path, Alt-C changes directory, `**<Tab>` completes
+# fuzzily. Ctrl-R is rebound by atuin below.
+if command -v fzf &>/dev/null; then
+  if command -v fd &>/dev/null; then
+    export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
+    export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+    export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git'
+  fi
+  # Dracula Pro
+  export FZF_DEFAULT_OPTS='--height=40% --layout=reverse --border --color=fg:#F8F8F2,hl:#9580FF,fg+:#F8F8F2,bg+:#454158,hl+:#9580FF,info:#7970A9,prompt:#8AFF80,pointer:#FF80BF,marker:#FF80BF,spinner:#FFCA80,header:#7970A9,border:#454158'
+  # Off a terminal (`zsh -ic` from a script or agent) there is no line editor
+  # to bind keys in, and the script warns "can't change option: zle".
+  [[ -t 0 ]] && eval "$(fzf --zsh)"
+fi
+
 # ===== Atuin =====
 # Takes Ctrl-R from fzf (bound above, so this wins). The up arrow stays zsh's
 # own prefix search rather than opening atuin.
@@ -294,8 +334,6 @@ command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
 
 export QLTY_INSTALL="$HOME/.qlty"
 
-# bun completions
-[ -s "/home/austin/.bun/_bun" ] && source "/home/austin/.bun/_bun"
 # >>> mws shell-init >>>
 eval "$(mws shell-init zsh)"
 # <<< mws shell-init <<<

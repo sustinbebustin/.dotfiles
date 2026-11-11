@@ -67,7 +67,9 @@ XDG-compliant. `~/.zshenv` sets `ZDOTDIR=$HOME/.config/zsh` and sources `$ZDOTDI
 
 Anything that decides which binary a command resolves to belongs in `.zshenv`, not `.zshrc`. `.zshrc` is skipped by non-interactive shells, so config placed there makes scripts, git hooks, ssh commands and agent tooling resolve a different node -- or no node -- than the terminal does.
 
-Key tools loaded: pnpm, bun, starship, eza, zsh-autosuggestions, zsh-syntax-highlighting.
+Key tools loaded: pnpm, bun, starship, eza, fzf, atuin, zoxide, direnv, zsh-autosuggestions, zsh-syntax-highlighting.
+
+compinit and the two zsh plugins load from a one-shot `zle-line-init` handler, after the first prompt is drawn. Anything a plugin would normally do in its first `precmd` has to be run by hand there. Autosuggestions come from atuin (current directory first), with zsh history as the fallback; that strategy list is set after `atuin init`, which otherwise replaces it.
 
 ## Node Toolchain
 
