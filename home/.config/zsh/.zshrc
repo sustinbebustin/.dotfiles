@@ -38,6 +38,10 @@ _compinit_deferred() {
     source "$plugin"
   done
   unset _zsh_brew_plugins_to_load
+  # zsh-autosuggestions wraps the editing widgets from a precmd hook, and the
+  # first prompt's precmd ran before it was sourced. Wrap them now, or a new
+  # shell shows no suggestions until its second prompt.
+  (( $+functions[_zsh_autosuggest_start] )) && _zsh_autosuggest_start
   unfunction _compinit_deferred 2>/dev/null
 }
 typeset -ga _compdef_buffer
@@ -234,7 +238,7 @@ ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#FF80BF'
 ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#FF80BF'
 ZSH_HIGHLIGHT_STYLES[redirection]='fg=#9580FF'
 ZSH_HIGHLIGHT_STYLES[comment]='fg=#7970A9'
-ZSH_AUTOSUGGESTION_HIGHLIGHT_STYLE='fg=#504C67'
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#7970A9'
 
 # ===== Prompt =====
 # `eval "$(starship init zsh)"` is ~70 ms (mostly the eval). Cache the
@@ -260,8 +264,22 @@ SAVEHIST=50000
 setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_VERIFY EXTENDED_HISTORY
 
 # ===== Atuin =====
-# Takes Ctrl-R from fzf (bound above, so this wins); the up arrow stays plain history.
-command -v atuin &>/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
+# Takes Ctrl-R from fzf (bound above, so this wins). The up arrow stays zsh's
+# own prefix search rather than opening atuin.
+if command -v atuin &>/dev/null; then
+  # --disable-ai: `?` on an empty prompt would otherwise open atuin's AI mode.
+  eval "$(atuin init zsh --disable-up-arrow --disable-ai)"
+  # atuin init makes its own strategy -- the most recent match from anywhere,
+  # failed commands included -- the only source of autosuggestions. Prefer a
+  # command that succeeded in this directory, then atuin's match, then zsh
+  # history in case atuin fails.
+  _zsh_autosuggest_strategy_atuin_cwd() {
+    # '$all-user' is a literal atuin author filter, not a shell variable.
+    suggestion=$(ATUIN_QUERY="$1" atuin search --cmd-only --author '$all-user' \
+      --cwd "$PWD" --exit 0 --limit 1 --search-mode prefix 2>/dev/null)
+  }
+  ZSH_AUTOSUGGEST_STRATEGY=(atuin_cwd atuin history)
+fi
 
 # ===== Direnv =====
 # The hook bakes in direnv's resolved Cellar path, which `brew upgrade` deletes
