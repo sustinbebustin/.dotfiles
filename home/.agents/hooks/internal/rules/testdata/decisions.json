@@ -1241,6 +1241,47 @@
     "reason": "[BLOCKED] gh api DELETE not allowed"
   },
   {
+    "name": "gh-repo-edit-visibility",
+    "stdin": "{\"tool_input\":{\"command\":\"gh repo edit o/r --visibility public --accept-visibility-change-consequences\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh repo edit changes the repository's settings, which can make it public - allow?"
+  },
+  {
+    "name": "gh-repo-archive",
+    "stdin": "{\"tool_input\":{\"command\":\"gh repo archive o/r --yes\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh repo archive makes the repository read-only - allow?"
+  },
+  {
+    "name": "gh-secret-set",
+    "stdin": "{\"tool_input\":{\"command\":\"gh secret set TOKEN --body x\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh secret set changes a value workflows run with - allow?"
+  },
+  {
+    "name": "gh-variable-remove",
+    "stdin": "{\"tool_input\":{\"command\":\"gh variable remove NAME\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh variable remove removes a value workflows run with - allow?"
+  },
+  {
+    "name": "gh-secret-list",
+    "stdin": "{\"tool_input\":{\"command\":\"gh secret list\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-reset-hard-in-unparseable-command",
+    "stdin": "{\"tool_input\":{\"command\":\"git reset --hard; : =(true)\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git reset in a command the guard could not parse - allow?"
+  },
+  {
+    "name": "gh-repo-delete-in-unparseable-command",
+    "stdin": "{\"tool_input\":{\"command\":\"gh repo delete o/r --yes; : =(true)\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh in a command the guard could not parse - allow?"
+  },
+  {
     "name": "gh-repo-delete-after-pr-close",
     "stdin": "{\"tool_input\":{\"command\":\"gh pr close 3; gh repo delete o/r --yes\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",

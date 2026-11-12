@@ -25,8 +25,9 @@
 // published history.
 //
 // The gh operations that are outward-facing ask as well: gh pr merge and close,
-// gh release create and delete, gh repo rename and sync, gh workflow run, the
-// gh run subcommands that change a run, gh issue delete, and a `gh api` call
+// gh release create and delete, gh repo rename, sync, archive and edit, gh
+// secret and gh variable set and delete, gh workflow run, the gh run
+// subcommands that change a run, gh issue delete, and a `gh api` call
 // that writes - by an explicit POST, PUT or PATCH, or by the payload flags that
 // make gh choose POST on its own. See checkGhAPI.
 //
@@ -68,13 +69,15 @@ func Check(req *hook.Request) hook.Verdict {
 	if !ok {
 		// The bash-mode parser rejects zsh syntax that still runs, and some
 		// of it splits a word into a subcommand and refspecs (`git -C "${=R}"
-		// push ...`), so a push named in text it cannot read asks. So does gh:
-		// few of its commands are guarded, but one of them is denied.
+		// push ...`). The guard cannot say what such a command's arguments
+		// are, so text naming git and a subcommand it judges asks, and so
+		// does any text naming gh.
 		if req.Shell.Status() == shellast.Unparseable {
-			switch {
-			case gitPushText.MatchString(req.Command):
-				return hook.Asked("git push in a command the guard could not parse - allow?")
-			case ghText.MatchString(req.Command):
+			if m := gitGuardedText.FindStringSubmatch(req.Command); m != nil {
+				return hook.Asked(fmt.Sprintf("git %s in a command the guard could not parse - allow?",
+					strings.TrimSuffix(m[1], ".")))
+			}
+			if ghText.MatchString(req.Command) {
 				return hook.Asked("gh in a command the guard could not parse - allow?")
 			}
 		}
@@ -94,8 +97,11 @@ func Check(req *hook.Request) hook.Verdict {
 	return first
 }
 
-// gitPushText matches text that names git and then push as whole words.
-var gitPushText = regexp.MustCompile(`\bgit\b[\s\S]*\bpush\b`)
+// gitGuardedText matches text that names git and then, as a whole word, a
+// subcommand checkGit judges, or an inline alias, which can stand for any of
+// them. It has to list every subcommand checkGit has a case for.
+var gitGuardedText = regexp.MustCompile(
+	`\bgit\b[\s\S]*?\b(push|send-pack|http-push|subtree|rebase|reset|clean|branch|tag|alias\.)\b`)
 
 // ghText matches text that names gh as a whole word.
 var ghText = regexp.MustCompile(`\bgh\b`)
@@ -365,6 +371,21 @@ func checkGh(args []string, exact bool) (hook.Verdict, bool) {
 				return hook.Asked("gh repo rename changes the repository's name and URL - allow?"), true
 			case "sync":
 				return hook.Asked("gh repo sync can update (or with --force reset) a branch - allow?"), true
+			case "archive":
+				return hook.Asked("gh repo archive makes the repository read-only - allow?"), true
+			case "edit":
+				return hook.Asked("gh repo edit changes the repository's settings, which can make it " +
+					"public - allow?"), true
+			}
+		}
+	case "secret", "variable":
+		if len(args) > 1 {
+			switch args[1] {
+			case "set":
+				return hook.Asked(fmt.Sprintf("gh %s set changes a value workflows run with - allow?", args[0])), true
+			case "delete", "remove":
+				return hook.Asked(fmt.Sprintf("gh %s %s removes a value workflows run with - allow?",
+					args[0], args[1])), true
 			}
 		}
 	case "workflow":
