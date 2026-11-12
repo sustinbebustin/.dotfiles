@@ -189,7 +189,7 @@ the `gofumpt`/`gci` formatters `make fmt` applies.
 | `block-credential-files` | Read, Edit, Write, Bash, Grep | Deny access to credential files |
 | `block-aws-cli` | Bash | Ask before an `aws` call that could reach real AWS, unless the config's per-profile policy allows it (all calls, or reads only) or denies it |
 | `block-supabase-remote` | Bash | Deny Supabase CLI commands that wipe a remote database or delete a project; ask before other remote writes |
-| `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands; deny outward-facing gh operations (`pr close`, `repo delete`, writing `gh api`) |
+| `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands and outward-facing gh operations (`pr merge`, `pr close`, writing `gh api`); deny `gh repo delete` and `gh api` DELETE |
 | `block-dangerous-rm` | Bash | Ask before a recursive `rm` |
 | `enforce-root` | Bash | Deny a top-level `cd`, which silently desyncs later commands |
 

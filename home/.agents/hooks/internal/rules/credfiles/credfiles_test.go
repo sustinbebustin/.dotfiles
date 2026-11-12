@@ -327,6 +327,8 @@ func TestCheckBash(t *testing.T) {
 		{name: "jq redefined as a function", cmd: `jq(){ cat "$1"; }; jq .env`, decision: "deny"},
 		{name: "jq behind an alias", cmd: `alias jq=cat; jq .env`, decision: "deny"},
 		{name: "jq after an eval", cmd: `eval "$X"; jq .env`, decision: "deny"},
+		{name: "octal escape spelling a secret name", cmd: `cat $'.\545nv'`, decision: "deny"},
+		{name: "unknown escape spelling a secret name", cmd: `cat $'.en\v' $'.\gitconfig' $'i\d_rsa'`, decision: "deny"},
 		{name: "gh api --jq expression", cmd: `gh api repos/o/r/environments --jq '.environments[].name'`, decision: "allow"},
 		{name: "gh api -q expression", cmd: `gh api repos/o/r/environments -q '.environments[].name'`, decision: "allow"},
 		{name: "gh view --jq= expression", cmd: `gh pr view 1 --json files --jq='.files[].path | select(endswith(".key"))'`, decision: "allow"},

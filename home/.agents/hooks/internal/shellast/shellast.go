@@ -17,6 +17,7 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"mvdan.cc/sh/v3/expand"
@@ -127,18 +128,58 @@ func WordLit(w *syntax.Word) string {
 
 // SglText is the text a single-quoted part passes to the command. Plain '...'
 // is taken as written; ANSI-C $'...' has its backslash escapes decoded, as
-// the shell does, so `$'\x2eenv'` is `.env`. The text ends at a decoded NUL.
+// zsh does, so `$'\x2eenv'` is `.env`. The text ends at a decoded NUL.
 func SglText(x *syntax.SglQuoted) string {
 	if !x.Dollar {
 		return x.Value
 	}
-	s, _, err := expand.Format(nil, x.Value, nil)
+	s, _, err := expand.Format(nil, zshEscapes(x.Value), nil)
 	if err != nil {
 		return x.Value
 	}
 	s, _, _ = strings.Cut(s, "\x00")
 	return s
 }
+
+// sharedEscapes are the characters that, after a backslash in $'...', mean the
+// same to zsh and to expand.Format. `C` and `M` open zsh's control and meta
+// forms, which make no printable character, so they are left as written too.
+const sharedEscapes = `abeEfnrtvxuU\'"?CM`
+
+// zshEscapes rewrites the $'...' escapes that zsh reads differently from
+// expand.Format, which follows bash, into text Format reads zsh's way. zsh
+// drops the backslash of an escape it does not know (`\i` is `i`, where bash
+// keeps both characters), and keeps only the low byte of an octal escape
+// (`\541` is `a`). Read bash's way, `$'mutat\ion'` and `$'.\545nv'` would hide
+// the words the rules match on.
+func zshEscapes(s string) string {
+	var sb strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' || i+1 == len(s) {
+			sb.WriteByte(s[i])
+			continue
+		}
+		i++
+		switch next := s[i]; {
+		case isOctal(next):
+			value, digits := 0, 0
+			for ; digits < 3 && i+digits < len(s) && isOctal(s[i+digits]); digits++ {
+				value = value*8 + int(s[i+digits]-'0')
+			}
+			i += digits - 1
+			sb.WriteString(`\x`)
+			sb.WriteString(strconv.FormatInt(int64(value&0xff|0x100), 16)[1:])
+		case strings.IndexByte(sharedEscapes, next) >= 0:
+			sb.WriteByte('\\')
+			sb.WriteByte(next)
+		default:
+			sb.WriteByte(next)
+		}
+	}
+	return sb.String()
+}
+
+func isOctal(b byte) bool { return b >= '0' && b <= '7' }
 
 // IsLiteral reports whether w is plain text, so WordLit renders exactly what
 // the shell will pass: no variable, command, or arithmetic expansion anywhere
@@ -161,12 +202,88 @@ func IsLiteral(w *syntax.Word) bool {
 	return true
 }
 
+// maxBraceWords is the most words one word's brace expansion may come to before
+// ExpandBraces gives up on it. A hook must answer in milliseconds, and
+// `{1..1000000}` or a long run of `{a,b}` pairs would otherwise be built out
+// in full.
+const maxBraceWords = 64
+
+// ExpandBraces returns words with every unquoted brace list and sequence
+// written out, as bash and zsh do before any other expansion: `{pr,close}` is
+// the two words `pr` and `close`, and `-{X,}` the words `-X` and `-`. A rule
+// that reads a command's arguments by position needs them this way. Braces
+// that list nothing (`{owner}`) stay text.
+//
+// ok is false when some word expands to more than maxBraceWords; the words are
+// then returned as given, and the caller knows only that it cannot say what the
+// command's arguments are.
+func ExpandBraces(words []*syntax.Word) (expanded []*syntax.Word, ok bool) {
+	for _, w := range words {
+		// SplitBraces rewrites the word it is given, and the tree is shared.
+		split := *w
+		if !syntax.SplitBraces(&split) {
+			expanded = append(expanded, w)
+			continue
+		}
+		if braceWords(&split) > maxBraceWords {
+			return words, false
+		}
+		expanded = append(expanded, expand.Braces(&split)...)
+	}
+	return expanded, true
+}
+
+// braceWords counts the words w's brace expansion produces, giving up with a
+// number over maxBraceWords once it is clear the answer is larger.
+func braceWords(w *syntax.Word) int {
+	total := 1
+	for _, p := range w.Parts {
+		br, isBrace := p.(*syntax.BraceExp)
+		if !isBrace {
+			continue
+		}
+		alternatives := 0
+		if br.Sequence {
+			alternatives = sequenceLen(br)
+		} else {
+			for _, elem := range br.Elems {
+				alternatives += braceWords(elem)
+			}
+		}
+		total *= min(alternatives, maxBraceWords+1)
+		if total > maxBraceWords {
+			return total
+		}
+	}
+	return total
+}
+
+// sequenceLen is an upper bound on the length of the sequence `{from..to}`,
+// ignoring any step. The ends are numbers, or else single characters, which is
+// how expand.Braces reads them.
+func sequenceLen(br *syntax.BraceExp) int {
+	from, to := br.Elems[0].Lit(), br.Elems[1].Lit()
+	a, errFrom := strconv.Atoi(from)
+	b, errTo := strconv.Atoi(to)
+	if errFrom != nil || errTo != nil {
+		if from == "" || to == "" {
+			return maxBraceWords + 1
+		}
+		a, b = int(from[0]), int(to[0])
+	}
+	if span := max(a, b) - min(a, b); span >= 0 && span < maxBraceWords {
+		return span + 1
+	}
+	return maxBraceWords + 1
+}
+
 // IsOneArgument reports whether w reaches its command as exactly one argument
 // whose text the shell does not rewrite: nothing in it is left to split, glob
 // or brace-expand. Unquoted text must hold no glob, brace or expansion
 // character (zsh's extendedglob `^` and `#` and its `$=name` forms included),
 // and an expansion must sit in double quotes and stay one word there, which an
-// array or "$@" does not.
+// array or "$@" does not. ANSI-C $'...' text is rewritten, so it does not
+// qualify.
 func IsOneArgument(w *syntax.Word) bool {
 	for i, p := range w.Parts {
 		switch x := p.(type) {
@@ -175,6 +292,11 @@ func IsOneArgument(w *syntax.Word) bool {
 				return false
 			}
 		case *syntax.SglQuoted:
+			// $'...' is decoded by the shell, and zsh and bash decode it
+			// differently.
+			if x.Dollar {
+				return false
+			}
 		case *syntax.DblQuoted:
 			for _, dp := range x.Parts {
 				switch y := dp.(type) {

@@ -34,9 +34,9 @@ func TestEncodeWireFormat(t *testing.T) {
 		},
 		{
 			name:    "deny carries its reason",
-			verdict: Denied("[BLOCKED] gh pr close - PR closing not allowed"),
+			verdict: Denied("[BLOCKED] gh repo delete not allowed"),
 			want: `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",` +
-				`"permissionDecisionReason":"[BLOCKED] gh pr close - PR closing not allowed"}}` + "\n",
+				`"permissionDecisionReason":"[BLOCKED] gh repo delete not allowed"}}` + "\n",
 		},
 	}
 

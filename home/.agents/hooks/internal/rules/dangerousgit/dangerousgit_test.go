@@ -18,33 +18,67 @@ func TestDecide(t *testing.T) {
 	}{
 		// gh api: explicit method flag.
 		{"api plain read", `gh api /repos/o/r`, "allow"},
-		{"api -X POST", `gh api /x -X POST`, "deny"},
-		{"api -XPOST attached", `gh api /x -XPOST`, "deny"},
-		{"api --method POST", `gh api /x --method POST`, "deny"},
-		{"api --method=POST", `gh api /x --method=POST`, "deny"},
-		{"api --method=delete lowercase", `gh api /x --method=delete`, "deny"},
+		{"api -X POST", `gh api /x -X POST`, "ask"},
+		{"api -XPOST attached", `gh api /x -XPOST`, "ask"},
+		{"api --method POST", `gh api /x --method POST`, "ask"},
+		{"api --method=POST", `gh api /x --method=POST`, "ask"},
+		{"api --method PUT", `gh api /x --method PUT --input body.json`, "ask"},
+		{"api --method=patch lowercase", `gh api /x --method=patch`, "ask"},
 		{"api --method GET", `gh api /x --method GET`, "allow"},
 		{"api -X trailing with no value", `gh api /x -X`, "allow"},
 
+		// gh api: DELETE cannot be undone, so it is refused outright.
+		{"api -X DELETE", `gh api /x -X DELETE`, "deny"},
+		{"api --method=delete lowercase", `gh api /x --method=delete`, "deny"},
+		{"api last method wins: DELETE", `gh api /x -X POST -X DELETE`, "deny"},
+
 		// gh api: request parameters imply POST when no method is given.
-		{"api -f field", `gh api /repos/o/r/issues -f title=bug`, "deny"},
-		{"api --raw-field", `gh api /repos/o/r/issues --raw-field title=bug`, "deny"},
-		{"api -F typed field", `gh api /repos/o/r/issues -F draft=true`, "deny"},
-		{"api --field", `gh api /repos/o/r/issues --field draft=true`, "deny"},
-		{"api --field= attached", `gh api /x --field=draft=true`, "deny"},
-		{"api --raw-field= attached", `gh api /x --raw-field=title=bug`, "deny"},
-		{"api -f attached", `gh api /x -ftitle=bug`, "deny"},
+		{"api -f field", `gh api /repos/o/r/issues -f title=bug`, "ask"},
+		{"api --raw-field", `gh api /repos/o/r/issues --raw-field title=bug`, "ask"},
+		{"api -F typed field", `gh api /repos/o/r/issues -F draft=true`, "ask"},
+		{"api --field", `gh api /repos/o/r/issues --field draft=true`, "ask"},
+		{"api --field= attached", `gh api /x --field=draft=true`, "ask"},
+		{"api --raw-field= attached", `gh api /x --raw-field=title=bug`, "ask"},
+		{"api -f attached", `gh api /x -ftitle=bug`, "ask"},
 
 		// A request body implies POST the same way parameters do.
-		{"api --input file", `gh api /x --input body.json`, "deny"},
-		{"api --input= attached", `gh api /x --input=body.json`, "deny"},
-		{"api --input from stdin", `gh api /x --input -`, "deny"},
+		{"api --input file", `gh api /x --input body.json`, "ask"},
+		{"api --input= attached", `gh api /x --input=body.json`, "ask"},
+		{"api --input from stdin", `gh api /x --input -`, "ask"},
 
 		// An explicit read method turns parameters into a query string.
 		{"api GET with fields is a read", `gh api /search/issues --method GET -f q=repo:o/r`, "allow"},
 		{"api --method=GET with fields is a read", `gh api /search/issues --method=GET -f q=x`, "allow"},
 		{"api --input with explicit GET is a read", `gh api /x --input body.json --method GET`, "allow"},
-		{"api mutating method still wins over fields", `gh api /x --method PATCH -f a=b`, "deny"},
+		{"api mutating method still wins over fields", `gh api /x --method PATCH -f a=b`, "ask"},
+
+		// gh api graphql: a document that cannot hold a mutation is a read, though
+		// GraphQL only travels by POST.
+		{"graphql query", `gh api graphql -f query='{ viewer { login } }'`, "allow"},
+		{"graphql named query with variables", `gh api graphql -F owner=o -f name=r -f query='query($owner:String!,$name:String!){ repository(owner:$owner,name:$name){ id } }' --jq .data`, "allow"},
+		{"graphql --raw-field query", `gh api graphql --raw-field query='{ viewer { login } }'`, "allow"},
+		{"graphql --raw-field= query", `gh api graphql --raw-field=query='{ viewer { login } }'`, "allow"},
+		{"graphql query after the flags", `gh api -f query='{ viewer { login } }' graphql`, "allow"},
+		{"graphql mutation", `gh api graphql -f query='mutation { closeIssue(input:{issueId:"x"}) { clientMutationId } }'`, "ask"},
+		{"graphql mutation beside a query", `gh api graphql -f query='query A { viewer { login } } mutation B { x }' -f operationName=B`, "ask"},
+		{"graphql second query field is a mutation", `gh api graphql -f query='{ viewer { login } }' -f query='mutation { x }'`, "ask"},
+		{"graphql subscription", `gh api graphql -f query='subscription { x }'`, "ask"},
+		{"graphql query from a file", `gh api graphql -F query=@q.graphql`, "ask"},
+		{"graphql typed query field", `gh api graphql -F query='{ viewer { login } }'`, "ask"},
+		{"graphql typed query beside a raw one", `gh api graphql -f query='{ viewer { login } }' -F query=@m.graphql`, "ask"},
+		{"graphql query from a variable", `gh api graphql -f query="$Q"`, "ask"},
+		{"graphql query from a substitution", `gh api graphql -f query="$(cat q.graphql)"`, "ask"},
+		{"graphql query partly from a variable", `gh api graphql -f query="{ viewer { login } } $Q"`, "ask"},
+		{"graphql body from a file", `gh api graphql --input body.json`, "ask"},
+		{"graphql body beside a query", `gh api graphql -f query='{ viewer { login } }' --input body.json`, "ask"},
+		{"graphql with no query", `gh api graphql -f owner=o`, "ask"},
+		{"graphql endpoint from a variable", `gh api "$E" -f query='{ viewer { login } }'`, "ask"},
+		{"graphql-looking field on a REST endpoint", `gh api repos/o/r/issues -f query='{ viewer { login } }'`, "ask"},
+		{"graphql endpoint after --", `gh api -f query='{ viewer { login } }' -- graphql`, "ask"},
+		{"graphql two endpoints", `gh api graphql repos/o/r/issues -f query='{ viewer { login } }'`, "ask"},
+		{"graphql explicit DELETE", `gh api graphql -X DELETE -f query='{ viewer { login } }'`, "deny"},
+		{"graphql explicit POST", `gh api graphql -X POST -f query='{ viewer { login } }'`, "allow"},
+		{"graphql explicit PATCH", `gh api graphql -X PATCH -f query='{ viewer { login } }'`, "ask"},
 
 		// Read-only flags near the field flags must not trip the match.
 		{"api --jq is not a field", `gh api /x --jq '.name'`, "allow"},
@@ -53,11 +87,13 @@ func TestDecide(t *testing.T) {
 		{"api -H header is not a field", `gh api /x -H 'Accept: application/json'`, "allow"},
 
 		// Shorthands bundle, and only the last letter takes a value.
-		{"api -if bundle", `gh api /x -if title=bug`, "deny"},
+		{"api -if bundle", `gh api /x -if title=bug`, "ask"},
 		{"api -iX bundle", `gh api /x -iX DELETE`, "deny"},
 		{"api -iXDELETE bundle attached", `gh api /x -iXDELETE`, "deny"},
-		{"api -X=POST drops the equals", `gh api /x -X=POST`, "deny"},
-		{"api -f=k=v drops the equals", `gh api /x -f=title=bug`, "deny"},
+		{"api -X=POST drops the equals", `gh api /x -X=POST`, "ask"},
+		{"api -f=k=v drops the equals", `gh api /x -f=title=bug`, "ask"},
+		{"graphql -if bundle", `gh api graphql -if query='{ viewer { login } }'`, "allow"},
+		{"graphql -f=query= drops the equals", `gh api graphql -f=query='mutation { x }'`, "ask"},
 		{"api -iX GET bundle is a read", `gh api /x -iX GET -f q=x`, "allow"},
 
 		// A value is not the flag it looks like.
@@ -69,11 +105,15 @@ func TestDecide(t *testing.T) {
 		// The real call the gh-fix-ci skill makes.
 		{"skill job-log fetch stays allowed", `gh api "/repos/o/r/actions/jobs/123/logs"`, "allow"},
 
-		// Regressions: other gh guards unchanged.
-		{"gh pr close", `gh pr close 12`, "deny"},
-		{"gh issue delete", `gh issue delete 3`, "deny"},
+		// gh subcommands a human decides case by case.
+		{"gh pr close", `gh pr close 12`, "ask"},
+		{"gh pr close --delete-branch", `gh pr close 12 --delete-branch`, "ask"},
+		{"gh issue delete", `gh issue delete 3 --yes`, "ask"},
+		{"gh release delete", `gh release delete v1`, "ask"},
+		{"gh repo rename", `gh repo rename new-name`, "ask"},
+		// Deleting a repository stays refused outright.
 		{"gh repo delete", `gh repo delete o/r`, "deny"},
-		{"gh release delete", `gh release delete v1`, "deny"},
+		{"gh repo delete --yes", `gh repo delete o/r --yes`, "deny"},
 		{"gh release create", `gh release create v1`, "ask"},
 		{"gh pr merge", `gh pr merge 4`, "ask"},
 		{"gh pr create", `gh pr create --fill`, "allow"},
@@ -256,15 +296,52 @@ func TestDecide(t *testing.T) {
 		{"behind sudo with flags", `sudo -u deploy git push`, "ask"},
 		{"behind env", `env GIT_DIR=.git git push`, "ask"},
 		{"backslash quoted", `\git push`, "ask"},
-		{"gh behind sudo", `sudo gh pr close 4`, "deny"},
+		{"gh behind sudo", `sudo gh repo delete o/r`, "deny"},
 		{"sudo of something else", `sudo ls -la`, "allow"},
 
 		// Nesting still walked.
-		{"nested in subshell", `(cd /r && gh api /x -f a=b)`, "deny"},
-		{"behind &&", `true && gh api /x -f a=b`, "deny"},
-		{"after semicolon", `echo hi; gh api /x -f a=b`, "deny"},
-		{"in a pipeline", `gh api /x -f a=b | jq .`, "deny"},
-		{"in a command substitution", `echo $(gh pr close 4)`, "deny"},
+		{"nested in subshell", `(cd /r && gh api /x -f a=b)`, "ask"},
+		{"behind &&", `true && gh api /x -f a=b`, "ask"},
+		{"after semicolon", `echo hi; gh api /x -f a=b`, "ask"},
+		{"in a pipeline", `gh api /x -f a=b | jq .`, "ask"},
+		{"in a command substitution", `echo $(gh repo delete o/r)`, "deny"},
+		{"deny after an ask", `gh pr close 4; gh api /x -X DELETE`, "deny"},
+
+		// A brace list is several words by the time the command runs.
+		{"brace list spells the subcommand", `gh {pr,close} 3`, "ask"},
+		{"brace list spells the command", `{git,push}`, "ask"},
+		{"brace list spells push and its target", `git {push,origin,main}`, "ask"},
+		{"brace list adds main to a push", `git push origin {feat/x,main}`, "ask"},
+		{"brace list spells a method flag", `gh api /repos/o/r {-X,DELETE}`, "deny"},
+		{"brace list spells repo delete", `gh repo {delete,o/r}`, "deny"},
+		{"brace sequence spells a flag", `git push origin feat/x -{f..f}`, "ask"},
+		{"brace list too long to follow", `git log feat/x{1..100000}`, "ask"},
+		{"brace list of paths", `git add src/{a,b}.go`, "allow"},
+		{"brace list of feature branches", `git push origin {feat/x,feat/y}`, "allow"},
+		{"quoted braces are text", `git commit -m 'add {push,main} handling'`, "allow"},
+		{"gh placeholders are not a list", `gh api repos/{owner}/{repo}/pulls`, "allow"},
+		{"long brace list away from git", `echo {1..100000}`, "allow"},
+
+		// A GraphQL read is proven only from words the shell passes on as written.
+		{"graphql query split by a brace list", `gh api graphql -f query={"{ viewer { login } }","mut"}ation`, "ask"},
+		{"graphql unquoted braces", `gh api graphql -f query=\{viewer\{login\}\}`, "ask"},
+		{"graphql keyword behind an unknown escape", `gh api graphql -f query=$'mutat\ion { x }'`, "ask"},
+		{"graphql keyword behind an octal escape", `gh api graphql -f query=$'mut\541tion { x }'`, "ask"},
+		{"graphql query in ANSI-C quotes", `gh api graphql -f query=$'{ viewer { login } }'`, "ask"},
+
+		// -p takes a value, which is not a flag of its own.
+		{"api -p value is not a method", `gh api repos/o/r -X DELETE -pXGET`, "deny"},
+		{"api -p value does not make a read", `gh api repos/o/r/issues -f title=x -pXGET`, "ask"},
+		{"api -p consumes the next token", `gh api repos/o/r -X DELETE -p -XGET`, "deny"},
+		{"api -p preview on a read", `gh api repos/o/r -p corsair`, "allow"},
+		{"graphql mutation behind -p", `gh api graphql -pXGET -f query='mutation { x }'`, "ask"},
+
+		// zsh runs syntax the bash-mode parser rejects, so gh named in a command
+		// it cannot read asks.
+		{"gh in an unparseable command", `gh repo delete o/r --yes; : =(true)`, "ask"},
+		{"gh read in an unparseable command", `gh pr view 3; : =(true)`, "ask"},
+		{"unparseable command without gh", `ls high; : =(true)`, "allow"},
+		{"graphql unquoted glob in another argument", `gh api graphql -f query='{ viewer { login } }' --jq .data[]`, "ask"},
 		{"in an if body", `if true; then git push; fi`, "ask"},
 		{"in a for body", `for r in a b; do git push $r; done`, "ask"},
 		{"in a while body", `while read -r l; do git push; done`, "ask"},
@@ -295,6 +372,9 @@ func TestLossyNestedGit(t *testing.T) {
 		{`git push -u origin feat/`, "ask"},
 		{`git status`, "allow"},
 		{`git log --oneline`, "allow"},
+		// `bash -c "gh api graphql -f query='$Q'"` arrives with the query gone.
+		{`gh api graphql -f query=''`, "ask"},
+		{`gh api graphql -f query='{ viewer { login } }'`, "ask"},
 	}
 	for _, tc := range cases {
 		req := hook.NewRequest("Bash", "", "", tc.cmd)

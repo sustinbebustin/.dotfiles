@@ -86,11 +86,79 @@ func TestWordLit(t *testing.T) {
 		{`$'%s'`, "%s"},
 		{`$'a\x00b'`, "a"},
 		{`'\x2e'`, `\x2e`},
+		// zsh, the shell these commands run in, drops the backslash of an escape
+		// it does not know and keeps the low byte of an octal one.
+		{`$'mutat\ion'`, "mutation"},
+		{`$'\q'`, "q"},
+		{`$'a\cb'`, "acb"},
+		{`$'mut\541tion'`, "mutation"},
+		{`$'.\545nv'`, ".env"},
+		{`$'x\0141'`, "x\f1"},
+		{`$'\x6dut'`, "mut"},
+		{`$'a\Eb'`, "a\x1bb"},
+		{`$'it\'s'`, "it's"},
+		{`$'a\\b'`, `a\b`},
+		{`$'a\\ib'`, `a\ib`},
+		{`$'a\"b'`, `a"b`},
 	}
 
 	for _, tc := range cases {
 		if got := firstArg(t, tc.cmd); got != tc.want {
 			t.Errorf("WordLit of %q = %q, want %q", tc.cmd, got, tc.want)
+		}
+	}
+}
+
+func TestExpandBraces(t *testing.T) {
+	cases := []struct {
+		cmd  string
+		want []string
+		ok   bool
+	}{
+		{`gh pr view`, []string{"gh", "pr", "view"}, true},
+		{`gh {pr,close} 3`, []string{"gh", "pr", "close", "3"}, true},
+		{`{git,push}`, []string{"git", "push"}, true},
+		{`git add src/{a,b}.go`, []string{"git", "add", "src/a.go", "src/b.go"}, true},
+		{`gh api /x -{X,}DELETE`, []string{"gh", "api", "/x", "-XDELETE", "-DELETE"}, true},
+		{`echo {a,b}{1,2}`, []string{"echo", "a1", "a2", "b1", "b2"}, true},
+		{`echo {a,{b,c}}`, []string{"echo", "a", "b", "c"}, true},
+		{`echo x{1..3}`, []string{"echo", "x1", "x2", "x3"}, true},
+		{`echo {c..a}`, []string{"echo", "c", "b", "a"}, true},
+		// Braces that list nothing, or that are quoted, stay text.
+		{`gh api repos/{owner}/{repo}`, []string{"gh", "api", "repos/{owner}/{repo}"}, true},
+		{`echo '{a,b}' "{c,d}"`, []string{"echo", "{a,b}", "{c,d}"}, true},
+		{`echo {a,b`, []string{"echo", "{a,b"}, true},
+		// Too many words to write out: returned as given.
+		{`echo {1..100000}`, []string{"echo", "{1..100000}"}, false},
+		{`echo {a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}`, []string{"echo", "{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}"}, false},
+	}
+	for _, tc := range cases {
+		file, parsed := Parse(tc.cmd).File()
+		if !parsed {
+			t.Fatalf("Parse(%q) did not produce an AST", tc.cmd)
+		}
+		call, hit := FirstCall(file, func(c *syntax.CallExpr) (*syntax.CallExpr, bool) { return c, true })
+		if !hit {
+			t.Fatalf("no call found in %q", tc.cmd)
+		}
+		before := make([]string, len(call.Args))
+		for i, w := range call.Args {
+			before[i] = WordLit(w)
+		}
+
+		words, ok := ExpandBraces(call.Args)
+		got := make([]string, len(words))
+		for i, w := range words {
+			got[i] = WordLit(w)
+		}
+		if ok != tc.ok || !slices.Equal(got, tc.want) {
+			t.Errorf("ExpandBraces(%q) = %q, %v; want %q, %v", tc.cmd, got, ok, tc.want, tc.ok)
+		}
+		// The tree is shared with every other rule, so it must come back as it was.
+		for i, w := range call.Args {
+			if WordLit(w) != before[i] {
+				t.Errorf("ExpandBraces(%q) rewrote argument %d: %q, was %q", tc.cmd, i, WordLit(w), before[i])
+			}
 		}
 	}
 }

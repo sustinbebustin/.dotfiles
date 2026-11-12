@@ -403,8 +403,8 @@
   {
     "name": "gh-pr-close",
     "stdin": "{\"tool_input\":{\"command\":\"gh pr close 3\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh pr close - PR closing not allowed"
+    "decision": "ask",
+    "reason": "gh pr close closes the pull request, and with --delete-branch deletes its branch - allow?"
   },
   {
     "name": "gh-pr-merge",
@@ -431,8 +431,8 @@
   {
     "name": "gh-release-delete",
     "stdin": "{\"tool_input\":{\"command\":\"gh release delete v1\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh release delete not allowed"
+    "decision": "ask",
+    "reason": "gh release delete removes a published release and its assets - allow?"
   },
   {
     "name": "gh-repo-delete",
@@ -443,8 +443,8 @@
   {
     "name": "gh-repo-rename",
     "stdin": "{\"tool_input\":{\"command\":\"gh repo rename bar\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh repo rename not allowed"
+    "decision": "ask",
+    "reason": "gh repo rename changes the repository's name and URL - allow?"
   },
   {
     "name": "gh-workflow-run",
@@ -466,8 +466,8 @@
   {
     "name": "gh-api-post",
     "stdin": "{\"tool_input\":{\"command\":\"gh api -X POST /repos/o/r\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh api POST not allowed"
+    "decision": "ask",
+    "reason": "gh api POST writes to GitHub - allow?"
   },
   {
     "name": "gh-api-method-eq",
@@ -478,20 +478,20 @@
   {
     "name": "gh-api-field",
     "stdin": "{\"tool_input\":{\"command\":\"gh api -f a=b /repos/o/r\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh api sends POST when a request parameter is supplied - not allowed. Add `--method GET` if this is meant to be a read."
+    "decision": "ask",
+    "reason": "gh api sends POST when a request parameter is supplied, which writes to GitHub - allow? (A read needs `--method GET`.)"
   },
   {
     "name": "gh-api-attached-field",
     "stdin": "{\"tool_input\":{\"command\":\"gh api -fa=b /repos/o/r\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh api sends POST when a request parameter is supplied - not allowed. Add `--method GET` if this is meant to be a read."
+    "decision": "ask",
+    "reason": "gh api sends POST when a request parameter is supplied, which writes to GitHub - allow? (A read needs `--method GET`.)"
   },
   {
     "name": "gh-api-input",
     "stdin": "{\"tool_input\":{\"command\":\"gh api --input body.json /repos/o/r\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh api sends POST when a request body is supplied - not allowed. Add `--method GET` if this is meant to be a read."
+    "decision": "ask",
+    "reason": "gh api sends POST when a request body is supplied, which writes to GitHub - allow? (A read needs `--method GET`.)"
   },
   {
     "name": "gh-api-explicit-get",
@@ -662,7 +662,7 @@
     "name": "multi-cred-and-ghclose",
     "stdin": "{\"tool_input\":{\"command\":\"cat .env \\u0026\\u0026 gh pr close 3\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",
-    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager. [BLOCKED] gh pr close - PR closing not allowed"
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
   },
   {
     "name": "multi-cd-and-push",
@@ -902,8 +902,8 @@
   {
     "name": "gh-api-bundled-include-field",
     "stdin": "{\"tool_input\":{\"command\":\"gh api /repos/o/r/issues -if title=bug\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh api sends POST when a request parameter is supplied - not allowed. Add `--method GET` if this is meant to be a read."
+    "decision": "ask",
+    "reason": "gh api sends POST when a request parameter is supplied, which writes to GitHub - allow? (A read needs `--method GET`.)"
   },
   {
     "name": "gh-api-bundled-method-delete",
@@ -914,8 +914,8 @@
   {
     "name": "gh-api-method-equals-attached",
     "stdin": "{\"tool_input\":{\"command\":\"gh api /repos/o/r -X=POST\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh api POST not allowed"
+    "decision": "ask",
+    "reason": "gh api POST writes to GitHub - allow?"
   },
   {
     "name": "gh-api-jq-consumes-the-next-flag",
@@ -925,8 +925,8 @@
   {
     "name": "gh-close-in-cmdsubst",
     "stdin": "{\"tool_input\":{\"command\":\"echo $(gh pr close 4)\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh pr close - PR closing not allowed"
+    "decision": "ask",
+    "reason": "gh pr close closes the pull request, and with --delete-branch deletes its branch - allow?"
   },
   {
     "name": "nested-rm",
@@ -1187,5 +1187,63 @@
     "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"rg -n process.env .env\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",
     "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "gh-issue-delete",
+    "stdin": "{\"tool_input\":{\"command\":\"gh issue delete 5 --yes\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh issue delete removes the issue for good - allow?"
+  },
+  {
+    "name": "gh-api-put-with-body",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api -X PUT repos/o/r/rulesets/1 --input ruleset.json\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh api PUT writes to GitHub - allow?"
+  },
+  {
+    "name": "gh-api-graphql-query",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api graphql -f query='{ repository(owner:\\\"o\\\",name:\\\"r\\\"){ issues(states:OPEN){totalCount} } }' --jq .data.repository\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "gh-api-graphql-mutation",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api graphql -f query='mutation { closeIssue(input:{issueId:\\\"x\\\"}) { clientMutationId } }'\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh api graphql may run a mutation: only a query written out in a literal `-f query=...` runs unprompted - allow?"
+  },
+  {
+    "name": "gh-api-graphql-query-in-nested-shell",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c 'gh api graphql -f query=\\\"{ viewer { login } }\\\"'\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "gh-api-graphql-query-from-outer-variable-in-nested-shell",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"gh api graphql -f query='$Q'\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script the command runs (bash -c, eval, trap): gh api graphql may run a mutation: only a query written out in a literal `-f query=...` runs unprompted - allow?"
+  },
+  {
+    "name": "gh-subcommand-from-a-brace-list",
+    "stdin": "{\"tool_input\":{\"command\":\"gh {pr,close} 3\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh pr close closes the pull request, and with --delete-branch deletes its branch - allow?"
+  },
+  {
+    "name": "git-push-main-from-a-brace-list",
+    "stdin": "{\"tool_input\":{\"command\":\"git {push,origin,main}\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push to main detected - allow?"
+  },
+  {
+    "name": "gh-api-delete-from-a-brace-list",
+    "stdin": "{\"tool_input\":{\"command\":\"gh api /repos/o/r {-X,DELETE}\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh api DELETE not allowed"
+  },
+  {
+    "name": "gh-repo-delete-after-pr-close",
+    "stdin": "{\"tool_input\":{\"command\":\"gh pr close 3; gh repo delete o/r --yes\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "[BLOCKED] gh repo delete not allowed"
   }
 ]
