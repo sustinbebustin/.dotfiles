@@ -375,6 +375,15 @@ func TestEmbeddedScripts(t *testing.T) {
 		{"nested in a pipeline", `echo x | bash -c 'ls'`, []string{"ls"}},
 		{"two scripts", `bash -c 'ls'; sh -c 'pwd'`, []string{"ls", "pwd"}},
 		{"nested shells", `bash -c 'sh -c "ls"'`, []string{`sh -c "ls"`, "ls"}},
+		{"eval", `eval 'rm -rf ~'`, []string{"rm -rf ~"}},
+		{"eval joins its words", `eval git push origin main`, []string{"git push origin main"}},
+		{"eval behind builtin", `builtin eval 'ls'`, []string{"ls"}},
+		{"eval after --", `eval -- 'ls'`, []string{"ls"}},
+		{"eval holding a nested shell", `eval "bash -c 'ls'"`, []string{`bash -c 'ls'`, "ls"}},
+		{"trap action", `trap 'rm -rf "$tmp"' EXIT`, []string{`rm -rf "$tmp"`}},
+		{"trap action after --", `trap -- 'ls' INT TERM`, []string{"ls"}},
+		{"trap action after an unknown word", `trap $OPTS 'ls' EXIT`, []string{"ls"}},
+		{"trap action in a subshell", `(trap 'aws s3 ls' 0 SIGINT; true)`, []string{"aws s3 ls"}},
 	}
 
 	for _, tc := range cases {
@@ -405,6 +414,16 @@ func TestEmbeddedScriptsIgnoresNonScripts(t *testing.T) {
 		`bash -c "$CMD"`,
 		`bash -c`,
 		`bash`,
+		`eval`,
+		`eval "$(direnv export zsh)"`,
+		`trap`,
+		`trap - EXIT`,
+		`trap '' INT`,
+		`trap -p EXIT`,
+		`trap -l`,
+		`trap EXIT SIGTERM 15 RTMIN+1`,
+		`trap "$ACTION" EXIT`,
+		`echo eval 'rm -rf ~'`,
 	} {
 		if got := embedded(t, cmd); len(got) != 0 {
 			t.Errorf("EmbeddedScripts(%q) = %q, want none", cmd, got)

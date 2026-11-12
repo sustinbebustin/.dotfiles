@@ -94,8 +94,9 @@ func (r Rule) Applies(toolName string) bool {
 
 // Apply runs every rule that applies to req and reduces the results to the one
 // verdict the binary emits. Rules marked Nested are run again over each script
-// the command hands to a nested shell, so a guarded command is caught whether it
-// is written out or passed to `bash -c`.
+// the command runs as a string (see shellast.NestedScripts), so a guarded
+// command is caught whether it is written out or passed to `bash -c`, eval or
+// trap.
 func Apply(rs []Rule, req *hook.Request) hook.Verdict {
 	nested := req.Embedded()
 
@@ -115,22 +116,23 @@ func Apply(rs []Rule, req *hook.Request) hook.Verdict {
 	return hook.Merge(verdicts)
 }
 
-// nestedPrefix opens the reason for a verdict a rule reached inside a nested
-// shell's script. Without it the reason describes a command the user cannot
-// find in the tool call: the prompt for `bash -c 'rm -rf ~'` would report a
+// nestedPrefix opens the reason for a verdict a rule reached inside a script
+// the command runs as a string: a nested shell's -c, an eval, a trap action, a
+// rebase exec. Without it the reason describes a command the user cannot find
+// in the tool call: the prompt for `bash -c 'rm -rf ~'` would report a
 // recursive rm against a command whose visible words contain no rm at all.
-const nestedPrefix = "Inside a script passed to a nested shell: "
+const nestedPrefix = "Inside a script the command runs (bash -c, eval, trap): "
 
 // A rewrite is of the inner script alone and cannot stand in for the whole
-// command, so inside a nested shell it blocks instead.
+// command, so inside a nested script it blocks instead.
 func markNested(v hook.Verdict) hook.Verdict {
 	switch v.Decision {
 	case hook.Allow:
 		return v
 	case hook.Rewrite:
 		return hook.Denied(nestedPrefix + "a guard asked to rewrite this script, which cannot be " +
-			"done from outside the nested shell, so the command is blocked unchanged. Run the " +
-			"script's commands directly rather than through `bash -c`.")
+			"done from outside it, so the command is blocked unchanged. Run the script's commands " +
+			"directly rather than through `bash -c`, eval or trap.")
 	}
 	v.Reason = nestedPrefix + v.Reason
 	return v

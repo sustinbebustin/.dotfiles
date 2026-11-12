@@ -39,10 +39,16 @@ func findOperation(toks []token) (operation, error) {
 		if !t.known {
 			return operation{}, errors.New("a variable or substitution comes before the operation, so it is not known")
 		}
-		switch flag, _, hasValue := strings.Cut(t.text, "="); {
+		switch flag, _, hasValue := splitFlag(t.text); {
 		case globalValueFlags[flag]:
-			if !hasValue {
-				i++
+			if hasValue {
+				continue
+			}
+			// An unknown word here may be several: a value, then the service.
+			i++
+			if i >= len(toks) || !toks[i].known {
+				return operation{}, fmt.Errorf("the value of %s is a variable or substitution, so what follows "+
+					"it may not be the operation", flag)
 			}
 		case globalBoolFlags[t.text]:
 		case strings.HasPrefix(t.text, "-"):
@@ -67,7 +73,15 @@ var readOnlyPrefixes = []string{"describe-", "list-", "get-", "head-"}
 var readOnlyExtras = map[string]bool{
 	"logs filter-log-events": true,
 	"logs tail":              true,
-	"s3 ls":                  true,
+	// Starts a Logs Insights query: it reads log events, and what it creates is
+	// the query's own result set.
+	"logs start-query": true,
+	"s3 ls":            true,
+	// The policy simulator evaluates policies and changes none.
+	"iam simulate-principal-policy": true,
+	"iam simulate-custom-policy":    true,
+	// Image manifests, the batch form of a get-.
+	"ecr batch-get-image": true,
 }
 
 // sensitiveReads match a read-only prefix but return secrets, mint

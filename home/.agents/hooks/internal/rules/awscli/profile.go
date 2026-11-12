@@ -3,9 +3,12 @@ package awscli
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
+
+	"agent-hooks/internal/shellast"
 )
 
 const (
@@ -36,10 +39,13 @@ type profileEnv struct {
 	hasInherited bool
 	// hookVars are the profile-relevant variables set in the hook's environment.
 	hookVars map[string]bool
+	// repeated reports a position in a loop or function body, where a call can
+	// run after statements written below it.
+	repeated func(syntax.Pos) bool
 }
 
-func newProfileEnv(c census, environ []string) profileEnv {
-	pe := profileEnv{census: c, hookVars: map[string]bool{}}
+func newProfileEnv(file *syntax.File, c census, environ []string) profileEnv {
+	pe := profileEnv{census: c, hookVars: map[string]bool{}, repeated: shellast.RepeatedSpans(file)}
 	for _, kv := range environ {
 		k, v, _ := strings.Cut(kv, "=")
 		if k == profileVar && v != "" {
@@ -64,12 +70,16 @@ func unknownProfile(format string, args ...any) error {
 // call's aws arguments and wrappers what the words that run it (sudo, env ...)
 // do to its environment.
 func (pe profileEnv) resolve(call *syntax.CallExpr, wrappers wrapperEnv, toks []token) (string, error) {
+	if pe.census.Opaque {
+		return "", unknownProfile("the command runs eval, source or another builtin that can set any variable, " +
+			"so AWS_PROFILE and the files profiles are read from may have changed")
+	}
 	for _, name := range redirectingVars {
-		if pe.census.bound(name) || pe.hookVars[name] {
+		if pe.census.Bound(name) || pe.hookVars[name] {
 			return "", unknownProfile("%s is set, so profiles may come from another file", name)
 		}
 	}
-	if pe.census.bound(defaultProfileVar) || pe.hookVars[defaultProfileVar] {
+	if pe.census.Bound(defaultProfileVar) || pe.hookVars[defaultProfileVar] {
 		return "", unknownProfile("%s is set", defaultProfileVar)
 	}
 
@@ -89,6 +99,54 @@ func (pe profileEnv) resolve(call *syntax.CallExpr, wrappers wrapperEnv, toks []
 	return pe.envProfile(call)
 }
 
+// guardedFlags are the options that decide which account a call reaches.
+var guardedFlags = []string{profileFlag, endpointFlag}
+
+// splitFlag reads one argument as an option: its name, and the value attached
+// with `=` if there is one. The CLI's argparse takes any unambiguous
+// abbreviation of a global option, and no other global option starts with --p
+// or --e, so every such prefix of a guarded flag is returned as that flag:
+// `--prof x` and `--e=http://...` set the profile and the endpoint.
+func splitFlag(text string) (flag, value string, attached bool) {
+	flag, value, attached = strings.Cut(text, "=")
+	if len(flag) > len("--") {
+		for _, full := range guardedFlags {
+			if strings.HasPrefix(full, flag) {
+				return full, value, attached
+			}
+		}
+	}
+	return flag, value, attached
+}
+
+// setsGuardedFlag reports whether an argument starting with the literal text
+// prefix is a guarded flag with its value attached, so whatever follows prefix
+// in the word is that value.
+func setsGuardedFlag(prefix string) bool {
+	flag, _, attached := splitFlag(prefix)
+	return attached && slices.Contains(guardedFlags, flag)
+}
+
+// mayBecomeGuardedFlag reports whether an argument starting with the literal
+// text prefix and continuing with text the hook cannot know could be a guarded
+// flag: prefix already is one awaiting its value (`--profile="$P"`), or it is
+// the start of one's name, which the unknown text may complete (`--prof"$X"`,
+// `"$X"` alone).
+func mayBecomeGuardedFlag(prefix string) bool {
+	if strings.Contains(prefix, "=") {
+		return setsGuardedFlag(prefix)
+	}
+	if strings.Trim(prefix, "-") == "" {
+		return true
+	}
+	for _, full := range guardedFlags {
+		if strings.HasPrefix(full, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // flagProfile finds --profile in the call. The last one wins, as in the CLI. An
 // unquoted expansion could add one, so it makes the profile unknown.
 func flagProfile(toks []token) (name string, found bool, err error) {
@@ -100,14 +158,15 @@ func flagProfile(toks []token) (name string, found bool, err error) {
 		if !t.known {
 			continue
 		}
+		flag, value, attached := splitFlag(t.text)
 		switch {
-		case t.text == profileFlag:
-			if i+1 >= len(toks) || !toks[i+1].known {
-				return "", false, unknownProfile("the --profile value is not a literal")
-			}
+		case flag != profileFlag:
+		case attached:
+			name, found = value, true
+		case i+1 >= len(toks) || !toks[i+1].known:
+			return "", false, unknownProfile("the --profile value is not a literal")
+		default:
 			name, found = toks[i+1].text, true
-		case strings.HasPrefix(t.text, profileFlag+"="):
-			name, found = strings.TrimPrefix(t.text, profileFlag+"="), true
 		}
 	}
 	return name, found, nil
@@ -142,11 +201,11 @@ func checkWrappers(e wrapperEnv) error {
 // environment: set in the hook's environment, or bound anywhere in the command
 // except on the prefix of some other call.
 func (pe profileEnv) credentialsReach(name string, call *syntax.CallExpr) bool {
-	if pe.hookVars[name] || pe.census.opaque {
+	if pe.hookVars[name] || pe.census.Opaque {
 		return true
 	}
-	for _, s := range pe.census.sites[name] {
-		if s.kind != bindCall || s.call == call {
+	for _, s := range pe.census.Sites[name] {
+		if s.Kind != shellast.BindCall || s.Call == call {
 			return true
 		}
 	}
@@ -157,36 +216,40 @@ func (pe profileEnv) credentialsReach(name string, call *syntax.CallExpr) bool {
 // wrapper, else the last top-level export before it, else the hook's
 // environment. Any other way of setting it -- a bare assignment, one inside a
 // subshell or conditional, unset, read, a value from a variable -- makes it
-// unknown.
+// unknown, and so does an export written below a call that may run after it.
 func (pe profileEnv) envProfile(call *syntax.CallExpr) (string, error) {
-	if pe.census.opaque {
+	if pe.census.Opaque {
 		return "", unknownProfile("eval or source could set AWS_PROFILE")
 	}
-	var own, exported *site
-	for i := range pe.census.sites[profileVar] {
-		s := &pe.census.sites[profileVar][i]
+	var own, exported *shellast.Site
+	for i := range pe.census.Sites[profileVar] {
+		s := &pe.census.Sites[profileVar][i]
 		switch {
-		case s.kind == bindCall && s.call != call:
+		case s.Kind == shellast.BindCall && s.Call != call:
 			continue
-		case s.kind == bindCall:
+		case s.Kind == shellast.BindCall:
 			own = s
-		case s.kind == bindExport:
-			if call.Pos().After(s.end) {
+		case s.Kind == shellast.BindExport:
+			switch {
+			case call.Pos().After(s.End):
 				exported = s
+			case pe.repeated(call.Pos()):
+				return "", unknownProfile("AWS_PROFILE is exported below this call, which sits in a loop or " +
+					"function and so may run after that export")
 			}
 		default:
 			return "", unknownProfile("AWS_PROFILE is set in a way the hook cannot follow (only a literal " +
 				"`export AWS_PROFILE=name` or a prefix on the aws call counts)")
 		}
-		if !s.literal {
+		if !s.Literal {
 			return "", unknownProfile("AWS_PROFILE is set from a variable or substitution")
 		}
 	}
 	switch {
 	case own != nil:
-		return nonEmptyProfile(own.value), nil
+		return nonEmptyProfile(own.Value), nil
 	case exported != nil:
-		return nonEmptyProfile(exported.value), nil
+		return nonEmptyProfile(exported.Value), nil
 	case pe.hasInherited:
 		return pe.inherited, nil
 	}

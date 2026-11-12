@@ -33,6 +33,20 @@
 // sed script is classified piece by piece, since it can open a file it names
 // (`1r .env`, `s/x/cat .env/e`). The cost is accepted: a sed address that
 // mentions an env-like word (`sed -n '/process.env.X/p'`) is denied too.
+//
+// Skipped on the same footing are words a command takes as a program or as
+// text, never as a file to open: rg's pattern, the query expression of jq, gh
+// and aws, a git commit message, a git pathspec that excludes, and the operands
+// of the git subcommands that print names only (unread.go). None applies when
+// the command may have redefined the name it is keyed on. The accepted cost is
+// the one a sed s command already carried: such a word can print a file name
+// for a later command to open (`jq -rn '".env"' | xargs cat`). Where the word
+// is the secret's own name (`git ls-files .env`), it is skipped only while the
+// output goes to the terminal.
+//
+// A word holding a variable is relaxed, in a fixture directory or relaxed
+// root, only when the command pins that variable to one literal value (see
+// shellast.Census.WordText); what is classified stays the word's literal text.
 package credfiles
 
 import (
@@ -249,7 +263,7 @@ func classifyIn(p string, relaxed bool) tier {
 	if isSafeVariant(base) || isPublicKeyring(cleaned) || generatedEnvFiles[base] || isPattern(base) {
 		return tierNone
 	}
-	if looksLikeEnv(base) || hasSecretExt(base) {
+	if looksLikeEnv(base) || globNamesEnv(base) || hasSecretExt(base) {
 		return tierSecret
 	}
 	if relaxed {
@@ -287,6 +301,30 @@ func looksLikeEnv(base string) bool {
 	}
 	if strings.Contains(lower, ".env.") || strings.Contains(lower, ".env-") {
 		return true
+	}
+	return false
+}
+
+// envSamples are the env file names a pattern is tried against.
+var envSamples = []string{".env", ".envrc", ".env.local"}
+
+// minEnvGlobPrefix is the shortest literal prefix a pattern must have before
+// it is read as aiming at an env file: `.e`. `.*` names every dotfile, and is
+// as often a regex as a glob.
+const minEnvGlobPrefix = 2
+
+// globNamesEnv reports whether base is a filename pattern that matches an env
+// file without spelling the `.env` looksLikeEnv goes by: `cat .en*` and
+// `cat .e?v` read .env as surely as naming it.
+func globNamesEnv(base string) bool {
+	if i := strings.IndexAny(base, "*?["); i < minEnvGlobPrefix {
+		return false
+	}
+	lower := strings.ToLower(base)
+	for _, sample := range envSamples {
+		if ok, err := path.Match(lower, sample); err == nil && ok {
+			return true
+		}
 	}
 	return false
 }
@@ -589,23 +627,34 @@ func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 		return hook.Allowed()
 	}
 
+	facts := gatherFacts(file, req.Command)
 	found := tierNone
 	var foundPath string
-	consider := func(lit string, mayRelax bool) {
-		if t, name := wordTier(lit, func(p string) bool { return mayRelax && relaxed(p) }); t > found {
+	consider := func(lit string, relaxed func(string) bool) {
+		if t, name := wordTier(lit, relaxed); t > found {
 			found, foundPath = t, name
 		}
 	}
-	// A word with an expansion is never relaxed: WordLit drops the expansion,
-	// so `fixtures/$X/secrets.json` would read as a fixture whatever X climbs to.
-	considerWord := func(w *syntax.Word) { consider(shellast.WordLit(w), shellast.IsLiteral(w)) }
+	// WordLit drops a word's expansions, so `fixtures/$X/secrets.json` would
+	// read as a fixture whatever X climbs to. Such a word is relaxed only when
+	// the census pins every variable in it to one literal value, and then by
+	// where the whole path lies; what is classified stays its literal text.
+	considerWord := func(w *syntax.Word) {
+		lit := shellast.WordLit(w)
+		if shellast.IsLiteral(w) {
+			consider(lit, relaxed)
+			return
+		}
+		full, known := facts.vars.WordText(w)
+		consider(lit, func(string) bool { return known && relaxed(full) })
+	}
 	syntax.Walk(file, func(n syntax.Node) bool {
 		if found == tierSecret {
 			return false
 		}
 		switch x := n.(type) {
 		case *syntax.CallExpr:
-			skip, programs := unreadOperands(x)
+			skip, programs := unreadOperands(x, facts)
 			for _, arg := range x.Args {
 				if !skip[arg] && !isAnchoredRegex(arg) {
 					considerWord(arg)
@@ -613,7 +662,7 @@ func checkBash(req *hook.Request, relaxed func(string) bool) hook.Verdict {
 			}
 			for _, p := range programs {
 				for _, piece := range programPieces(p) {
-					consider(piece, true)
+					consider(piece, relaxed)
 				}
 			}
 		case *syntax.Redirect:
@@ -648,6 +697,13 @@ func wordTier(lit string, relaxed func(string) bool) (worst tier, name string) {
 	if strings.IndexFunc(lit, unicode.IsSpace) < 0 {
 		if !isCodeField(whole) {
 			note(classifyIn(whole, relaxed(whole)), whole)
+			// A brace list is several words to the command, and only the last
+			// reaches the basename checks above: `{x,.env}`.
+			if strings.Contains(whole, "{") {
+				for _, alt := range strings.FieldsFunc(whole, func(r rune) bool { return strings.ContainsRune("{},", r) }) {
+					note(classify(alt), alt)
+				}
+			}
 			return worst, name
 		}
 		for _, piece := range programPieces(whole) {
@@ -713,30 +769,67 @@ func isAnchoredRegex(w *syntax.Word) bool {
 //   - an exclusion glob given to rg (`-g '!.env'`) or a negated find name test
 //     (`-not -name .env`), which keep the file out of what the tool reads;
 //   - a sed script that is one plain s command (`s/x/process.env.X/g`), which
-//     edits the pattern space and opens no file (see sedScripts).
+//     edits the pattern space and opens no file (see sedScripts);
+//   - the pattern rg searches for (see rgPatterns), and the query expression
+//     of jq, gh and aws (see jqFilter, ghExpression, awsQuery), which are
+//     programs in their own languages;
+//   - for git, a pathspec with exclude magic, a commit message, and the
+//     operands of the subcommands that print names only (see gitUnread).
 //
-// Commands that seem to read nothing (test, touch) get no exemption: the name
-// proves nothing about what runs, since a function, an alias or a binary of
-// that name elsewhere on PATH can take it.
+// Each of these is a word the command does not open. Commands that seem to
+// read nothing at all (test, touch) get no exemption: the name proves nothing
+// about what runs, since a function, an alias or a binary of that name
+// elsewhere on PATH can take it. For the same reason nothing here applies to a
+// name the command itself may have redefined (see commandFacts.redefines).
 //
 // programs are the sed scripts that are not plain s commands. Such a script
 // can open a file named anywhere inside it (`1r .env`, `s/x/cat .env/e`),
 // which classifying the whole word misses, since its basename is whatever
 // follows the last slash; each is classified piece by piece instead (see
 // programPieces).
-func unreadOperands(c *syntax.CallExpr) (skip map[*syntax.Word]bool, programs []string) {
+//
+// A call of a wrapper function (see shellast.WrapperFuncs) is read as the
+// call it runs, so `a ecs list-tasks --query=...` behind `a() { aws "$@"; }`
+// gets what an aws call would.
+func unreadOperands(c *syntax.CallExpr, facts commandFacts) (skip map[*syntax.Word]bool, programs []string) {
 	skip = map[*syntax.Word]bool{}
 	if script, nested := shellast.ScriptWord(c); nested {
 		skip[script] = true
 	}
-	name, rest := shellast.Invocation(c.Args, shellast.WordLit)
-	switch shellast.CommandName(name) {
+	words := c.Args
+	if expanded, wrapped := facts.wrappers.Expand(c); wrapped {
+		words = expanded
+	}
+	name, rest := shellast.Invocation(words, shellast.WordLit)
+	cmd := shellast.CommandName(name)
+	if facts.redefines(cmd) {
+		return skip, nil
+	}
+	switch cmd {
 	case "rg":
 		rgExclusions(rest, skip)
+		facts.rgPatterns(rest, skip)
 	case "find":
 		findExclusions(rest, skip)
 	case "sed":
 		programs = sedScripts(rest, skip)
+	case "jq":
+		facts.jqFilter(rest, skip)
+	case "gh":
+		ghExpression(rest, skip)
+	case "aws":
+		awsQuery(rest, skip)
+	case "git":
+		if len(c.Assigns) == 0 && !facts.setsGitEnv() {
+			gitUnread(rest, skip, facts.toTerminal(c))
+		}
+	}
+	// Whatever a word was skipped as, the shell must hand it over as that one
+	// argument: `rg {^,.env}` is a pattern and then a file.
+	for w := range skip {
+		if !shellast.IsOneArgument(w) {
+			delete(skip, w)
+		}
 	}
 	return skip, programs
 }

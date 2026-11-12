@@ -23,13 +23,13 @@
     "name": "git-push-nested-lossy-refspec",
     "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"git push origin feat/$B\\\"\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: git push inside a nested script whose text lost the outer shell's expansions - allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): git push inside a nested script whose text lost the outer shell's expansions - allow?"
   },
   {
     "name": "git-push-nested-lossy-dir",
     "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"git -C $R push origin feat/x\\\"\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: git with top-level options inside a nested script whose text lost the outer shell's expansions - allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): git with top-level options inside a nested script whose text lost the outer shell's expansions - allow?"
   },
   {
     "name": "git-push-nested-literal-feature",
@@ -251,7 +251,7 @@
     "name": "supabase-reset-nested-shell",
     "stdin": "{\"tool_input\":{\"command\":\"bash -c 'supabase db reset --linked'\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",
-    "reason": "Inside a script passed to a nested shell: [BLOCKED] `supabase db reset` would run against the linked project, a remote database: it wipes all of its data and replays the local migrations over it. Nothing was run. Only the local stack may be changed this way from Claude Code -- drop the remote flag to target local. If the remote change is really intended, the user has to run it themselves."
+    "reason": "Inside a script the command runs (bash -c, eval, trap): [BLOCKED] `supabase db reset` would run against the linked project, a remote database: it wipes all of its data and replays the local migrations over it. Nothing was run. Only the local stack may be changed this way from Claude Code -- drop the remote flag to target local. If the remote change is really intended, the user has to run it themselves."
   },
   {
     "name": "supabase-push-default-remote",
@@ -311,19 +311,19 @@
     "name": "git-rebase-exec-rm",
     "stdin": "{\"tool_input\":{\"command\":\"git rebase -x 'rm -rf ~/dev' main\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): recursive rm detected - permanently deletes files/directories. Allow?"
   },
   {
     "name": "git-rebase-exec-relative-rm",
     "stdin": "{\"cwd\":\"/tmp/x\",\"tool_input\":{\"command\":\"git rebase --exec='rm -rf build' main\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): recursive rm detected - permanently deletes files/directories. Allow?"
   },
   {
     "name": "git-rebase-exec-push",
     "stdin": "{\"tool_input\":{\"command\":\"git rebase -qx 'git push --force origin main' main\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: git push --force detected - allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): git push --force detected - allow?"
   },
   {
     "name": "git-rebase-exec-computed",
@@ -932,7 +932,7 @@
     "name": "nested-rm",
     "stdin": "{\"tool_input\":{\"command\":\"bash -c 'rm -rf ~/work'\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): recursive rm detected - permanently deletes files/directories. Allow?"
   },
   {
     "name": "nested-rm-scratch-still-allowed",
@@ -943,13 +943,13 @@
     "name": "nested-rm-dropped-expansion-not-scratch",
     "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"rm -rf /tmp$X/home\\\"\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): recursive rm detected - permanently deletes files/directories. Allow?"
   },
   {
     "name": "nested-rm-mktemp-not-trusted",
     "stdin": "{\"tool_input\":{\"command\":\"mktemp() { echo /home/me; }; export -f mktemp; bash -c 'd=$(mktemp -d); rm -rf \\\"$d\\\"'\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): recursive rm detected - permanently deletes files/directories. Allow?"
   },
   {
     "name": "rm-mktemp-dir",
@@ -967,25 +967,25 @@
     "name": "nested-credential-file",
     "stdin": "{\"tool_input\":{\"command\":\"sh -c 'cat .env'\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",
-    "reason": "Inside a script passed to a nested shell: Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+    "reason": "Inside a script the command runs (bash -c, eval, trap): Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
   },
   {
     "name": "nested-aws-bundled-flags",
     "stdin": "{\"tool_input\":{\"command\":\"bash -lc 'aws s3 ls'\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: AWS CLI call with profile \"default\", which has no policy in the hook config. Allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): AWS CLI call with profile \"default\", which has no policy in the hook config. Allow?"
   },
   {
     "name": "nested-git-force-push",
     "stdin": "{\"tool_input\":{\"command\":\"sh -ec 'git push --force'\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: git push --force detected - allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): git push --force detected - allow?"
   },
   {
     "name": "nested-twice",
     "stdin": "{\"tool_input\":{\"command\":\"bash -c 'sh -c \\\"rm -rf ~/work\\\"'\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script passed to a nested shell: recursive rm detected - permanently deletes files/directories. Allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): recursive rm detected - permanently deletes files/directories. Allow?"
   },
   {
     "name": "nested-cd-is-confined",
@@ -1016,7 +1016,7 @@
     "name": "nested-find-double-negation",
     "stdin": "{\"tool_input\":{\"command\":\"sh -c 'find . -not -not -name .env -exec cat {} +'\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",
-    "reason": "Inside a script passed to a nested shell: Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+    "reason": "Inside a script the command runs (bash -c, eval, trap): Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
   },
   {
     "name": "droid-execute-benign",
@@ -1078,6 +1078,113 @@
   {
     "name": "sed-e-flag-runs-reader",
     "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"sed 's/x/cat .env/e' f\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "aws-wrapper-function-loopback",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"a() { aws --endpoint-url http://127.0.0.1:4566 \\\"$@\\\"; }; a sqs list-queues --query='QueueUrls[].Key'\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "aws-wrapper-function-nested-shell",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"bash -c 'a() { aws --endpoint-url http://127.0.0.1:4566 \\\"$@\\\"; }; a sqs list-queues'\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "aws-wrapper-function-run-from-trap",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"a() { aws --endpoint-url http://127.0.0.1:4566 \\\"$@\\\"; }; trap 'a s3 rb s3://b --endpoint-url https://s3.amazonaws.com' EXIT; a s3 ls\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI call, and the profile it uses cannot be determined: the variable could expand to a --profile option. Allow?"
+  },
+  {
+    "name": "aws-attached-endpoint-from-variable",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"aws --endpoint-url http://127.0.0.1:4566 s3 rb s3://b --endpoint-url=\\\"$E\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI call, and the profile it uses cannot be determined: the word \"--endpoint-url=\" could expand to a --profile option. Allow?"
+  },
+  {
+    "name": "git-exclusion-pathspec-and-commit-message",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"git add -A . ':!.env' \u0026\u0026 git commit -q -m \\\"feat(config): stop loading .env in staging\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "git-ls-files-secret-piped-to-reader",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"git ls-files .env | xargs cat\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "jq-filter-in-nested-shell",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"sh -c \\\"jq -c '[.key, .value.name]' cases.json\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "eval-git-push-main",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"eval 'git push origin main'\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script the command runs (bash -c, eval, trap): git push to main detected - allow?"
+  },
+  {
+    "name": "eval-aws-call",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"eval \\\"aws s3 rb s3://b\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script the command runs (bash -c, eval, trap): AWS CLI call with profile \"default\", which has no policy in the hook config. Allow?"
+  },
+  {
+    "name": "eval-of-tool-output",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"eval \\\"$(direnv export zsh)\\\"; go test ./...\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "trap-rm-rf-home",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"trap 'rm -rf ~' EXIT; make build\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script the command runs (bash -c, eval, trap): recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "trap-cleanup-of-temp-dir",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"tmp=$(mktemp -d); trap 'rm -rf \\\"$tmp\\\"' EXIT; make build\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script the command runs (bash -c, eval, trap): recursive rm detected - permanently deletes files/directories. Allow?"
+  },
+  {
+    "name": "trap-cleanup-of-temp-file",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"tmp=$(mktemp); trap 'rm -f \\\"$tmp\\\"' EXIT INT; make build\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "trap-reset",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"trap - EXIT; trap '' INT\"},\"tool_name\":\"Bash\"}",
+    "decision": "allow"
+  },
+  {
+    "name": "zsh-equals-git-push-main",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"=git push origin main\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "git push to main detected - allow?"
+  },
+  {
+    "name": "aws-wrapper-function-called-through-a-glob",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"ab() { aws --endpoint-url http://127.0.0.1:4566 \\\"$@\\\"; }; ab s3 ls; [a]b s3 rb s3://b --endpoint-url https://s3.amazonaws.com\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "AWS CLI call, and the profile it uses cannot be determined: the variable could expand to a --profile option. Allow?"
+  },
+  {
+    "name": "git-exclusion-pathspec-through-planted-directory",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"mkdir ':!x' \\u0026\\u0026 git diff --no-index /dev/null ':!x/../.env'\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \":!x/../.env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "rg-pattern-slot-brace-list",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"rg {^,.env}\"},\"tool_name\":\"Bash\"}",
+    "decision": "deny",
+    "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
+  },
+  {
+    "name": "rg-pattern-with-secret-operand",
+    "stdin": "{\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"rg -n process.env .env\"},\"tool_name\":\"Bash\"}",
     "decision": "deny",
     "reason": "Blocked: command references the credential file \".env\". Reading, copying, sourcing, or redirecting a secret is not allowed. Use the .example/.sample/.template variant, or load the value through your secret manager."
   }

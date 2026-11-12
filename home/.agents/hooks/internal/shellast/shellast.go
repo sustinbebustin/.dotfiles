@@ -3,6 +3,10 @@
 // command names against, and pulling out the scripts a command hands to a
 // nested shell so those can be parsed in turn. Nothing here decides anything.
 //
+// Census (census.go) records where a command binds each variable, for a rule
+// that needs to know a variable has exactly one literal value. It substitutes
+// nothing by itself: a rule asks it, and says what it does with the answer.
+//
 // Deliberately absent: the variable resolver in rules/dangerousrm. It is
 // strictly more capable than WordLit (it substitutes `$VAR` from earlier
 // assignments), and sharing it would silently widen what the other rules catch.
@@ -11,6 +15,7 @@ package shellast
 
 import (
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -156,6 +161,44 @@ func IsLiteral(w *syntax.Word) bool {
 	return true
 }
 
+// IsOneArgument reports whether w reaches its command as exactly one argument
+// whose text the shell does not rewrite: nothing in it is left to split, glob
+// or brace-expand. Unquoted text must hold no glob, brace or expansion
+// character (zsh's extendedglob `^` and `#` and its `$=name` forms included),
+// and an expansion must sit in double quotes and stay one word there, which an
+// array or "$@" does not.
+func IsOneArgument(w *syntax.Word) bool {
+	for i, p := range w.Parts {
+		switch x := p.(type) {
+		case *syntax.Lit:
+			if strings.ContainsAny(x.Value, "{}*?[]~^#$`") || (i == 0 && strings.HasPrefix(x.Value, "=")) {
+				return false
+			}
+		case *syntax.SglQuoted:
+		case *syntax.DblQuoted:
+			for _, dp := range x.Parts {
+				switch y := dp.(type) {
+				case *syntax.Lit:
+					if strings.ContainsAny(strings.ReplaceAll(strings.ReplaceAll(y.Value, `\\`, ""), `\$`, ""), "$`") {
+						return false
+					}
+				case *syntax.ParamExp:
+					if y.Index != nil || y.Names != 0 || y.Flags != nil || y.NestedParam != nil ||
+						y.Param == nil || y.Param.Value == "@" || y.Param.Value == "*" {
+						return false
+					}
+				case *syntax.CmdSubst, *syntax.ArithmExp:
+				default:
+					return false
+				}
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // IsParamWord reports whether w is nothing but one plain parameter expansion,
 // `$R`, `${R}`, `"$R"` or `"${R}"` with R a name: a value the guard cannot
 // know, standing where a single argument was written. It may still become
@@ -192,8 +235,12 @@ func plainParam(pe *syntax.ParamExp) bool {
 }
 
 // CommandName strips any leading path, so `/usr/local/bin/aws` and `aws` both
-// resolve to "aws".
+// resolve to "aws". So does `=aws`: zsh expands an unquoted `=name` to the path
+// of the command name, and no other shell runs anything for it.
 func CommandName(tok string) string {
+	if len(tok) > 1 {
+		tok = strings.TrimPrefix(tok, "=")
+	}
 	if i := strings.LastIndex(tok, "/"); i >= 0 {
 		return tok[i+1:]
 	}
@@ -386,7 +433,7 @@ func WorkDirs(file *syntax.File, cwd string) (dirs []string, known bool) {
 	}
 	dirs = []string{path.Clean(cwd)}
 	known = true
-	repeated := repeatedSpans(file)
+	repeated := RepeatedSpans(file)
 	add := func(dir string, at syntax.Pos) {
 		var next []string
 		first, _, _ := strings.Cut(dir, "/")
@@ -445,9 +492,10 @@ func WorkDirs(file *syntax.File, cwd string) (dirs []string, known bool) {
 	return dirs, true
 }
 
-// repeatedSpans returns a test for whether a position lies in code that may run
-// more than once, or later than it is written: a loop or a function body.
-func repeatedSpans(file *syntax.File) func(syntax.Pos) bool {
+// RepeatedSpans returns a test for whether a position lies in code that may run
+// more than once, or later than it is written: a loop or a function body. A
+// statement written after such a position can still take effect before it.
+func RepeatedSpans(file *syntax.File) func(syntax.Pos) bool {
 	var spans [][2]syntax.Pos
 	syntax.Walk(file, func(n syntax.Node) bool {
 		switch x := n.(type) {
@@ -615,9 +663,10 @@ func EmbeddedScripts(file *syntax.File) []string {
 	return out
 }
 
-// NestedScripts returns the scripts file hands to another shell, in the order
+// NestedScripts returns the scripts file hands to a shell to run, in the order
 // they appear, following nesting to maxEmbedDepth: the argument of a shell's
-// -c, and the --exec / -x scripts of a git rebase. Callers parse the text
+// -c, the --exec / -x scripts of a git rebase, and what the current shell is
+// given as code by eval or trap (see deferredScripts). Callers parse the text
 // themselves.
 //
 // A script is returned only when its word renders to literal text. `bash -c
@@ -656,12 +705,60 @@ func nestedScripts(file *syntax.File, depth int, ownDir, lossy bool) []Nested {
 		if word, ok := ScriptWord(call); ok {
 			add(scriptText(word), ownDir, lossy || !IsLiteral(word))
 		}
+		for _, d := range deferredScripts(call) {
+			add(d.Script, ownDir, lossy || d.Lossy)
+		}
 		for _, script := range rebaseExecScripts(call) {
 			add(script, true, lossy)
 		}
 		return true
 	})
 	return out
+}
+
+// signalSpec matches a trap operand that names a signal or resets one: EXIT,
+// SIGINT, 0, 15, RTMIN+1, `-`. Such a word runs nothing a guard looks for.
+var signalSpec = regexp.MustCompile(`^(-|\d+|[A-Z][A-Z0-9]*([+-]\d+)?)$`)
+
+// deferredScripts returns the scripts c hands to the current shell to run as
+// code: the words of an eval, which the shell joins with spaces, and the
+// action of a trap. They run in this shell rather than a nested one, which
+// only makes the caller's reading stricter: variables the script reads stay
+// unresolved.
+//
+// For trap, every operand that is not a signal name is taken as an action.
+// Only the first can be one, but an expansion before it (`trap $OPTS 'cmd'
+// EXIT`) may expand to nothing, and a signal name parsed as a script is a
+// call no guard matches. `trap -p` and `trap -l` only print.
+func deferredScripts(c *syntax.CallExpr) []Nested {
+	name, rest := Invocation(c.Args, WordLit)
+	switch CommandName(name) {
+	case "eval":
+		var parts []string
+		lossy := false
+		for i, w := range rest {
+			if i == 0 && IsLiteral(w) && WordLit(w) == "--" {
+				continue
+			}
+			parts = append(parts, scriptText(w))
+			lossy = lossy || !IsLiteral(w)
+		}
+		return []Nested{{Script: strings.TrimSpace(strings.Join(parts, " ")), Lossy: lossy}}
+	case "trap":
+		var out []Nested
+		for _, w := range rest {
+			text := scriptText(w)
+			if IsLiteral(w) && (text == "-p" || text == "-l" || text == "-lp" || text == "-pl") {
+				return nil
+			}
+			if text == "--" || signalSpec.MatchString(text) {
+				continue
+			}
+			out = append(out, Nested{Script: text, Lossy: !IsLiteral(w)})
+		}
+		return out
+	}
+	return nil
 }
 
 // scriptText renders a word that is about to be re-parsed as shell. It is

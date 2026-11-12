@@ -163,6 +163,9 @@ func TestProfilePolicies(t *testing.T) {
 		{"export after the call does not count", `aws s3 ls; export AWS_PROFILE=rec`, "ask"},
 		{"prefix on another call does not count", `AWS_PROFILE=rec true; aws s3 ls`, "ask"},
 		{"flag outranks the prefix", `AWS_PROFILE=rec aws --profile prod s3 ls`, "deny"},
+		{"export after a call in a function, which runs later", `export AWS_PROFILE=rec; f() { aws s3 rb s3://b; }; export AWS_PROFILE=prod; f`, "ask"},
+		{"export later in the loop the call repeats in", `export AWS_PROFILE=rec; for i in 1 2; do aws s3 rb s3://b; export AWS_PROFILE=prod; done`, "ask"},
+		{"export before a call in a function", `export AWS_PROFILE=rec; f() { aws sqs delete-queue --queue-url q; }; f`, "allow"},
 
 		// Profile unknown, so ask.
 		{"bare assignment", `AWS_PROFILE=rec; aws sqs delete-queue --queue-url q`, "ask"},
@@ -231,6 +234,71 @@ func TestProfilePolicies(t *testing.T) {
 		{"s3 boolean flag", `aws --profile work s3 ls --recursive "$P"`, "ask"},
 		{"logs tail positional", `aws --profile work logs tail --follow "$G"`, "ask"},
 		{"double dash is not an option", `aws --profile work s3 cp -- "$f" s3://b/`, "ask"},
+
+		// An unquoted expansion attached to its option is denied with the quoted
+		// rewrite on the same terms.
+		{"attached substitution variable", `q=$(cat id); aws --profile work logs get-query-results --query-id=$q`, "deny"},
+		{"attached substitution", `aws --profile work logs filter-log-events --log-group-name=g --start-time=$(date +%s)`, "deny"},
+		{"attached variable after literal text", `aws --profile work sns get-topic-attributes --topic-arn=arn:aws:sns:us-west-1:1:$t`, "deny"},
+		{"attached rewrite that would still ask", `aws --profile work sqs purge-queue --queue-url=$Q`, "ask"},
+		{"attached to --profile", `aws --profile=$P s3 ls`, "ask"},
+		{"attached to an abbreviated --profile", `aws --profile work s3 ls --prof=$P`, "ask"},
+		{"attached to a variable option name", `aws --profile work s3 ls --$O=$V`, "ask"},
+		{"attached array", `aws --profile work ec2 describe-instances --instance-ids=${ids[@]}`, "ask"},
+
+		// An unquoted variable inside a word is one argument when its only
+		// binding is a loop over plain items, read in the body, or an arithmetic
+		// result: neither can split, so the word keeps its literal start.
+		{"loop variable inside a value", `for e in prod stg; do aws --profile work ecs describe-services --cluster=c-$e --services=s; done`, "allow"},
+		{"loop variable inside a separate value", `for t in a b; do aws --profile work sns get-topic-attributes --topic-arn arn:aws:sns:us-west-1:1:$t; done`, "allow"},
+		{"loop item with a space splits", `for e in "p --profile=prod"; do aws --profile rec s3 rb s3://b-$e; done`, "ask"},
+		{"loop item with a glob", `for e in '*'; do aws --profile rec s3 rb s3://b --x=$e; done`, "ask"},
+		{"loop variable completing an option name", `for e in file=prod; do aws --profile rec s3 rb s3://b --pro$e; done`, "ask"},
+		{"loop variable as the --profile value", `for e in prod; do aws --profile rec s3 rb s3://b --profile=$e; done`, "ask"},
+		{"loop variable inside a word after the loop", `for e in a; do :; done; aws --profile rec s3 rb s3://b-$e`, "ask"},
+		{"loop variable inside a word, rebound in the body", `for e in a; do e="x --profile=prod"; aws --profile rec s3 rb s3://b-$e; done`, "ask"},
+		{"loop variable inside a word with IFS set", `IFS=x; for e in axb; do aws --profile rec s3 rb s3://b-$e; done`, "ask"},
+		{"arithmetic variable inside a value", `S=$(( 1 * 1000 )); aws --profile work logs filter-log-events --log-group-name=g --start-time=$S`, "allow"},
+		{"arithmetic variable read before it is set", `aws --profile rec s3 rb s3://b-$S; S=$(( 1 ))`, "ask"},
+		{"arithmetic variable rebound", `S=$(( 1 )); S="x --profile=prod"; aws --profile rec s3 rb s3://b-$S`, "ask"},
+		{"arithmetic variable set in a subshell", `(S=$(( 1 ))); aws --profile rec s3 rb s3://b-$S`, "ask"},
+		{"arithmetic variable with IFS set", `IFS=0; S=$(( 100 )); aws --profile rec s3 rb s3://b-$S`, "ask"},
+
+		// The CLI takes any unambiguous abbreviation of a global option, and an
+		// expansion can supply an option's value or the rest of its name.
+		{"abbreviated --profile wins as the last one", `aws --profile rec s3 rb s3://b --prof prod`, "deny"},
+		{"abbreviated --profile with a value attached", `aws --profile rec s3 rb s3://b --p=prod`, "deny"},
+		{"abbreviated --endpoint-url outranks a loopback one", `aws --profile prod --endpoint-url http://localhost:4566 s3 rb s3://b --endpoint https://s3.amazonaws.com`, "deny"},
+		{"abbreviated loopback endpoint", `aws --profile prod s3 ls --endpoint=http://127.0.0.1:4566`, "allow"},
+		{"quoted variable as an attached --profile value", `aws --profile rec s3 rb s3://b --profile="$P"`, "ask"},
+		{"quoted variable as an attached abbreviated --profile value", `aws --profile rec s3 rb s3://b --prof="$P"`, "ask"},
+		{"quoted variable completing --profile", `aws --profile rec s3 rb s3://b --prof"$X"`, "ask"},
+		{"quoted variable after the whole option name", `aws --profile rec s3 rb s3://b --profile"$X"`, "ask"},
+		{"arithmetic as an attached --profile value", `aws --profile rec s3 rb s3://b --profile=$(( 1 ))`, "ask"},
+		{"quoted variable as an attached endpoint", `aws --profile prod --endpoint-url http://localhost:4566 s3 rb s3://b --endpoint-url="$E"`, "ask"},
+		{"quoted substitution completing --endpoint-url", `aws --profile prod --endpoint-url http://localhost:4566 s3 rb s3://b --end"$(cat f)"`, "ask"},
+		{"quoted variable after another option name is fine", `aws --profile work s3 ls --page-size"$X"`, "allow"},
+
+		// zsh expansions the bash-mode parser reads as plain text.
+		{"zsh word-splitting expansion", `P="--profile prod"; aws --profile work s3 ls $=P`, "ask"},
+		{"zsh word-splitting expansion inside a word", `aws --profile work s3api list-objects --bucket=x$=B`, "ask"},
+		{"zsh word-splitting expansion in quotes", `aws --profile work s3 ls "s3://b/$=P"`, "ask"},
+		{"zsh glob expansion", `aws --profile work s3 ls $~P`, "ask"},
+		{"variable whose value holds a zsh expansion", `P="x $=Q"; aws --profile work s3 ls $P`, "ask"},
+		{"zsh command-path expansion", `=aws --profile prod s3 rb s3://x`, "deny"},
+		{"zsh command-path expansion behind a wrapper", `command =aws --profile prod s3 rb s3://x`, "deny"},
+
+		// What a global option's value slot holds must be one known word.
+		{"loop item supplying the service after --region", `for p in "us-east-1 s3"; do aws --profile work --region $p cp list-x s3://b/k; done`, "ask"},
+		{"quoted variable as the --region value", `aws --profile work --region "$R" sqs list-queues`, "ask"},
+
+		// The command's own aws function may reach the CLI in a way no call shows.
+		{"aws redefined as a function", `aws() { "$(echo aws)" --profile prod s3 rb s3://x; }; aws --profile work s3 ls`, "ask"},
+		{"aws aliased", `alias aws='aws --profile prod'; aws --profile work s3 ls`, "ask"},
+
+		// zsh builtins that bind a variable the census would otherwise trust.
+		{"zstyle -s binds a loop variable", `for p in a b; do zstyle :x y --profile=prod; zstyle -s :x y p; aws --profile work s3 ls $p; done`, "ask"},
+		{"zformat -f binds a loop variable", `for p in a b; do zformat -f p --profile=prod; aws --profile work s3 ls $p; done`, "ask"},
 
 		// A for-loop variable over literal items, read inside the loop body,
 		// expands to those items' words, so none can be an option.
@@ -307,6 +375,13 @@ func TestProfilePolicies(t *testing.T) {
 		{"credential minting asks", `aws --profile work ecr get-login-password`, "ask"},
 		{"cognito-identity get asks", `aws --profile work cognito-identity get-id --identity-pool-id p`, "ask"},
 		{"receive-message asks", `aws --profile work sqs receive-message --queue-url q`, "ask"},
+		{"policy simulation", `aws --profile work iam simulate-principal-policy --policy-source-arn a --action-names s3:GetObject`, "allow"},
+		{"custom policy simulation", `aws --profile work iam simulate-custom-policy --policy-input-list p --action-names s3:GetObject`, "allow"},
+		{"logs start-query", `aws --profile work logs start-query --log-group-name g --start-time 1 --end-time 2 --query-string q`, "allow"},
+		{"logs stop-query asks", `aws --profile work logs stop-query --query-id q`, "ask"},
+		{"ecr batch-get-image", `aws --profile work ecr batch-get-image --repository-name r --image-ids imageTag=x`, "allow"},
+		{"ecr batch-delete-image asks", `aws --profile work ecr batch-delete-image --repository-name r --image-ids imageTag=x`, "ask"},
+		{"dynamodb scan asks", `aws --profile work dynamodb scan --table-name t`, "ask"},
 		{"s3 cp asks", `aws --profile work s3 cp s3://b/k .`, "ask"},
 		{"unknown flag before the operation asks", `aws --profile work --frobnicate x sqs list-queues`, "ask"},
 		{"variable before the operation asks", `aws --profile work "$SVC" list-queues`, "ask"},
@@ -372,6 +447,99 @@ func TestProfileFromHookEnvironment(t *testing.T) {
 	})
 }
 
+// TestWrapperFunctions covers a function the command defines as a thin wrapper
+// around aws (`a() { aws --profile=x "$@"; }`): each call of it is judged as the
+// aws call it runs, and only while every use of its name is such a call.
+func TestWrapperFunctions(t *testing.T) {
+	const (
+		rec  = `a() { aws --profile=rec "$@"; }; `
+		work = `a() { aws --profile=work --region=us-west-1 "$@"; }; `
+	)
+	cases := []struct {
+		name     string
+		cmd      string
+		decision string
+	}{
+		{"read through the wrapper", work + `a ecs describe-services --cluster=c --services=s`, "allow"},
+		{"defined on its own line", "a() { aws --profile=work \"$@\"; }\na ecs list-clusters\n", "allow"},
+		{"function keyword", `function a { aws --profile=work "$@"; }; a ecs list-clusters`, "allow"},
+		{"called in a substitution, a loop and a pipeline", work + `x=$(a ecs list-services --cluster=c); for i in 1 2; do a ecs describe-services --cluster=c --services="$x" | head; done`, "allow"},
+		{"loop variable in a wrapped call", work + `for e in prod stg; do a ecs describe-services --cluster=c-$e; done`, "allow"},
+		{"called behind a test", work + `[ -n "$HOME" ] && a ecs list-clusters`, "allow"},
+		{"never called, so the body is judged", work + `echo done`, "ask"},
+
+		// Functions the shell calls by itself, and spellings of a call or of the
+		// name that one of the two counts would miss.
+		{"zsh exit trap function", `TRAPEXIT() { aws --profile prod s3 mv s3://b/k "$@"; }`, "ask"},
+		{"zsh chpwd hook", `chpwd() { aws --profile prod s3 rb s3://x "$@"; }; (cd /tmp)`, "ask"},
+		{"zsh exit hook", `zshexit() { aws --profile prod s3 rb s3://x "$@"; }; zshexit s3 ls`, "ask"},
+		{"command-not-found handler", `command_not_found_handler() { aws --profile work "$@"; }; command_not_found_handler s3 ls; s3 rb s3://x`, "ask"},
+		{"bash command-not-found handler", `command_not_found_handle() { aws --profile work "$@"; }; command_not_found_handle s3 ls; s3 rb s3://x`, "ask"},
+		{"glob command word matching a file of that name", `ab() { aws --profile work "$@"; }; ab s3 ls; [a]b s3 rb s3://x`, "ask"},
+		{"glob command word after creating the file", `ab() { aws --profile work "$@"; }; touch a""b; ab s3 ls; a? s3 rb s3://x`, "ask"},
+		{"quoted call balancing a trap", `ab() { aws --profile work "$@"; }; "a"b s3 ls; trap "ab s3 rb s3://x" EXIT`, "ask"},
+		{"escaped call", `ab() { aws --profile work "$@"; }; a\b s3 ls`, "ask"},
+		{"quoted call", rec + `'a' s3 ls`, "ask"},
+		{"trap spelling the name in two pieces", `ab() { aws --profile work "$@"; }; ab s3 ls; trap "a""b s3 rb s3://x" EXIT`, "ask"},
+		{"trap building the name from a variable", `ab() { aws --profile work "$@"; }; ab s3 ls; x=a; trap "${x}b s3 rb s3://x" EXIT`, "ask"},
+		{"alias spelling the name in two pieces", `ab() { aws --profile work "$@"; }; ab s3 ls; alias x="a""b s3 rb s3://x"; x`, "ask"},
+		{"exported under a split name", `ab() { aws --profile work "$@"; }; ab s3 ls; export -f "a""b"; bash -c "a""b s3 rb s3://x"`, "ask"},
+		{"hook array holding a split name", `ab() { aws --profile prod s3 rb s3://x "$@"; }; ab; chpwd_functions=("a""b"); cd /tmp`, "ask"},
+		{"copied under another name", `ab() { aws --profile work "$@"; }; ab s3 ls; functions -c "a""b" cd; cd s3 rb s3://x`, "ask"},
+		{"write through the wrapper asks", work + `a ecs update-service --cluster=c --service=s --desired-count=0`, "ask"},
+		{"one write among wrapped reads asks", work + `a ecs list-clusters; a ecs delete-cluster --cluster=c`, "ask"},
+		{"unquoted variable at the call asks", work + `a s3 ls $X`, "ask"},
+		{"positional parameter at the call asks", work + `a s3 ls "$@"`, "ask"},
+		{"a later --profile at the call wins", rec + `a sqs delete-queue --queue-url q --profile prod`, "deny"},
+		{"an abbreviated --profile at the call wins", rec + `a sqs delete-queue --queue-url q --prof prod`, "deny"},
+		{"value-slot hint reaches a wrapped call", work + `a lambda get-function --function-name "$f"`, "deny"},
+		{"loopback endpoint in the wrapper", `a() { aws --endpoint-url http://127.0.0.1:4566 "$@"; }; a sqs delete-queue --queue-url q`, "allow"},
+		{"remote endpoint at the call outranks it", `a() { aws --endpoint-url http://127.0.0.1:4566 "$@"; }; a sqs delete-queue --queue-url q --endpoint-url https://sqs.us-east-1.amazonaws.com`, "ask"},
+		{"profile from an earlier export", `export AWS_PROFILE=rec; a() { aws "$@"; }; a sqs delete-queue --queue-url q`, "allow"},
+		{"profile exported after the definition", `a() { aws "$@"; }; export AWS_PROFILE=prod; a s3 ls`, "deny"},
+		{"profile prefix on the wrapped call", `a() { aws "$@"; }; AWS_PROFILE=rec a sqs delete-queue --queue-url q`, "allow"},
+		{"wrapper variable known at the call", `P=rec; a() { aws --profile=$P "$@"; }; a sqs delete-queue --queue-url q`, "allow"},
+		{"wrapper variable rebound before the call", `P=rec; a() { aws --profile=$P "$@"; }; P=prod; a sqs delete-queue --queue-url q`, "ask"},
+
+		// Anything that could run the function out of sight, or make its name
+		// mean something else, leaves the body judged on its own, which asks.
+		{"trap runs it later", rec + `trap 'a s3 rb s3://b --profile prod' EXIT; a s3 ls`, "ask"},
+		{"name held in a variable", rec + `f=a; $f s3 rb s3://b --profile prod`, "ask"},
+		{"command word from a substitution", rec + `$(cat f) s3 rb s3://b --profile prod`, "ask"},
+		{"name mentioned as an argument", rec + `echo a; a s3 ls`, "ask"},
+		{"name in a nested shell", rec + `export -f a; bash -c 'a s3 rb s3://b --profile prod'`, "ask"},
+		{"behind a wrapper command", rec + `sudo a s3 ls`, "ask"},
+		{"alias to it", rec + `alias b='a s3 rb s3://b --profile prod'; b`, "ask"},
+		{"eval", rec + `eval "$X"; a s3 ls`, "ask"},
+		{"defined twice", rec + `a() { aws --profile=prod "$@"; }; a s3 ls`, "ask"},
+		{"defined in a conditional", `if true; then a() { aws --profile=rec "$@"; }; fi; a s3 ls`, "ask"},
+		{"defined in a subshell", `(a() { aws --profile=rec "$@"; }); a s3 ls`, "ask"},
+		{"defined in the background", `a() { aws --profile=rec "$@"; } & a s3 ls`, "ask"},
+		{"called before it is defined", `a s3 ls; ` + rec + `true`, "ask"},
+		{"unset before the call", rec + `unset -f a; a s3 ls`, "ask"},
+
+		// Only a body that is exactly one plain aws call ending in "$@" counts.
+		{"body with a second command", `a() { export AWS_PROFILE=prod; aws --profile=rec "$@"; }; a s3 ls`, "ask"},
+		{"arguments not last", `a() { aws "$@" --profile=rec; }; a s3 ls --profile prod`, "ask"},
+		{"unquoted arguments", `a() { aws --profile=rec $@; }; a s3 ls`, "ask"},
+		{"first argument only", `a() { aws --profile=rec "$1"; }; a s3 ls`, "ask"},
+		{"aws behind a wrapper", `a() { env -u HOME aws --profile=rec "$@"; }; a s3 ls`, "ask"},
+		{"prefix assignment in the body", `a() { AWS_CONFIG_FILE=/tmp/c aws --profile=rec "$@"; }; a s3 ls`, "ask"},
+		{"redirect in the body", `a() { aws --profile=rec "$@" > out; }; a s3 ls`, "ask"},
+		{"wrapper named aws", `aws() { command aws --profile=rec "$@"; }; aws s3 rb s3://b`, "ask"},
+	}
+
+	clearAWSEnv(t)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := checkWithPolicies(tc.cmd)
+			if got.Decision.String() != tc.decision {
+				t.Errorf("Check(%q) = %s (%s), want %s", tc.cmd, got.Decision, got.Reason, tc.decision)
+			}
+		})
+	}
+}
+
 // TestValueSlotHintSpellsTheRewrite pins that the denial gives the agent the
 // exact replacement for each expansion, so it can fix the call itself.
 func TestValueSlotHintSpellsTheRewrite(t *testing.T) {
@@ -381,6 +549,9 @@ func TestValueSlotHintSpellsTheRewrite(t *testing.T) {
 		{`S=$(( 1 )); aws --profile work logs filter-log-events --log-group-name g --start-time $S`, `--start-time="$S"`},
 		{`aws --profile work lambda get-function --function-name "$f"`, `--function-name="$f"`},
 		{`aws --profile work logs filter-log-events --log-group-name g --start-time "$(date +%s)"`, `--start-time="$(date +%s)"`},
+		{`q=$(cat id); aws --profile work logs get-query-results --query-id=$q`, `--query-id="$q"`},
+		{`aws --profile work logs filter-log-events --log-group-name=g --start-time=$(date +%s)`, `--start-time="$(date +%s)"`},
+		{`aws --profile work sns get-topic-attributes --topic-arn=arn:aws:sns:us-west-1:1:$t`, `--topic-arn="arn:aws:sns:us-west-1:1:$t"`},
 	}
 	for _, tc := range cases {
 		got := checkWithPolicies(tc.cmd)
@@ -397,6 +568,10 @@ func TestReasonsNameTheProfile(t *testing.T) {
 		{`aws --profile other s3 ls`, `profile "other", which has no policy`},
 		{`aws --profile prod s3 ls`, `which the hook config denies`},
 		{`AWS_DEFAULT_PROFILE=x aws s3 ls`, `cannot be determined: AWS_DEFAULT_PROFILE is set`},
+		{`eval "$X"; aws --profile rec s3 ls`, `runs eval, source or another builtin that can set any variable`},
+		{`aws() { command aws "$@"; }; aws --profile rec s3 ls`, `defines its own aws function or an alias`},
+		{`aws --profile work --region "$R" sqs list-queues`, `could expand to a --profile option`},
+		{`for p in "us-east-1 s3"; do aws --profile work --region $p cp list-x s3://b/k; done`, `the value of --region is a variable or substitution`},
 	}
 	for _, tc := range cases {
 		if got := checkWithPolicies(tc.cmd).Reason; !strings.Contains(got, tc.want) {
