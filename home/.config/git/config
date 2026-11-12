@@ -13,6 +13,10 @@
 	ci = commit
 	unstage = reset HEAD --
 	last = log -1 HEAD
+[core]
+	# Remember which directories hold untracked files, so `git status` (and
+	# the prompt's git_status) stats directories instead of rescanning them.
+	untrackedCache = true
 [push]
 	autoSetupRemote = true
 	default = current
