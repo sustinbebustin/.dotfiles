@@ -69,7 +69,7 @@ Anything that decides which binary a command resolves to belongs in `.zshenv`, n
 
 Key tools loaded: pnpm, bun, starship, eza, fzf, atuin, zoxide, direnv, zsh-autosuggestions, zsh-syntax-highlighting.
 
-compinit and the two zsh plugins load from a one-shot `zle-line-init` handler, after the first prompt is drawn. Anything a plugin would normally do in its first `precmd` has to be run by hand there. Autosuggestions come from atuin (current directory first), with zsh history as the fallback; that strategy list is set after `atuin init`, which otherwise replaces it.
+compinit and the two zsh plugins load from a one-shot `zle-line-init` handler, after the first prompt is drawn. Anything a plugin would normally do in its first `precmd` has to be run by hand there. Tool init scripts (starship, fzf, atuin, zoxide) are sourced from compiled copies in `~/.cache/zsh/init`, rebuilt when a tool's binary or arguments change; delete that directory after changing a tool's own config if its init output depends on it. The prompt hooks avoid forking in the common case: direnv runs only when an environment is loaded or an `.envrc` exists up the tree, and the ssh-agent check only when the socket link is dead. Autosuggestions come from atuin (current directory first), with zsh history as the fallback; that strategy list is set after `atuin init`, which otherwise replaces it.
 
 ## Node Toolchain
 

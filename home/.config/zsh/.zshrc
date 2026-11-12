@@ -141,7 +141,12 @@ elif [[ "$OSTYPE" == "linux"* ]]; then
   # agent. ssh refreshes it too (Match exec in ~/.ssh/config); the prompt
   # hook covers other agent clients such as ssh-add.
   export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
-  _ssh_agent_sock() { "$HOME/.local/bin/ssh-agent-sock" }
+  # The script's own fast path -- the link resolves to a live forwarded socket
+  # -- is repeated here so the common case costs no fork on every prompt.
+  _ssh_agent_sock() {
+    [[ -S $SSH_AUTH_SOCK && ${SSH_AUTH_SOCK:A} != $HOME/.ssh/agent.local.sock ]] ||
+      "$HOME/.local/bin/ssh-agent-sock"
+  }
   _ssh_agent_sock
   add-zsh-hook precmd _ssh_agent_sock
 fi
@@ -293,6 +298,11 @@ ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#FF80BF'
 ZSH_HIGHLIGHT_STYLES[redirection]='fg=#9580FF'
 ZSH_HIGHLIGHT_STYLES[comment]='fg=#7970A9'
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#7970A9'
+# By default the plugin re-wraps every zle widget before each prompt (~50 ms
+# with ~640 widgets). All widgets exist by the time the deferred loader wraps
+# them, so once is enough. A widget defined later in a session needs a manual
+# `_zsh_autosuggest_bind_widgets`.
+ZSH_AUTOSUGGEST_MANUAL_REBIND=1
 
 # ===== Prompt =====
 _source_cached starship init zsh
@@ -337,9 +347,31 @@ if _source_cached atuin init zsh --disable-up-arrow --disable-ai; then
 fi
 
 # ===== Direnv =====
-# The hook bakes in direnv's resolved Cellar path, which `brew upgrade` deletes
-# out from under running shells; call it through PATH instead.
-command -v direnv &>/dev/null && eval "$(direnv hook zsh | sed "s|\$'[^']*/bin/direnv'|direnv|")"
+# `direnv hook zsh`, written out, with two changes. It calls direnv through
+# PATH: the generated hook bakes in the resolved Cellar path, which
+# `brew upgrade` deletes out from under running shells. And it skips the
+# ~20 ms `direnv export` fork on every prompt when the result is known to be
+# empty: no environment is loaded and no .envrc exists from here up to /.
+if (( $+commands[direnv] )); then
+  _direnv_hook() {
+    setopt localoptions localtraps
+    [[ -o interactive && $ZSH_SUBSHELL -eq 0 ]] || return
+    if [[ -z ${DIRENV_DIR-} ]]; then
+      local dir=$PWD
+      until [[ -e $dir/.envrc ]]; do
+        [[ $dir == (/|.|) ]] && return
+        dir=${dir:h}
+      done
+    fi
+    local vars
+    vars="$(direnv export zsh)"
+    trap -- '' SIGINT
+    eval "$vars"
+    trap - SIGINT
+  }
+  precmd_functions=(_direnv_hook ${precmd_functions:#_direnv_hook})
+  chpwd_functions=(_direnv_hook ${chpwd_functions:#_direnv_hook})
+fi
 
 # ===== Zoxide =====
 _source_cached zoxide init zsh
