@@ -1,5 +1,35 @@
 # .zshrc - Configuration for interactive shells
 
+# ===== Cached tool init =====
+# `eval "$(tool init zsh)"` forks the tool on every shell start, which costs
+# 5-10 ms each on an idle machine and far more on a loaded one. Cache the
+# output, compile it, and source that instead.
+#
+# Usage: _source_cached <tool> [args...]   e.g. _source_cached zoxide init zsh
+#
+# The cache is rebuilt when the tool's resolved path changes (a Homebrew
+# upgrade moves it to a new Cellar directory), its binary is newer, or the
+# arguments change. It is NOT rebuilt when the tool's own config changes; if
+# an init script depends on that, delete ~/.cache/zsh/init and `reload`.
+_source_cached() {
+  local bin=${commands[$1]}
+  [[ -n $bin ]] || return 1
+  local cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/init/$1.zsh"
+  local key="# ${bin:A} ${*[2,-1]}" head=
+  [[ -r $cache ]] && IFS= read -r head < $cache
+  if [[ $head != $key || $bin -nt $cache ]]; then
+    mkdir -p ${cache:h}
+    if ! { print -r -- $key; "$@" } >| $cache.$$; then
+      rm -f $cache.$$
+      print -u2 "zshrc: '$*' failed, so $1 is not set up in this shell. Run it by hand to see the error."
+      return 1
+    fi
+    mv -f $cache.$$ $cache
+    zcompile $cache
+  fi
+  source $cache
+}
+
 # ===== Key bindings =====
 # Pin emacs keys: zsh otherwise switches to vi keys when EDITOR contains "vi".
 bindkey -e
@@ -265,21 +295,7 @@ ZSH_HIGHLIGHT_STYLES[comment]='fg=#7970A9'
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#7970A9'
 
 # ===== Prompt =====
-# `eval "$(starship init zsh)"` is ~70 ms (mostly the eval). Cache the
-# expanded output and source it; bytecode-compile it for good measure.
-() {
-  local sbin
-  sbin=$(command -v starship 2>/dev/null) || return
-  local cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/starship-init.zsh"
-  if [[ ! -s "$cache" || "$sbin" -nt "$cache" ]]; then
-    mkdir -p "${cache%/*}"
-    "$sbin" init zsh > "$cache"
-  fi
-  if [[ ! -s "${cache}.zwc" || "$cache" -nt "${cache}.zwc" ]]; then
-    zcompile "$cache" 2>/dev/null
-  fi
-  source "$cache"
-}
+_source_cached starship init zsh
 
 # ===== History =====
 HISTFILE=~/.zsh_history
@@ -300,15 +316,14 @@ if command -v fzf &>/dev/null; then
   export FZF_DEFAULT_OPTS='--height=40% --layout=reverse --border --color=fg:#F8F8F2,hl:#9580FF,fg+:#F8F8F2,bg+:#454158,hl+:#9580FF,info:#7970A9,prompt:#8AFF80,pointer:#FF80BF,marker:#FF80BF,spinner:#FFCA80,header:#7970A9,border:#454158'
   # Off a terminal (`zsh -ic` from a script or agent) there is no line editor
   # to bind keys in, and the script warns "can't change option: zle".
-  [[ -t 0 ]] && eval "$(fzf --zsh)"
+  [[ -t 0 ]] && _source_cached fzf --zsh
 fi
 
 # ===== Atuin =====
 # Takes Ctrl-R from fzf (bound above, so this wins). The up arrow stays zsh's
 # own prefix search rather than opening atuin.
-if command -v atuin &>/dev/null; then
-  # --disable-ai: `?` on an empty prompt would otherwise open atuin's AI mode.
-  eval "$(atuin init zsh --disable-up-arrow --disable-ai)"
+# --disable-ai: `?` on an empty prompt would otherwise open atuin's AI mode.
+if _source_cached atuin init zsh --disable-up-arrow --disable-ai; then
   # atuin init makes its own strategy -- the most recent match from anywhere,
   # failed commands included -- the only source of autosuggestions. Prefer a
   # command that succeeded in this directory, then atuin's match, then zsh
@@ -327,12 +342,14 @@ fi
 command -v direnv &>/dev/null && eval "$(direnv hook zsh | sed "s|\$'[^']*/bin/direnv'|direnv|")"
 
 # ===== Zoxide =====
-command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
+_source_cached zoxide init zsh
 
 # Written by third-party installers (uv, rust); absent on a fresh machine.
 [ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 
 export QLTY_INSTALL="$HOME/.qlty"
+
+unfunction _source_cached
 
 # >>> mws shell-init >>>
 eval "$(mws shell-init zsh)"
