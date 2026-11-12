@@ -420,8 +420,7 @@
   {
     "name": "gh-issue-close",
     "stdin": "{\"tool_input\":{\"command\":\"gh issue close 5\"},\"tool_name\":\"Bash\"}",
-    "decision": "deny",
-    "reason": "[BLOCKED] gh issue close not allowed"
+    "decision": "allow"
   },
   {
     "name": "gh-release-create",

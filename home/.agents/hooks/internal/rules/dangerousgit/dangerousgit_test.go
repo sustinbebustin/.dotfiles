@@ -80,6 +80,17 @@ func TestDecide(t *testing.T) {
 		{"gh pr view", `gh pr view --json number`, "allow"},
 		{"gh run view", `gh run view 1 --log`, "allow"},
 
+		// The ticket workflow's gh calls run unprompted. Closing an issue is how
+		// a ticket resolves, and `gh issue reopen` undoes it.
+		{"gh issue create", `gh issue create --title t --body b --label needs-triage`, "allow"},
+		{"gh issue create sub-issue with blockers", `gh issue create --parent 1 --blocked-by 2,3 --title t --body b`, "allow"},
+		{"gh issue edit", `gh issue edit 4 --add-label ready-for-agent --add-blocked-by 2`, "allow"},
+		{"gh issue comment", `gh issue comment 4 --body done`, "allow"},
+		{"gh issue close", `gh issue close 4`, "allow"},
+		{"gh issue comment then close", `gh issue comment 4 --body done && gh issue close 4`, "allow"},
+		{"gh issue reopen", `gh issue reopen 4`, "allow"},
+		{"gh label create", `gh label create needs-triage`, "allow"},
+
 		// git push: a literally named feature branch runs unprompted.
 		{"push feature branch", `git push -u origin feat/x`, "allow"},
 		{"push feature branch -C", `git -C frontend push --set-upstream origin fix/y`, "allow"},

@@ -25,10 +25,14 @@
 // published history.
 //
 // Operations that are outward-facing and hard to
-// undo return a hard `deny`: gh pr close, gh issue close/delete, gh release
-// delete, gh repo delete/rename, and any writing `gh api` call - both the
-// explicit method flag and the payload flags that make gh choose POST on its
-// own. See checkGhAPI.
+// undo return a hard `deny`: gh pr close, gh issue delete, gh release delete,
+// gh repo delete/rename, and any writing `gh api` call - both the explicit
+// method flag and the payload flags that make gh choose POST on its own. See
+// checkGhAPI.
+//
+// The rest of `gh issue` runs unprompted so agents can file, label, link, and
+// resolve tickets on their own. That includes close: it is how a ticket
+// resolves, and `gh issue reopen` undoes it.
 //
 // The whole shell tree is walked, so a guarded call nested anywhere in a
 // compound command is still caught.
@@ -294,8 +298,8 @@ func checkGh(args []string) (hook.Verdict, bool) {
 			}
 		}
 	case "issue":
-		if len(args) > 1 && (args[1] == "close" || args[1] == "delete") {
-			return hook.Denied(fmt.Sprintf("[BLOCKED] gh issue %s not allowed", args[1])), true
+		if len(args) > 1 && args[1] == "delete" {
+			return hook.Denied("[BLOCKED] gh issue delete not allowed"), true
 		}
 	case "release":
 		if len(args) > 1 {
