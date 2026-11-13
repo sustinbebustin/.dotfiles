@@ -1,7 +1,7 @@
 {
   "modelPolicy": {
     "allowedModelIds": [
-      "custom:claude-fable-5-1",
+      "custom:claude-fable-5-2",
       "custom:claude-opus-5-5",
       "custom:claude-sonnet-5-5",
       "custom:claude-haiku-5-5"
@@ -12,9 +12,9 @@
   },
   "customModels": [
     {
-      "model": "claude-fable-5-1",
-      "baseModelId": "claude-fable-5.1",
-      "displayName": "Fable 5.1 [Anthropic API]",
+      "model": "claude-fable-5-2",
+      "baseModelId": "claude-fable-5.2",
+      "displayName": "Fable 5.2 [Anthropic API]",
       "baseUrl": "https://api.anthropic.com",
       "provider": "anthropic",
       "apiKeyHelper": "cat ~/.factory/anthropic-api-key",

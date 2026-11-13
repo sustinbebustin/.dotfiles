@@ -125,7 +125,7 @@ var droidModels = map[string]string{
 	"opus":    "custom:claude-opus-5-5",
 	"sonnet":  "custom:claude-sonnet-5-5",
 	"haiku":   "custom:claude-haiku-5-5",
-	"fable":   "custom:claude-fable-5-1",
+	"fable":   "custom:claude-fable-5-2",
 	"inherit": "inherit",
 }
 
