@@ -91,6 +91,7 @@ type input struct {
 	ToolName  json.RawMessage `json:"tool_name"`
 	ToolInput json.RawMessage `json:"tool_input"`
 	Cwd       json.RawMessage `json:"cwd"`
+	SessionID json.RawMessage `json:"session_id"`
 }
 
 // jsonString decodes raw as a JSON string. A field that is absent, null, or of
@@ -187,6 +188,14 @@ type Request struct {
 	// that need it set it directly, and the rest get the zero value, which is
 	// the no-config state.
 	Config config.Config
+	// SessionID is the harness session the tool call belongs to. It is empty
+	// when the payload carried none.
+	SessionID string
+	// MergeGranted reports that the session holds a live merge grant (see
+	// package grant). Like Config it is attached by the binary after decoding,
+	// since finding out reads the filesystem and the rules do no I/O; the zero
+	// value is the no-grant state.
+	MergeGranted bool
 	// Origin says whether Command is the tool call itself or a script it hands
 	// to a nested shell (see Embedded).
 	Origin Origin
@@ -299,6 +308,7 @@ func Read(r io.Reader) (*Request, error) {
 		jsonString(fields["command"]),
 	)
 	req.Cwd = jsonString(in.Cwd)
+	req.SessionID = jsonString(in.SessionID)
 	req.toolInput = fields
 	return req, nil
 }

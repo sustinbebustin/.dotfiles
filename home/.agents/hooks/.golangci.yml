@@ -69,6 +69,14 @@ linters:
           - gosec
         text: G204
 
+      # The grant tests run the commit-push-pr skill's own argument parser, a
+      # script in this repo at a path fixed in the test, to pin that the two
+      # parsers agree.
+      - path: internal/grant/grant_test\.go
+        linters:
+          - gosec
+        text: G204
+
       # The droid generator reads the agents dir and syncs the droids dir that
       # dot names on its command line; walking, reading and writing those paths
       # is the whole job, as the user who owns both. Droids are config, not

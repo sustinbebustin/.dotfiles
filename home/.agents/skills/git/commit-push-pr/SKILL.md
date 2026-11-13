@@ -83,6 +83,7 @@ If the block says `**Bypass CI:** yes`, skip step 1 entirely -- go straight to s
 
 1. **Watch CI.** Call the Skill tool for `watch-ci` with the PR number and the target path. `CI COMPLETE: pass` or `NO CI` -> step 2. `CI COMPLETE: fail` -> step 4.
 2. **Merge.** `gh pr merge <number> --merge --delete-branch --admin`. A standard merge commit is the default, preserving the branch's individual commits. If the repo disallows merge commits, retry with the method its error names (`--squash` or `--rebase`). Never merge a draft PR.
+   - The merge runs without an approval prompt only when the user typed this skill with the merge flag themselves, and only with the PR number written out literally. Invoked any other way it prompts; that is expected, not a failure.
    - Always pass `--admin`: it bypasses required checks and required reviews, which is what merge mode is for. It needs repo admin or bypass-actor rights, and merge queues and some ruleset conditions block even `--admin` -- if the merge still fails, report the error (step 4) rather than trying other bypasses.
 3. **Resync local.** `git -C <target> checkout <default branch>` then `git -C <target> pull`. Use the `**Default branch:**` value from the gathered state.
 4. **On any failure, stop -- do not merge.** Report which checks failed (the `watch-ci` failure report) or what blocked the merge, and leave the branch checked out. Don't attempt fixes, re-runs, or a second merge unless the user asks.

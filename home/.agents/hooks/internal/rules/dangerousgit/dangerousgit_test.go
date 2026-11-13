@@ -10,6 +10,46 @@ func decide(cmd string) hook.Verdict {
 	return Check(hook.NewRequest("Bash", "", "", cmd))
 }
 
+// TestMergeGrant pins what a session's merge grant covers: a gh pr merge the
+// guard can read, and nothing else that asks.
+func TestMergeGrant(t *testing.T) {
+	cases := []struct {
+		name     string
+		cmd      string
+		decision string
+	}{
+		{"merge as the skill writes it", `(cd frontend && gh pr merge 4 --merge --delete-branch --admin)`, "allow"},
+		{"plain merge", `gh pr merge 4`, "allow"},
+		{"merge with an expanded number", `gh pr merge "$n" --admin`, "ask"},
+		{"merge in a nested script", `bash -c 'gh pr merge 4'`, "allow"},
+		{"merge in a nested script that lost an expansion", `bash -c "gh pr merge $n"`, "ask"},
+		{"close is not a merge", `gh pr close 4`, "ask"},
+		{"release is not a merge", `gh release create v1`, "ask"},
+		{"a push to main still asks", `git push origin main`, "ask"},
+		{"repo delete stays denied", `gh pr merge 4 && gh repo delete o/r`, "deny"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := hook.NewRequest("Bash", "", "", tc.cmd)
+			req.MergeGranted = true
+			got := hook.Merge(checkWithNested(req))
+			if got.Decision.String() != tc.decision {
+				t.Fatalf("decision = %q, want %q (reason: %s)", got.Decision, tc.decision, got.Reason)
+			}
+		})
+	}
+}
+
+// checkWithNested runs Check over the command and the scripts it hands to a
+// nested shell, as the dispatcher does for this rule.
+func checkWithNested(req *hook.Request) []hook.Verdict {
+	verdicts := []hook.Verdict{Check(req)}
+	for _, sub := range req.Embedded() {
+		verdicts = append(verdicts, Check(sub))
+	}
+	return verdicts
+}
+
 func TestDecide(t *testing.T) {
 	cases := []struct {
 		name     string

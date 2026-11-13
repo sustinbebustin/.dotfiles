@@ -31,6 +31,10 @@
 // that writes - by an explicit POST, PUT or PATCH, or by the payload flags that
 // make gh choose POST on its own. See checkGhAPI.
 //
+// The exception is gh pr merge in a session that holds a merge grant: the user
+// typed /commit-push-pr with a merge flag, so the merge that skill ends on runs
+// unprompted. See checkGh and package grant.
+//
 // Two operations that destroy what cannot be restored return a hard `deny`: gh
 // repo delete and `gh api` with the DELETE method.
 //
@@ -86,7 +90,7 @@ func Check(req *hook.Request) hook.Verdict {
 	lossy := req.Origin == hook.NestedLossy
 	first := hook.Allowed()
 	if denied, hit := shellast.FirstCall(file, func(c *syntax.CallExpr) (hook.Verdict, bool) {
-		v, guarded := checkCall(c, lossy)
+		v, guarded := checkCall(c, lossy, req.MergeGranted)
 		if guarded && first.Decision == hook.Allow {
 			first = v
 		}
@@ -110,11 +114,12 @@ var ghText = regexp.MustCompile(`\bgh\b`)
 var guardedCommandText = regexp.MustCompile(`\b(git|gh)\b`)
 
 // checkCall judges one call. lossy marks a nested script whose text had the
-// outer shell's expansions dropped from it (see checkPush).
+// outer shell's expansions dropped from it (see checkPush). mergeGranted is
+// whether the session holds a merge grant (see checkGh).
 //
 // Brace lists are written out first, since the checks read arguments by
 // position and `gh {pr,close} 3` runs `gh pr close 3`.
-func checkCall(c *syntax.CallExpr, lossy bool) (hook.Verdict, bool) {
+func checkCall(c *syntax.CallExpr, lossy, mergeGranted bool) (hook.Verdict, bool) {
 	words, ok := shellast.ExpandBraces(c.Args)
 	if !ok {
 		if slices.ContainsFunc(words, func(w *syntax.Word) bool {
@@ -144,7 +149,7 @@ func checkCall(c *syntax.CallExpr, lossy bool) (hook.Verdict, bool) {
 		wrappers := words[:max(len(words)-len(operands)-1, 0)]
 		return checkGit(args, literals, params, noopSequenceEditor(c.Assigns, wrappers), lossy)
 	case "gh":
-		return checkGh(args, exact)
+		return checkGh(args, exact, mergeGranted)
 	}
 	return hook.Verdict{}, false
 }
@@ -334,7 +339,12 @@ func checkRebase(rest []string, literal, noopEditor bool) (hook.Verdict, bool) {
 // checkGh judges one gh call. args are the tokens following `gh`, and exact
 // whether they are the text gh will receive: every one a literal, in a script
 // that lost none of its expansions.
-func checkGh(args []string, exact bool) (hook.Verdict, bool) {
+//
+// mergeGranted lets `gh pr merge` run unprompted: the user typed
+// /commit-push-pr with a merge flag in this session (see package grant), which
+// is the approval the prompt would have asked for. It covers only a merge
+// whose arguments are exact, so one the guard cannot read still asks.
+func checkGh(args []string, exact, mergeGranted bool) (hook.Verdict, bool) {
 	if len(args) == 0 {
 		return hook.Verdict{}, false
 	}
@@ -343,6 +353,9 @@ func checkGh(args []string, exact bool) (hook.Verdict, bool) {
 		if len(args) > 1 {
 			switch args[1] {
 			case "merge":
+				if mergeGranted && exact {
+					return hook.Verdict{}, false
+				}
 				return hook.Asked("gh pr merge merges and may delete the branch - allow?"), true
 			case "close":
 				return hook.Asked("gh pr close closes the pull request, and with --delete-branch " +

@@ -161,6 +161,19 @@ rather than blocking the session -- which also drops any `deny`, so those calls
 fall back to asking.
 `$AGENT_HOOKS_CONFIG` overrides the location.
 
+`gh pr merge` asks, except in a session that holds a merge grant
+(`internal/grant`). Claude Code registers `agent-guard-bin grant` under
+UserPromptExpansion, matched to the `commit-push-pr` skill: typing that skill
+with `--merge`, `--bypass` or `--merge-bypass` mints a grant for the session,
+and typing it without one revokes it. The event fires only for a typed slash
+command, so the model invoking the skill, or a prompt that merely quotes the
+command, mints nothing. A grant is an empty file named after the session in
+`~/.local/state/agent-guard-grants/`, live for an hour; it is not single-use,
+since one invocation can merge several targets. The agent runs as the user and
+could write that file itself, so `protect-merge-grant` asks before any tool call
+that names the directory or runs the grant mode. Droid has no registration and
+always asks.
+
 The same module builds a second binary, `agent-quality-bin`, registered as a
 PostToolUse hook on `Write|Edit` (Droid: `Create|Edit`). It formats and lints the edited file with the
 tools its project uses, detected rather than configured
@@ -189,7 +202,8 @@ the `gofumpt`/`gci` formatters `make fmt` applies.
 | `block-credential-files` | Read, Edit, Write, Bash, Grep | Deny access to credential files |
 | `block-aws-cli` | Bash | Ask before an `aws` call that could reach real AWS, unless the config's per-profile policy allows it (all calls, or reads only) or denies it |
 | `block-supabase-remote` | Bash | Deny Supabase CLI commands that wipe a remote database or delete a project; ask before other remote writes |
-| `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands and outward-facing gh operations (`pr merge`, `pr close`, writing `gh api`); deny `gh repo delete` and `gh api` DELETE |
+| `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands and outward-facing gh operations (`pr merge`, `pr close`, writing `gh api`); deny `gh repo delete` and `gh api` DELETE. `pr merge` runs unprompted in a session holding a merge grant |
+| `protect-merge-grant` | Edit, Write, Bash | Ask before a call that names the merge grant store or runs `agent-guard-bin grant` |
 | `block-dangerous-rm` | Bash | Ask before a recursive `rm` |
 | `enforce-root` | Bash | Deny a top-level `cd`, which silently desyncs later commands |
 

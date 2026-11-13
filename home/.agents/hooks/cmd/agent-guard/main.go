@@ -12,14 +12,20 @@
 //	agent-guard           # run every applicable rule (the form settings.json invokes)
 //	agent-guard <rule>    # run one rule only, for debugging or a narrower hook
 //	agent-guard list      # print the rules, their tools, and the matchers
+//	agent-guard grant     # mint or revoke the session's merge grant
+//
+// The grant form is not a PreToolUse hook. It is registered under
+// UserPromptExpansion and reads that event's payload; see package grant.
 package main
 
 import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"agent-hooks/internal/config"
+	"agent-hooks/internal/grant"
 	"agent-hooks/internal/hook"
 	"agent-hooks/internal/rules"
 )
@@ -30,6 +36,10 @@ func main() {
 	args := os.Args[1:]
 	if len(args) == 1 && args[0] == "list" {
 		list()
+		return
+	}
+	if len(args) == 1 && args[0] == grant.Subcommand {
+		applyGrant()
 		return
 	}
 
@@ -47,8 +57,45 @@ func main() {
 	}
 
 	req.Config = loadConfig()
+	req.MergeGranted = mergeGranted(req.SessionID)
 
 	hook.Render(progName, req, rules.Apply(selected, req))
+}
+
+// applyGrant handles one UserPromptExpansion payload: it mints or revokes the
+// session's merge grant and prints nothing, since stdout from this event is
+// added to the model's context.
+//
+// A failure exits 1, which the harness reports without blocking the prompt.
+// Exit 2 would stop the skill from running at all over a grant it can do
+// without.
+func applyGrant() {
+	dir, err := grant.Dir()
+	if err == nil {
+		err = grant.Apply(os.Stdin, dir, time.Now())
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not update the merge grant: %v.\nThe skill still runs, and "+
+			"`gh pr merge` asks for approval as it does without a grant.\n", progName, err)
+		os.Exit(1)
+	}
+}
+
+// mergeGranted reports whether the session holds a live merge grant, reporting
+// a store that cannot be read on stderr and carrying on with none. Like a
+// broken config, that costs a prompt and never skips one.
+func mergeGranted(session string) bool {
+	granted := false
+	dir, err := grant.Dir()
+	if err == nil {
+		granted, err = grant.Live(dir, session, time.Now())
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v.\n`gh pr merge` asks for approval as it does without a grant.\n",
+			progName, err)
+		return false
+	}
+	return granted
 }
 
 // loadConfig reads the machine-local configuration, reporting a broken one on
