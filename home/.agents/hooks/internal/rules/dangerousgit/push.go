@@ -49,7 +49,12 @@ const pushQuietShorthands = "uvqn"
 // prefixParams describing each word (see checkGit); args are the tokens after
 // it. argsLiteral reports whether every word after push was plain text, with
 // no expansion whose value the guard cannot know.
-func checkPush(prefix, args []string, prefixLiterals, prefixParams []bool, argsLiteral, lossy bool) (hook.Verdict, bool) {
+//
+// mainGranted waives one prompt only: the push that names a protected branch
+// (see checkRefspec). Every other reason to ask here still asks.
+func checkPush(
+	prefix, args []string, prefixLiterals, prefixParams []bool, argsLiteral, lossy, mainGranted bool,
+) (hook.Verdict, bool) {
 	const expansionReason = "git push with a shell expansion in its arguments - allow?"
 	if lossy {
 		return hook.Asked("git push inside a nested script whose text lost the outer shell's expansions - allow?"), true
@@ -77,7 +82,7 @@ func checkPush(prefix, args []string, prefixLiterals, prefixParams []bool, argsL
 			return hook.Asked(expansionReason), true
 		}
 	}
-	if v, hit := checkPushTargets(args); hit {
+	if v, hit := checkPushTargets(args, mainGranted); hit {
 		return v, true
 	}
 	if variableDir {
@@ -91,7 +96,8 @@ func checkPush(prefix, args []string, prefixLiterals, prefixParams []bool, argsL
 
 // checkPushTargets asks unless args, the tokens after `push`, write only
 // literally named, unprotected branches with no flag beyond pushQuietFlags.
-func checkPushTargets(args []string) (hook.Verdict, bool) {
+// With mainGranted a literally named protected branch passes too.
+func checkPushTargets(args []string, mainGranted bool) (hook.Verdict, bool) {
 	var operands []string
 	for i, a := range args {
 		if a == "--" {
@@ -114,7 +120,7 @@ func checkPushTargets(args []string) (hook.Verdict, bool) {
 		return hook.Asked(fmt.Sprintf("git push to remote %q detected - allow?", operands[0])), true
 	}
 	for _, spec := range operands[1:] {
-		if v, hit := checkRefspec(spec); hit {
+		if v, hit := checkRefspec(spec, mainGranted); hit {
 			return v, true
 		}
 	}
@@ -138,7 +144,11 @@ func isQuietPushFlag(a string) bool {
 
 // checkRefspec asks unless spec writes one literally named, unprotected
 // branch.
-func checkRefspec(spec string) (hook.Verdict, bool) {
+//
+// mainGranted lets a protected branch through: the session's grant names
+// grant.PushMain, because the user approved a skill that ends on publishing to
+// it. A forced, deleting or unreadable refspec asks all the same.
+func checkRefspec(spec string, mainGranted bool) (hook.Verdict, bool) {
 	switch {
 	case strings.HasPrefix(spec, "+"):
 		return hook.Asked(fmt.Sprintf("git push with forced refspec %q detected - allow?", spec)), true
@@ -161,7 +171,7 @@ func checkRefspec(spec string) (hook.Verdict, bool) {
 			"which could be main - allow?", spec)), true
 	case !isBranch && strings.HasPrefix(dst, "refs/"):
 		return hook.Asked(fmt.Sprintf("git push to %s (not a branch) detected - allow?", dst)), true
-	case isProtected(branch):
+	case isProtected(branch) && !mainGranted:
 		return hook.Asked(fmt.Sprintf("git push to %s detected - allow?", branch)), true
 	}
 	return hook.Verdict{}, false

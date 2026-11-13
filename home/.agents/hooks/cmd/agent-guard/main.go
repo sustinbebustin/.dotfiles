@@ -12,10 +12,11 @@
 //	agent-guard           # run every applicable rule (the form settings.json invokes)
 //	agent-guard <rule>    # run one rule only, for debugging or a narrower hook
 //	agent-guard list      # print the rules, their tools, and the matchers
-//	agent-guard grant     # mint or revoke the session's merge grant
+//	agent-guard grant     # update the session's grant from a hook payload
 //
 // The grant form is not a PreToolUse hook. It is registered under
-// UserPromptExpansion and reads that event's payload; see package grant.
+// UserPromptExpansion, and under PostToolUse for AskUserQuestion, and reads
+// those events' payloads; see package grant.
 package main
 
 import (
@@ -57,45 +58,45 @@ func main() {
 	}
 
 	req.Config = loadConfig()
-	req.MergeGranted = mergeGranted(req.SessionID)
+	req.Granted = granted(req.SessionID)
 
 	hook.Render(progName, req, rules.Apply(selected, req))
 }
 
-// applyGrant handles one UserPromptExpansion payload: it mints or revokes the
-// session's merge grant and prints nothing, since stdout from this event is
-// added to the model's context.
+// applyGrant handles one hook payload: it updates the session's grant and
+// prints nothing, since stdout from these events is added to the model's
+// context.
 //
-// A failure exits 1, which the harness reports without blocking the prompt.
+// A failure exits 1, which the harness reports without blocking anything.
 // Exit 2 would stop the skill from running at all over a grant it can do
 // without.
 func applyGrant() {
 	dir, err := grant.Dir()
 	if err == nil {
-		err = grant.Apply(os.Stdin, dir, time.Now())
+		err = grant.Apply(os.Stdin, dir, loadConfig().GrantPolicies, time.Now())
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not update the merge grant: %v.\nThe skill still runs, and "+
-			"`gh pr merge` asks for approval as it does without a grant.\n", progName, err)
+		fmt.Fprintf(os.Stderr, "%s: could not update the session grant: %v.\nThe skill still runs, and "+
+			"the commands a grant would waive ask for approval as they do without one.\n", progName, err)
 		os.Exit(1)
 	}
 }
 
-// mergeGranted reports whether the session holds a live merge grant, reporting
-// a store that cannot be read on stderr and carrying on with none. Like a
-// broken config, that costs a prompt and never skips one.
-func mergeGranted(session string) bool {
-	granted := false
+// granted returns the prompts the session's grant waives, reporting a store
+// that cannot be read on stderr and carrying on with none. Like a broken
+// config, that costs a prompt and never skips one.
+func granted(session string) grant.Ops {
+	var ops grant.Ops
 	dir, err := grant.Dir()
 	if err == nil {
-		granted, err = grant.Live(dir, session, time.Now())
+		ops, err = grant.Live(dir, session, time.Now())
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %v.\n`gh pr merge` asks for approval as it does without a grant.\n",
-			progName, err)
-		return false
+		fmt.Fprintf(os.Stderr, "%s: %v.\nThe commands a grant would waive ask for approval as they do "+
+			"without one.\n", progName, err)
+		return nil
 	}
-	return granted
+	return ops
 }
 
 // loadConfig reads the machine-local configuration, reporting a broken one on

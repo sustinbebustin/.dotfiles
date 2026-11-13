@@ -1,12 +1,15 @@
 package config
 
 import (
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"agent-hooks/internal/grant"
 )
 
 const testHome = "/home/tester"
@@ -84,6 +87,15 @@ func TestParseRejects(t *testing.T) {
 		{"padded aws profile name", `{"awsCli":{"profiles":{" dev":"allow"}}}`, "whitespace"},
 		{"aws policy that is not a string", `{"awsCli":{"profiles":{"dev":true}}}`, "decoding JSON"},
 		{"unknown awsCli field", `{"awsCli":{"profile":{}}}`, "profile"},
+		{"grant skill with a slash", grantSkillJSON("/deploy", `["~/dev/app"]`, `["prMerge"]`, "Proceed"), "not a skill name"},
+		{"grant skill with arguments", grantSkillJSON("deploy now", `["~/dev/app"]`, `["prMerge"]`, "Proceed"), "not a skill name"},
+		{"grant for the merge skill", grantSkillJSON("commit-push-pr", `["~/dev/app"]`, `["prMerge"]`, "Proceed"), "cannot be configured"},
+		{"grant skill without roots", grantSkillJSON("deploy", `[]`, `["prMerge"]`, "Proceed"), `grants.skills["deploy"].roots is empty`},
+		{"grant skill with a shallow root", grantSkillJSON("deploy", `["/home"]`, `["prMerge"]`, "Proceed"), "deep"},
+		{"grant skill without operations", grantSkillJSON("deploy", `["~/dev/app"]`, `[]`, "Proceed"), `grants.skills["deploy"].allow is empty`},
+		{"grant skill with an unknown operation", grantSkillJSON("deploy", `["~/dev/app"]`, `["prMerge","push"]`, "Proceed"), `allow[1] is "push"`},
+		{"grant skill without a confirming answer", grantSkillJSON("deploy", `["~/dev/app"]`, `["prMerge"]`, " "), "confirm is empty"},
+		{"unknown grant skill field", `{"grants":{"skills":{"deploy":{"ops":[]}}}}`, "ops"},
 	}
 
 	for _, tc := range cases {
@@ -100,6 +112,35 @@ func TestParseRejects(t *testing.T) {
 					got.AllowedRmRoots)
 			}
 		})
+	}
+}
+
+// grantSkillJSON is a config holding one grants.skills entry. roots and allow
+// are JSON arrays.
+func grantSkillJSON(skill, roots, allow, confirm string) string {
+	return fmt.Sprintf(`{"grants":{"skills":{%q:{"roots":%s,"allow":%s,"confirm":%q}}}}`,
+		skill, roots, allow, confirm)
+}
+
+func TestParseGrantSkills(t *testing.T) {
+	raw := grantSkillJSON("deploy", `["~/dev/app/"]`, `["prMerge","workflowRun","releaseCreate","pushMain"]`, " Proceed ")
+	got, err := parse([]byte(raw), testHome)
+	if err != nil {
+		t.Fatalf("parse() error = %v, want nil", err)
+	}
+	policy, ok := got.GrantPolicies["deploy"]
+	if !ok || len(got.GrantPolicies) != 1 {
+		t.Fatalf("GrantPolicies = %v, want one policy for deploy", got.GrantPolicies)
+	}
+	if want := []string{"/home/tester/dev/app"}; !slices.Equal(policy.Roots, want) {
+		t.Errorf("Roots = %v, want %v", policy.Roots, want)
+	}
+	wantOps := grant.Ops{grant.PRMerge, grant.WorkflowRun, grant.ReleaseCreate, grant.PushMain}
+	if !slices.Equal(policy.Ops, wantOps) {
+		t.Errorf("Ops = %v, want %v", policy.Ops, wantOps)
+	}
+	if policy.Confirm != "Proceed" {
+		t.Errorf("Confirm = %q, want it trimmed to %q", policy.Confirm, "Proceed")
 	}
 }
 

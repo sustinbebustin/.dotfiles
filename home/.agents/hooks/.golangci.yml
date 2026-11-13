@@ -69,6 +69,14 @@ linters:
           - gosec
         text: G204
 
+      # A grant file's path is the store directory plus a session id already
+      # checked to be a bare file name (see grant.sessionID), read as the user
+      # who owns the store.
+      - path: internal/grant/grant\.go
+        linters:
+          - gosec
+        text: G304
+
       # The grant tests run the commit-push-pr skill's own argument parser, a
       # script in this repo at a path fixed in the test, to pin that the two
       # parsers agree.

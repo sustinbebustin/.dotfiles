@@ -132,11 +132,20 @@
             "timeout": 120
           }
         ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.agents/hooks/agent-guard-bin grant",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptExpansion": [
       {
-        "matcher": "^commit-push-pr$",
         "hooks": [
           {
             "type": "command",

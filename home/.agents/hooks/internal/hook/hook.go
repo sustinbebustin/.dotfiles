@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"agent-hooks/internal/config"
+	"agent-hooks/internal/grant"
 	"agent-hooks/internal/shellast"
 )
 
@@ -191,11 +192,11 @@ type Request struct {
 	// SessionID is the harness session the tool call belongs to. It is empty
 	// when the payload carried none.
 	SessionID string
-	// MergeGranted reports that the session holds a live merge grant (see
-	// package grant). Like Config it is attached by the binary after decoding,
-	// since finding out reads the filesystem and the rules do no I/O; the zero
-	// value is the no-grant state.
-	MergeGranted bool
+	// Granted are the prompts the session's grant waives (see package grant).
+	// Like Config it is attached by the binary after decoding, since finding
+	// out reads the filesystem and the rules do no I/O; the zero value is the
+	// no-grant state.
+	Granted grant.Ops
 	// Origin says whether Command is the tool call itself or a script it hands
 	// to a nested shell (see Embedded).
 	Origin Origin

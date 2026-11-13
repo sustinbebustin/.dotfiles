@@ -16,7 +16,7 @@ import (
 	"agent-hooks/internal/rules/credfiles"
 	"agent-hooks/internal/rules/dangerousgit"
 	"agent-hooks/internal/rules/dangerousrm"
-	"agent-hooks/internal/rules/mergegrant"
+	"agent-hooks/internal/rules/protectgrant"
 	"agent-hooks/internal/rules/rootcd"
 	"agent-hooks/internal/rules/supabaseremote"
 )
@@ -46,7 +46,7 @@ var all = []Rule{
 	{Name: awscli.Name, Tools: []string{"Bash"}, Nested: true, Check: awscli.Check},
 	{Name: supabaseremote.Name, Tools: []string{"Bash"}, Nested: true, Check: supabaseremote.Check},
 	{Name: dangerousgit.Name, Tools: []string{"Bash"}, Nested: true, Check: dangerousgit.Check},
-	{Name: mergegrant.Name, Tools: []string{"Edit", "Write", "Bash"}, Nested: true, Check: mergegrant.Check},
+	{Name: protectgrant.Name, Tools: []string{"Edit", "Write", "Bash"}, Nested: true, Check: protectgrant.Check},
 	{Name: dangerousrm.Name, Tools: []string{"Bash"}, Nested: true, Check: dangerousrm.Check},
 	{Name: rootcd.Name, Tools: []string{"Bash"}, Check: rootcd.Check},
 }

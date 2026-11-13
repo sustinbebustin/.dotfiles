@@ -419,28 +419,34 @@
     "reason": "gh pr merge merges and may delete the branch - allow?"
   },
   {
-    "name": "merge-grant-store-touch",
+    "name": "gh-workflow-run-session-without-grant",
+    "stdin": "{\"session_id\":\"corpus-session-that-holds-no-grant\",\"tool_input\":{\"command\":\"gh workflow run roll-api-prod.yml -R o/be --ref main -f tag=v1.2.3\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh workflow run dispatches a workflow (may trigger a deploy) - allow?"
+  },
+  {
+    "name": "grant-store-touch",
     "stdin": "{\"tool_input\":{\"command\":\"touch ~/.local/state/agent-guard-grants/abc\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "This names the merge grant store (agent-guard-grants). A grant there lets `gh pr merge` run unprompted for its session - allow?"
+    "reason": "This names the session grant store (agent-guard-grants). A grant there lets merges, releases, workflow dispatches or pushes to main run unprompted for its session - allow?"
   },
   {
-    "name": "merge-grant-store-write",
+    "name": "grant-store-write",
     "stdin": "{\"tool_input\":{\"file_path\":\"/home/u/.local/state/agent-guard-grants/abc\",\"content\":\"\"},\"tool_name\":\"Write\"}",
     "decision": "ask",
-    "reason": "This names the merge grant store (agent-guard-grants). A grant there lets `gh pr merge` run unprompted for its session - allow?"
+    "reason": "This names the session grant store (agent-guard-grants). A grant there lets merges, releases, workflow dispatches or pushes to main run unprompted for its session - allow?"
   },
   {
-    "name": "merge-grant-minter",
+    "name": "grant-minter",
     "stdin": "{\"tool_input\":{\"command\":\"echo '{}' | ~/.agents/hooks/agent-guard-bin grant\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "agent-guard-bin grant mints or revokes a merge grant, which lets `gh pr merge` run unprompted for its session - allow?"
+    "reason": "agent-guard-bin grant mints or revokes a session grant, which lets merges, releases, workflow dispatches or pushes to main run unprompted for its session - allow?"
   },
   {
-    "name": "merge-grant-minter-nested",
+    "name": "grant-minter-nested",
     "stdin": "{\"tool_input\":{\"command\":\"bash -c 'agent-guard-bin grant \\u003c payload.json'\"},\"tool_name\":\"Bash\"}",
     "decision": "ask",
-    "reason": "Inside a script the command runs (bash -c, eval, trap): agent-guard-bin grant mints or revokes a merge grant, which lets `gh pr merge` run unprompted for its session - allow?"
+    "reason": "Inside a script the command runs (bash -c, eval, trap): agent-guard-bin grant mints or revokes a session grant, which lets merges, releases, workflow dispatches or pushes to main run unprompted for its session - allow?"
   },
   {
     "name": "gh-pr-view",

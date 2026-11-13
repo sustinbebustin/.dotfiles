@@ -15,5 +15,21 @@
       "work": "readOnly",
       "prod": "deny"
     }
+  },
+  "grants": {
+    "skills": {
+      "deploy": {
+        "roots": [
+          "~/dev/example-project"
+        ],
+        "allow": [
+          "prMerge",
+          "workflowRun",
+          "releaseCreate",
+          "pushMain"
+        ],
+        "confirm": "Proceed"
+      }
+    }
   }
 }

@@ -3,6 +3,7 @@ package dangerousgit
 import (
 	"testing"
 
+	"agent-hooks/internal/grant"
 	"agent-hooks/internal/hook"
 )
 
@@ -10,28 +11,58 @@ func decide(cmd string) hook.Verdict {
 	return Check(hook.NewRequest("Bash", "", "", cmd))
 }
 
-// TestMergeGrant pins what a session's merge grant covers: a gh pr merge the
-// guard can read, and nothing else that asks.
-func TestMergeGrant(t *testing.T) {
+// TestGrants pins what a session's grant covers: the plain form of each
+// operation it names, read exactly, and nothing else that asks.
+func TestGrants(t *testing.T) {
+	merge := grant.Ops{grant.PRMerge}
+	deploy := grant.Ops{grant.PRMerge, grant.WorkflowRun, grant.ReleaseCreate, grant.PushMain}
 	cases := []struct {
 		name     string
+		granted  grant.Ops
 		cmd      string
 		decision string
 	}{
-		{"merge as the skill writes it", `(cd frontend && gh pr merge 4 --merge --delete-branch --admin)`, "allow"},
-		{"plain merge", `gh pr merge 4`, "allow"},
-		{"merge with an expanded number", `gh pr merge "$n" --admin`, "ask"},
-		{"merge in a nested script", `bash -c 'gh pr merge 4'`, "allow"},
-		{"merge in a nested script that lost an expansion", `bash -c "gh pr merge $n"`, "ask"},
-		{"close is not a merge", `gh pr close 4`, "ask"},
-		{"release is not a merge", `gh release create v1`, "ask"},
-		{"a push to main still asks", `git push origin main`, "ask"},
-		{"repo delete stays denied", `gh pr merge 4 && gh repo delete o/r`, "deny"},
+		{"merge as the skill writes it", merge, `(cd frontend && gh pr merge 4 --merge --delete-branch --admin)`, "allow"},
+		{"plain merge", merge, `gh pr merge 4`, "allow"},
+		{"merge with an expanded number", merge, `gh pr merge "$n" --admin`, "allow"},
+		{"merge with an expansion in its name", merge, `gh pr merge"$x" 4`, "ask"},
+		{"merge in a nested script", merge, `bash -c 'gh pr merge 4'`, "allow"},
+		{"merge in a nested script that lost an expansion", merge, `bash -c "gh pr merge $n"`, "ask"},
+		{"close is not a merge", merge, `gh pr close 4`, "ask"},
+		{"repo delete stays denied", merge, `gh pr merge 4 && gh repo delete o/r`, "deny"},
+
+		// A merge grant waives the merge alone.
+		{"merge grant: release", merge, `gh release create v1`, "ask"},
+		{"merge grant: workflow", merge, `gh workflow run roll.yml -f tag=v1`, "ask"},
+		{"merge grant: push to main", merge, `git push origin main`, "ask"},
+
+		// The deploy skill's own commands.
+		{"deploy: version PR merge", deploy, `gh pr merge 12 -R o/fe --merge`, "allow"},
+		{"deploy: workflow dispatch", deploy, `gh workflow run roll-api-prod.yml -R o/be --ref main -f tag=v1.2.3`, "allow"},
+		{"deploy: release", deploy, `gh release create v1.2.3 --target abc --title v1.2.3 --notes-file /tmp/n`, "allow"},
+		{"deploy: push the changelog", deploy, `git -C backend push origin main`, "allow"},
+		{"deploy: push to master", deploy, `git push origin master`, "allow"},
+
+		{"deploy: workflow with an expanded input", deploy, `gh workflow run prebuild.yml -f sha=$head`, "allow"},
+		{"deploy: release with an expanded target", deploy, `gh release create v1 --target "$(git rev-parse HEAD)"`, "allow"},
+
+		// Only the plain form of each is waived, and a command an expansion
+		// runs is still judged.
+		{"deploy: expansion that deletes a repo", deploy, `gh release create v1 --notes "$(gh repo delete o/r)"`, "deny"},
+		{"deploy: workflow in a nested script that lost an expansion", deploy, `bash -c "gh workflow run $w"`, "ask"},
+		{"deploy: force push to main", deploy, `git push --force origin main`, "ask"},
+		{"deploy: forced refspec to main", deploy, `git push origin +main`, "ask"},
+		{"deploy: deleting main", deploy, `git push origin :main`, "ask"},
+		{"deploy: bare push", deploy, `git push`, "ask"},
+		{"deploy: push with an expanded branch", deploy, `git push origin "$b"`, "ask"},
+		{"deploy: release delete", deploy, `gh release delete v1`, "ask"},
+		{"deploy: run cancel", deploy, `gh run cancel 9`, "ask"},
+		{"deploy: repo delete", deploy, `gh repo delete o/r`, "deny"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			req := hook.NewRequest("Bash", "", "", tc.cmd)
-			req.MergeGranted = true
+			req.Granted = tc.granted
 			got := hook.Merge(checkWithNested(req))
 			if got.Decision.String() != tc.decision {
 				t.Fatalf("decision = %q, want %q (reason: %s)", got.Decision, tc.decision, got.Reason)

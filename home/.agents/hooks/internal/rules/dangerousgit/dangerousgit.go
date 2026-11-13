@@ -31,9 +31,11 @@
 // that writes - by an explicit POST, PUT or PATCH, or by the payload flags that
 // make gh choose POST on its own. See checkGhAPI.
 //
-// The exception is gh pr merge in a session that holds a merge grant: the user
-// typed /commit-push-pr with a merge flag, so the merge that skill ends on runs
-// unprompted. See checkGh and package grant.
+// The exception is a session that holds a grant (see package grant): the user
+// approved a skill up front, so the steps that skill ends on run unprompted.
+// Typing /commit-push-pr with a merge flag waives gh pr merge; a skill named in
+// the machine-local config can also waive gh workflow run, gh release create
+// and a plain push that names main. See checkGh and checkRefspec.
 //
 // Two operations that destroy what cannot be restored return a hard `deny`: gh
 // repo delete and `gh api` with the DELETE method.
@@ -57,6 +59,7 @@ import (
 
 	"mvdan.cc/sh/v3/syntax"
 
+	"agent-hooks/internal/grant"
 	"agent-hooks/internal/hook"
 	"agent-hooks/internal/shellast"
 )
@@ -90,7 +93,7 @@ func Check(req *hook.Request) hook.Verdict {
 	lossy := req.Origin == hook.NestedLossy
 	first := hook.Allowed()
 	if denied, hit := shellast.FirstCall(file, func(c *syntax.CallExpr) (hook.Verdict, bool) {
-		v, guarded := checkCall(c, lossy, req.MergeGranted)
+		v, guarded := checkCall(c, lossy, req.Granted)
 		if guarded && first.Decision == hook.Allow {
 			first = v
 		}
@@ -114,12 +117,12 @@ var ghText = regexp.MustCompile(`\bgh\b`)
 var guardedCommandText = regexp.MustCompile(`\b(git|gh)\b`)
 
 // checkCall judges one call. lossy marks a nested script whose text had the
-// outer shell's expansions dropped from it (see checkPush). mergeGranted is
-// whether the session holds a merge grant (see checkGh).
+// outer shell's expansions dropped from it (see checkPush). granted are the
+// prompts the session's grant waives (see checkGh and checkRefspec).
 //
 // Brace lists are written out first, since the checks read arguments by
 // position and `gh {pr,close} 3` runs `gh pr close 3`.
-func checkCall(c *syntax.CallExpr, lossy, mergeGranted bool) (hook.Verdict, bool) {
+func checkCall(c *syntax.CallExpr, lossy bool, granted grant.Ops) (hook.Verdict, bool) {
 	words, ok := shellast.ExpandBraces(c.Args)
 	if !ok {
 		if slices.ContainsFunc(words, func(w *syntax.Word) bool {
@@ -147,9 +150,13 @@ func checkCall(c *syntax.CallExpr, lossy, mergeGranted bool) (hook.Verdict, bool
 	switch shellast.CommandName(name) {
 	case "git":
 		wrappers := words[:max(len(words)-len(operands)-1, 0)]
-		return checkGit(args, literals, params, noopSequenceEditor(c.Assigns, wrappers), lossy)
+		return checkGit(args, literals, params, noopSequenceEditor(c.Assigns, wrappers), lossy,
+			granted.Has(grant.PushMain))
 	case "gh":
-		return checkGh(args, exact, mergeGranted)
+		// named reports that the two words naming the gh command are the text
+		// gh receives, which is all a grant needs to know (see checkGh).
+		named := !lossy && len(literals) > 1 && literals[0] && literals[1]
+		return checkGh(args, exact, named, granted)
 	}
 	return hook.Verdict{}, false
 }
@@ -215,7 +222,9 @@ func isEnvAssignment(tok string) bool {
 // a lone variable (see shellast.IsParamWord). noopEditor reports a sequence
 // editor that leaves an interactive rebase's plan as it is; lossy marks a
 // nested script whose text lost the outer shell's expansions (see checkPush).
-func checkGit(args []string, literals, params []bool, noopEditor, lossy bool) (hook.Verdict, bool) {
+// mainGranted waives the prompt for a push that names a protected branch (see
+// checkRefspec).
+func checkGit(args []string, literals, params []bool, noopEditor, lossy, mainGranted bool) (hook.Verdict, bool) {
 	// A top-level flag with an expansion in its own word (`-C$R`) renders as
 	// the bare flag, so the guard would take the next word as its value and
 	// misread the subcommand.
@@ -251,7 +260,7 @@ func checkGit(args []string, literals, params []bool, noopEditor, lossy bool) (h
 	switch sub {
 	case "push":
 		n := len(prefix)
-		return checkPush(prefix, rest, literals[:n], params[:n], allLiteral(literals[n:]), lossy)
+		return checkPush(prefix, rest, literals[:n], params[:n], allLiteral(literals[n:]), lossy, mainGranted)
 	case "send-pack", "http-push":
 		return hook.Asked(fmt.Sprintf("git %s pushes refs to a remote - allow?", sub)), true
 	case "subtree":
@@ -340,20 +349,25 @@ func checkRebase(rest []string, literal, noopEditor bool) (hook.Verdict, bool) {
 // whether they are the text gh will receive: every one a literal, in a script
 // that lost none of its expansions.
 //
-// mergeGranted lets `gh pr merge` run unprompted: the user typed
-// /commit-push-pr with a merge flag in this session (see package grant), which
-// is the approval the prompt would have asked for. It covers only a merge
-// whose arguments are exact, so one the guard cannot read still asks.
-func checkGh(args []string, exact, mergeGranted bool) (hook.Verdict, bool) {
+// granted lets `gh pr merge`, `gh release create` and `gh workflow run` run
+// unprompted where the session's grant names them: the user approved the
+// skill that ends on them (see package grant), which is the approval the
+// prompt would have asked for. named reports that the two words naming the
+// command (`pr merge`) are plain text in a script that lost no expansions. The
+// rest may hold expansions -- a PR number in a variable, `--target "$(git
+// rev-parse HEAD)"` -- because a grant waives the operation whatever it is
+// pointed at, and a command an expansion runs is judged as its own call.
+func checkGh(args []string, exact, named bool, granted grant.Ops) (hook.Verdict, bool) {
 	if len(args) == 0 {
 		return hook.Verdict{}, false
 	}
+	waived := func(op grant.Op) bool { return named && granted.Has(op) }
 	switch args[0] {
 	case "pr":
 		if len(args) > 1 {
 			switch args[1] {
 			case "merge":
-				if mergeGranted && exact {
+				if waived(grant.PRMerge) {
 					return hook.Verdict{}, false
 				}
 				return hook.Asked("gh pr merge merges and may delete the branch - allow?"), true
@@ -370,6 +384,9 @@ func checkGh(args []string, exact, mergeGranted bool) (hook.Verdict, bool) {
 		if len(args) > 1 {
 			switch args[1] {
 			case "create":
+				if waived(grant.ReleaseCreate) {
+					return hook.Verdict{}, false
+				}
 				return hook.Asked("gh release create publishes a release and tag - allow?"), true
 			case "delete":
 				return hook.Asked("gh release delete removes a published release and its assets - allow?"), true
@@ -403,6 +420,9 @@ func checkGh(args []string, exact, mergeGranted bool) (hook.Verdict, bool) {
 		}
 	case "workflow":
 		if len(args) > 1 && args[1] == "run" {
+			if waived(grant.WorkflowRun) {
+				return hook.Verdict{}, false
+			}
 			return hook.Asked("gh workflow run dispatches a workflow (may trigger a deploy) - allow?"), true
 		}
 	case "run":

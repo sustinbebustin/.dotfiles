@@ -161,18 +161,32 @@ rather than blocking the session -- which also drops any `deny`, so those calls
 fall back to asking.
 `$AGENT_HOOKS_CONFIG` overrides the location.
 
-`gh pr merge` asks, except in a session that holds a merge grant
-(`internal/grant`). Claude Code registers `agent-guard-bin grant` under
-UserPromptExpansion, matched to the `commit-push-pr` skill: typing that skill
-with `--merge`, `--bypass` or `--merge-bypass` mints a grant for the session,
-and typing it without one revokes it. The event fires only for a typed slash
-command, so the model invoking the skill, or a prompt that merely quotes the
-command, mints nothing. A grant is an empty file named after the session in
-`~/.local/state/agent-guard-grants/`, live for an hour; it is not single-use,
-since one invocation can merge several targets. The agent runs as the user and
-could write that file itself, so `protect-merge-grant` asks before any tool call
-that names the directory or runs the grant mode. Droid has no registration and
-always asks.
+A session grant (`internal/grant`) waives some of `block-dangerous-git`'s
+prompts for one session, because the user approved a skill up front. Claude
+Code registers `agent-guard-bin grant` under UserPromptExpansion and under
+PostToolUse for `AskUserQuestion`, and there are two ways to get a grant:
+
+- Typing `/commit-push-pr` with `--merge`, `--bypass` or `--merge-bypass`
+  waives `gh pr merge` at once; typing it without one revokes the grant.
+- A skill listed under `grants.skills` in `config.json` waives the operations
+  its entry allows (`prMerge`, `workflowRun`, `releaseCreate`, `pushMain`) in
+  two steps. Typing it in a session at or under one of its `roots` leaves a
+  pending grant that waives nothing. It goes live when the user answers a
+  question dialog with an option beginning with the entry's `confirm` text --
+  for a deploy skill, the "Proceed" on its plan.
+
+Both signals are the user's own: the expansion event fires only for a typed
+slash command, so the model invoking the skill, or a prompt that merely quotes
+the command, mints nothing; and the dialog's payload carries the option the
+user picked, whatever answer the model's call supplied. A grant is a file named
+after the session in `~/.local/state/agent-guard-grants/`, good for an hour. It
+is not single-use, since one invocation can merge several targets or dispatch
+several workflows, and it names operations, not targets: within the hour the
+session can run them against any repo. Only the plain form is waived -- a
+forced push, a deleting refspec, or a command in a nested script that lost its
+expansions still asks. The agent runs as the user and could write that file
+itself, so `protect-grants` asks before any tool call that names the directory
+or runs the grant mode. Droid has no registration and always asks.
 
 The same module builds a second binary, `agent-quality-bin`, registered as a
 PostToolUse hook on `Write|Edit` (Droid: `Create|Edit`). It formats and lints the edited file with the
@@ -202,8 +216,8 @@ the `gofumpt`/`gci` formatters `make fmt` applies.
 | `block-credential-files` | Read, Edit, Write, Bash, Grep | Deny access to credential files |
 | `block-aws-cli` | Bash | Ask before an `aws` call that could reach real AWS, unless the config's per-profile policy allows it (all calls, or reads only) or denies it |
 | `block-supabase-remote` | Bash | Deny Supabase CLI commands that wipe a remote database or delete a project; ask before other remote writes |
-| `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands and outward-facing gh operations (`pr merge`, `pr close`, writing `gh api`); deny `gh repo delete` and `gh api` DELETE. `pr merge` runs unprompted in a session holding a merge grant |
-| `protect-merge-grant` | Edit, Write, Bash | Ask before a call that names the merge grant store or runs `agent-guard-bin grant` |
+| `block-dangerous-git` | Bash | Ask before history- or worktree-destroying git commands and outward-facing gh operations (`pr merge`, `pr close`, writing `gh api`); deny `gh repo delete` and `gh api` DELETE. A session grant waives `pr merge`, `workflow run`, `release create` or a push naming main |
+| `protect-grants` | Edit, Write, Bash | Ask before a call that names the session grant store or runs `agent-guard-bin grant` |
 | `block-dangerous-rm` | Bash | Ask before a recursive `rm` |
 | `enforce-root` | Bash | Deny a top-level `cd`, which silently desyncs later commands |
 

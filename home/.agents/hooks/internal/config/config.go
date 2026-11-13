@@ -31,6 +31,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
+
+	"agent-hooks/internal/grant"
 )
 
 // EnvPath names the environment variable that overrides the config location.
@@ -59,6 +62,9 @@ type Config struct {
 	// AWSProfiles maps an AWS CLI profile name to what block-aws-cli does with a
 	// call made under it. A profile missing from the map gets AWSAsk.
 	AWSProfiles map[string]AWSPolicy
+	// GrantPolicies maps a skill's slash-command name to the prompts typing it
+	// can waive for the session, once the user confirms; see package grant.
+	GrantPolicies grant.Policies
 }
 
 // AWSPolicy is what block-aws-cli does with an aws call that would reach real
@@ -112,6 +118,16 @@ type file struct {
 	AWSCli struct {
 		Profiles map[string]string `json:"profiles"`
 	} `json:"awsCli"`
+	Grants struct {
+		Skills map[string]grantSkill `json:"skills"`
+	} `json:"grants"`
+}
+
+// grantSkill mirrors one grants.skills entry on the wire.
+type grantSkill struct {
+	Roots   []string `json:"roots"`
+	Allow   []string `json:"allow"`
+	Confirm string   `json:"confirm"`
 }
 
 // Load reads and validates the configuration.
@@ -171,7 +187,68 @@ func parse(raw []byte, home string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	return Config{AllowedRmRoots: rmRoots, RelaxedCredRoots: credRoots, AWSProfiles: awsProfiles}, nil
+	grantPolicies, err := parseGrantSkills(f.Grants.Skills, home)
+	if err != nil {
+		return Config{}, err
+	}
+	return Config{
+		AllowedRmRoots:   rmRoots,
+		RelaxedCredRoots: credRoots,
+		AWSProfiles:      awsProfiles,
+		GrantPolicies:    grantPolicies,
+	}, nil
+}
+
+// parseGrantSkills validates the grants.skills map. Every field of an entry is
+// required: an entry with no roots would count in any project that has a skill
+// of the same name, and one with no confirming answer would have nothing to
+// wait for. Keys are checked in sorted order so the error for a file with
+// several bad entries is stable.
+func parseGrantSkills(raw map[string]grantSkill, home string) (grant.Policies, error) {
+	out := make(grant.Policies, len(raw))
+	for _, skill := range slices.Sorted(maps.Keys(raw)) {
+		setting := fmt.Sprintf("grants.skills[%q]", skill)
+		if skill == "" || strings.ContainsFunc(skill, unicode.IsSpace) || strings.HasPrefix(skill, "/") {
+			return nil, fmt.Errorf("%s is not a skill name. Use the slash command's name without the "+
+				"slash and without arguments, such as \"deploy\"", setting)
+		}
+		if skill == grant.MergeSkill {
+			return nil, fmt.Errorf("%s cannot be configured: its merge flags already grant the merge. "+
+				"Remove the entry", setting)
+		}
+		entry := raw[skill]
+
+		if len(entry.Roots) == 0 {
+			return nil, fmt.Errorf("%s.roots is empty. List the project directories the skill may grant "+
+				"in, such as ~/dev/project; without one it would count in every project", setting)
+		}
+		roots, err := normalizeRoots(entry.Roots, setting+".roots", home)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(entry.Allow) == 0 {
+			return nil, fmt.Errorf("%s.allow is empty. List the prompts to waive: %s",
+				setting, strings.Join(grant.OpNames(), ", "))
+		}
+		ops := make(grant.Ops, 0, len(entry.Allow))
+		for i, name := range entry.Allow {
+			op, ok := grant.ParseOp(name)
+			if !ok {
+				return nil, fmt.Errorf("%s.allow[%d] is %q, which is not an operation. Use one of: %s",
+					setting, i, name, strings.Join(grant.OpNames(), ", "))
+			}
+			ops = append(ops, op)
+		}
+
+		confirm := strings.TrimSpace(entry.Confirm)
+		if confirm == "" {
+			return nil, fmt.Errorf("%s.confirm is empty. Give how the approving answer in the skill's "+
+				"question dialog begins, such as \"Proceed\"", setting)
+		}
+		out[skill] = grant.Policy{Roots: roots, Ops: ops, Confirm: confirm}
+	}
+	return out, nil
 }
 
 // parseAWSProfiles validates the awsCli.profiles map. Keys are checked in sorted

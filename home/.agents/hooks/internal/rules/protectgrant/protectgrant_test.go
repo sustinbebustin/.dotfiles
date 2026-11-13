@@ -1,4 +1,4 @@
-package mergegrant
+package protectgrant
 
 import (
 	"testing"

@@ -181,7 +181,7 @@ var wiring = []struct {
 	{"block-aws-cli", []string{"Bash"}, true},
 	{"block-supabase-remote", []string{"Bash"}, true},
 	{"block-dangerous-git", []string{"Bash"}, true},
-	{"protect-merge-grant", []string{"Edit", "Write", "Bash"}, true},
+	{"protect-grants", []string{"Edit", "Write", "Bash"}, true},
 	{"block-dangerous-rm", []string{"Bash"}, true},
 	// enforce-root is not nested: a `cd` inside a child shell is confined to
 	// it, which is the case the rule deliberately allows.

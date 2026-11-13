@@ -1,9 +1,10 @@
-// Package mergegrant keeps the agent from granting itself a merge. A merge
-// grant (see package grant) lets a session's `gh pr merge` run unprompted, and
-// it is meant to exist only because the user typed the skill with a merge
-// flag. The store is an ordinary directory and the minter an ordinary command,
-// so both are open to the agent's own tool calls; this rule sends those to the
-// user as an ask.
+// Package protectgrant keeps the agent from granting itself what only the
+// user can. A session grant (see package grant) lets a session's merges,
+// releases, workflow dispatches and pushes to main run unprompted, and it is
+// meant to exist only because the user typed a skill and approved it. The
+// store is an ordinary directory and the minter an ordinary command, so both
+// are open to the agent's own tool calls; this rule sends those to the user as
+// an ask.
 //
 // Two routes are covered: an Edit or Write whose path, or a Bash command whose
 // text, names the store directory; and a Bash call that runs the guard binary's
@@ -16,7 +17,7 @@
 // pieces, or a program other than the guard binary that writes the file. The
 // agent runs as the user, so nothing here can make a grant unforgeable; the
 // rule closes the routes that take no effort to find.
-package mergegrant
+package protectgrant
 
 import (
 	"regexp"
@@ -30,16 +31,16 @@ import (
 )
 
 // Name identifies this rule to the dispatcher.
-const Name = "protect-merge-grant"
+const Name = "protect-grants"
 
 // minter is the guard binary, whose grant mode mints and revokes grants.
 const minter = "agent-guard-bin"
 
-const storeReason = "This names the merge grant store (" + grant.DirName + "). A grant there lets " +
-	"`gh pr merge` run unprompted for its session - allow?"
+const storeReason = "This names the session grant store (" + grant.DirName + "). A grant there lets " +
+	"merges, releases, workflow dispatches or pushes to main run unprompted for its session - allow?"
 
-const mintReason = minter + " " + grant.Subcommand + " mints or revokes a merge grant, which lets " +
-	"`gh pr merge` run unprompted for its session - allow?"
+const mintReason = minter + " " + grant.Subcommand + " mints or revokes a session grant, which lets " +
+	"merges, releases, workflow dispatches or pushes to main run unprompted for its session - allow?"
 
 // minterText matches text that names the guard binary and then, as a whole
 // word, its grant mode.
