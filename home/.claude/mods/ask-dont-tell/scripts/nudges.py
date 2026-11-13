@@ -180,6 +180,20 @@ def reviewer_system() -> str:
     return out.stdout
 
 
+# Mirrors verdict.ts NUDGE_KINDS: the item kinds that warrant a nudge.
+NUDGE_KINDS = {"ask", "offer", "todo"}
+
+
+def is_open(verdict: str) -> bool:
+    """Whether the reviewer's JSON holds an item the mod would nudge for."""
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", verdict.strip())
+    try:
+        items = json.loads(text).get("items", [])
+    except (json.JSONDecodeError, AttributeError):
+        return False
+    return any(isinstance(i, dict) and i.get("kind") in NUDGE_KINDS for i in items)
+
+
 def review(system: str, hit: Hit) -> str:
     # Mirrors register.ts: the turn's prompt, cut to PROMPT_CONTEXT_MAX, then the reply.
     context = (
@@ -288,10 +302,7 @@ def main() -> None:
     if args.replay:
         for kind in counts:
             group = [h for h in hits if h.kind == kind]
-            opened = sum(
-                '"open": true' in h.verdict.replace('"open":true', '"open": true')
-                for h in group
-            )
+            opened = sum(is_open(h.verdict) for h in group)
             print(
                 f"#   {kind}: reviewer says open for {opened}/{len(group)}",
                 file=sys.stderr,

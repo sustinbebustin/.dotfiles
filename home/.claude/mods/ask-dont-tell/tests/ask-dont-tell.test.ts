@@ -40,16 +40,25 @@ const turn = async ($: Engine, prompt: string, answer: string, end: { reason?: '
   })
 }
 
-const OPEN = '{"open": true, "items": ["Still to do: push the branch"]}'
+const OPEN = '{"items": [{"what": "Still to do: push the branch", "kind": "todo"}]}'
+const DONE = '{"items": []}'
 
 // --- verdict.ts
 
 test('Verdict.parse reads the JSON, tolerates a fence, and rejects other shapes', () => {
-  expect(Verdict.parse('{"open": false}')).toEqual({ kind: 'done' })
+  expect(Verdict.parse(DONE)).toEqual({ kind: 'done' })
   expect(Verdict.parse(OPEN)).toEqual({ kind: 'open', items: ['Still to do: push the branch'] })
-  expect(Verdict.parse('```json\n{"open": true, "items": ["a", 3]}\n```')).toEqual({ kind: 'open', items: ['a'] })
-  expect(Verdict.parse('{"open": "yes"}')).toBeUndefined()
-  expect(Verdict.parse('Sure! {"open": true}')).toBeUndefined()
+  expect(Verdict.parse('```json\n{"items": [{"what": "a", "kind": "ask"}, {"what": 3, "kind": "ask"}]}\n```')).toEqual({ kind: 'open', items: ['a'] })
+  expect(Verdict.parse('{"items": "none"}')).toBeUndefined()
+  expect(Verdict.parse('Sure! {"items": []}')).toBeUndefined()
+})
+
+test('Verdict.parse nudges for asks, offers and todos, never for running, later or fyi items', () => {
+  const items = (kind: string) => `{"items": [{"what": "x", "kind": "${kind}"}]}`
+  for (const kind of ['ask', 'offer', 'todo']) expect(Verdict.parse(items(kind))).toEqual({ kind: 'open', items: ['x'] })
+  for (const kind of ['running', 'later', 'fyi', 'unknown']) expect(Verdict.parse(items(kind))).toEqual({ kind: 'done' })
+  const mixed = '{"items": [{"what": "test run, an hour left", "kind": "running"}, {"what": "push it?", "kind": "offer"}]}'
+  expect(Verdict.parse(mixed)).toEqual({ kind: 'open', items: ['push it?'] })
 })
 
 test('Verdict.nudge names each item and the tool, and is recognised as a nudge', () => {
@@ -74,7 +83,7 @@ test('a reply left open submits a nudge with the items', async ($, on) => {
 })
 
 test('a reply the reviewer clears submits nothing', async ($, on) => {
-  const w = world(on, '{"open": false}')
+  const w = world(on, DONE)
   await startSession($)
   await turn($, 'What does ui/ hold?', 'The built-in web UI.')
   expect(w.reviewed.length).toBe(1)
