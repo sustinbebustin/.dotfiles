@@ -95,14 +95,14 @@ When the cap is hit, Claude Code returns the output marked partial (v2.1.246+) a
 
 ### `model`
 
-Which AI model the subagent uses. Pick per role with `~/.claude/skills/tune-harness/references/model-routing.md`.
+Which AI model the subagent uses. Pick per role with the `model-routing` skill.
 
 | Value | Meaning |
 | --- | --- |
 | `haiku` | Haiku 5.5. Fastest and cheapest. |
 | `sonnet` | Sonnet 5.5. Fast. |
 | `opus` | Opus 5.5. Default for most roles. |
-| `fable` | Fable model alias; resolves to Fable 5.1 as of v2.1.257. |
+| `fable` | Fable model alias; resolves to Fable 5.2 as of v2.1.321 (Fable 5 in Claude apps gateway sessions). |
 | `claude-opus-4-8` (full ID) | Pin a specific model. |
 | `inherit` | Use the same model as the main conversation. |
 

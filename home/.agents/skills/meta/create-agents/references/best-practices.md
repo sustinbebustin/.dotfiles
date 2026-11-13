@@ -42,7 +42,7 @@ Inheriting all tools is rarely the right call. It pulls in any MCP server connec
 
 ### Right-Size Model And Effort
 
-Match `model` and `effort` to the role with the routing table in `~/.claude/skills/tune-harness/references/model-routing.md`: Haiku for search, classification, and extraction workers; Opus at medium for review, implementation, and debugging; Fable for long autonomous research. Tune effort before switching models, and compare cost per completed task, not per token.
+Match `model` and `effort` to the role with the routing table in the `model-routing` skill: Haiku for search, classification, and extraction workers; Opus at medium for review, implementation, and debugging; Fable for long autonomous research. Tune effort before switching models, and compare cost per completed task, not per token.
 
 ## System Prompt Patterns
 
@@ -146,7 +146,7 @@ If `.claude/agents/<name>.md` is shared with the team, commit it. Otherwise team
 - [ ] `name` is lowercase letters and hyphens only
 - [ ] `description` includes WHAT and WHEN, with trigger keywords
 - [ ] Tools restricted (allowlist OR denylist, not both casually)
-- [ ] `model` and `effort` match the role in model-routing.md
+- [ ] `model` and `effort` match the role in the `model-routing` skill
 - [ ] `permissionMode` set if subagent runs autonomously
 - [ ] `memory:` set with right scope if persistence is needed
 - [ ] `skills:` lists every skill the subagent depends on

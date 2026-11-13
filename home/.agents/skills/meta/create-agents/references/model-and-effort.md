@@ -1,6 +1,6 @@
 # Model And Effort
 
-How the `model` and `effort` fields work for a subagent. Which model and effort a given role should get, with prices and the evidence behind each pick, lives in `~/.claude/skills/tune-harness/references/model-routing.md`; read it before choosing either field.
+How the `model` and `effort` fields work for a subagent. Which model and effort a given role should get, with prices and the evidence behind each pick, lives in the `model-routing` skill; invoke it before choosing either field.
 
 ## The `model` Field
 
@@ -11,7 +11,7 @@ Controls which AI model the subagent uses.
 | `haiku` | Haiku 5.5: fastest and cheapest; search, classification, extraction, routing subagents. |
 | `sonnet` | Sonnet 5.5: fast; latency-bound loops at low or medium effort. |
 | `opus` | Opus 5.5: the default for most roles, including review and implementation. |
-| `fable` | Fable 5.1 (alias as of v2.1.257): long autonomous runs and deep research. |
+| `fable` | Fable 5.2 (alias as of v2.1.321; Fable 5 in Claude apps gateway sessions): major migrations, long autonomous runs, and deep research. |
 | `claude-opus-4-8` | Pin a specific model ID. Same values as `--model` flag. |
 | `inherit` | Use the same model as the main conversation. |
 
@@ -57,14 +57,14 @@ effort: low
 
 Options: `low`, `medium`, `high`, `xhigh`, `max`. Available levels depend on the model:
 
-- Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1, Opus 5, Sonnet 5, Opus 4.8, Opus 4.7, Fable 5: all five levels
+- Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.2, Fable 5.1, Opus 5, Sonnet 5, Opus 4.8, Opus 4.7, Fable 5: all five levels
 - Opus 4.6, Sonnet 4.6: `low`, `medium`, `high`, `max` — no `xhigh`
 
 A level the model doesn't support falls back to the highest supported level at or below it (`xhigh` runs as `high` on Opus 4.6). A `maxEffortLevel` cap in settings, global or per model under `modelSettings`, lowers the ceiling the same way (v2.1.267+).
 
 Claude can also pass a per-invocation `effort` on the Agent tool (v2.1.292+); it persists when the subagent is resumed. The `CLAUDE_CODE_EFFORT_LEVEL` environment variable beats both frontmatter and the per-call value.
 
-Omitting `effort` uses the model's default (medium on Opus 5.5 and Haiku 5.5, high on Sonnet 5.5 and Fable 5.1). Tune effort before switching models: it often recovers the same savings. Pair `sonnet` only with `low` or `medium`; a role that needs more runs cheaper per task as `opus` at `medium`.
+Omitting `effort` uses the model's default: medium on Opus 5.5 and Haiku 5.5; Sonnet 5.5 and Fable 5.2 run at medium in Claude Code and high on the API. Tune effort before switching models: it often recovers the same savings. Pair `sonnet` only with `low` or `medium`; a role that needs more runs cheaper per task as `opus` at `medium`.
 
 ## Cost Awareness
 

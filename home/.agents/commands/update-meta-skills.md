@@ -1,6 +1,6 @@
 ---
 name: update-meta-skills
-description: Refresh the meta skills (create-skills, create-agents, create-plugins, create-mcp) and the model routing reference against their upstream docs, packages, and model releases.
+description: Refresh the meta skills (create-skills, create-agents, create-plugins, create-mcp, model-routing) against their upstream docs, packages, and model releases.
 argument-hint: "[skills] [agents] [plugins] [codemode] [models]"
 disable-model-invocation: true
 allowed-tools: Read, Edit, Skill, Agent, WebFetch, Bash(readlink -f ~/.claude/commands/update-meta-skills.md), Bash(claude --version), Bash(curl *), Bash(*/docs/vendor/codemode/scrape.sh)
@@ -24,7 +24,7 @@ The dotfiles repo is that path with `/home/.agents/commands/update-meta-skills.m
 | `agents` | `home/.agents/skills/meta/create-agents/` | `claude --version` | `claude-docs` skill |
 | `plugins` | `home/.agents/skills/meta/create-plugins/` | `claude --version` | `claude-docs` skill |
 | `codemode` | `home/.agents/skills/meta/create-mcp/` | `@cloudflare/codemode` on npm | package tarball, upstream changelog, `docs/vendor/codemode/docs/` |
-| `models` | `home/.agents/skills/tools/tune-harness/references/model-routing.md` | model IDs on Anthropic's models overview | Anthropic model, effort, and pricing docs; independent benchmarks |
+| `models` | `home/.agents/skills/meta/model-routing/` | model IDs on Anthropic's models overview | Anthropic model, effort, pricing, and per-model prompting docs; independent benchmarks |
 
 Arguments: $ARGUMENTS
 
@@ -40,7 +40,7 @@ You orchestrate; one subagent per target does the review.
    curl -fsSL https://registry.npmjs.org/@cloudflare/codemode/latest | jq -r .version
    ```
 
-   For `models`, the cutoff is the `Lineup reviewed:` line in `model-routing.md`, and upstream is the current model lineup on https://platform.claude.com/docs/en/about-claude/models/overview (fetch it with WebFetch).
+   For `models`, the cutoff is the `Lineup reviewed:` line in the skill's `SKILL.md`, and upstream is the current model lineup on https://platform.claude.com/docs/en/about-claude/models/overview (fetch it with WebFetch).
 
    The recorded version is that target's cutoff — only changes released after it matter. A target whose version already equals upstream is current; drop it from the run unless asked to review it.
 
@@ -63,16 +63,16 @@ You orchestrate; one subagent per target does the review.
         ```
      2. **Changelog** — `https://raw.githubusercontent.com/cloudflare/agents/main/packages/codemode/CHANGELOG.md`; read every entry after the cutoff.
      3. **Docs** — the scraped pages are gitignored, so snapshot first: copy `docs/vendor/codemode/docs/` into the scratchpad, run `docs/vendor/codemode/scrape.sh`, then `diff -ru` the snapshot against the fresh tree to find changed pages.
-   - `models`: fetch every page in the file's Sources section (Anthropic's docs are authoritative for prices, defaults, and per-model effort guidance), then search for independent evals and cost-per-task data on each new model: Vals, Artificial Analysis, BenchLM, and practitioner write-ups. Anthropic's eval numbers are directional; independent numbers that conflict with them go in Evidence with both figures.
+   - `models`: fetch every page in the Sources section of `references/costs.md`, plus the Prompting Claude <model> page for each model in the lineup (Anthropic's docs are authoritative for prices, defaults, and per-model effort guidance), then search for independent evals and cost-per-task data on each new model: Vals, Artificial Analysis, BenchLM, and practitioner write-ups. Anthropic's eval numbers are directional; independent numbers that conflict with them go in Evidence with both figures.
 
 2. **Diff against the skill.** Compare the sources against the skill's `SKILL.md` and its `references/`, `templates/`, and `workflows/`. Focus on what changed since the cutoff:
    - `skills` / `agents`: new or renamed frontmatter fields, changed defaults, new invocation/permission behavior, new built-in subagents, deprecations.
    - `plugins`: `plugin.json` and `marketplace.json` fields, component types and their default paths, source types, `userConfig` and path-variable rules, `experimental.*` promotions, `claude plugin` subcommands and flags, `validate`/`eval` behavior, reserved marketplace names, and every `vX.Y.Z+` gate in the skill's text.
    - `codemode`: `Executor` and `codeMcpServer` signatures, exports and entry points, peer dependency ranges, and every version pin or `0.x` claim in the skill's text — each must still hold for the new version.
-   - `models`: every row of the Models, Effort, and Routing defaults tables. A new model gets its price, cache-read rate, latency tier, default effort, per-model effort guidance, and a place in the routing table; a superseded one leaves the tables. Every routing pick must still be the cheapest per solved task at equal quality. Keep entries marked as the user's practitioner reports unless new evidence contradicts them; flag a contradiction in the return rather than deleting the report.
+   - `models`: every row of the Routing defaults and Effort tables in `SKILL.md` and the Prices table in `references/costs.md`, and each `references/prompting-<model>.md` against its model's prompting page. A new model gets its price, cache-read rate, latency tier, default effort, per-model effort guidance, a place in the routing table, and a prompting reference linked from `SKILL.md`; a superseded one leaves the tables and its prompting reference is replaced. Every routing pick must still be the cheapest per solved task at equal quality. Keep entries marked as the user's practitioner reports unless new evidence contradicts them; flag a contradiction in the return rather than deleting the report.
 
 3. **Apply needed changes.** Edit the target to reflect additions and corrections, surgically, matching existing structure and tone. If nothing changed, leave content untouched.
 
 4. **Bump the version.** Set `metadata.last_reviewed_version` to the upstream version, edited or not, so the next run knows the new cutoff. For `models`, update the `Lineup reviewed:` line to the current lineup and today's date.
 
-5. **Return** old -> new version and what changed (or "no changes needed"). The `models` agent also returns every stale model mention outside its file, as `path:line` plus the replacement text: search `home/.claude/skills/` and `home/.claude/agents/` for superseded model names and IDs, and the meta skills' model and effort tables (`create-agents/references/model-and-effort.md`, `create-agents/references/frontmatter.md`) for alias targets and supported effort levels.
+5. **Return** old -> new version and what changed (or "no changes needed"). The `models` agent also returns every stale model mention outside its skill, as `path:line` plus the replacement text: search `home/.claude/skills/` and `home/.claude/agents/` for superseded model names and IDs, and the meta skills' model and effort tables (`create-agents/references/model-and-effort.md`, `create-agents/references/frontmatter.md`) for alias targets and supported effort levels.

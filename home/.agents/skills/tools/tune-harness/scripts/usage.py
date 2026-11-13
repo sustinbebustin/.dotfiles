@@ -36,7 +36,8 @@ BILLING = ("in", "w5m", "w1h", "read", "out")
 # 5.5's $4/MTok, cache read ratio). Units are therefore Opus 5.5 uncached
 # input tokens. Unlisted models price as Opus 5.5 at the default ratios.
 MODEL_RATES = (
-    ("fable", 2.5, 0.025),          # Fable 5.1, $10/MTok
+    ("fable-5-1", 2.5, 0.025),      # Fable 5.1, $10/MTok
+    ("fable", 2.0, 0.025),          # Fable 5.2, $8/MTok
     ("opus", 1.0, 0.05),            # Opus 5.5, $4/MTok
     ("sonnet-5-5", 0.5, 0.05),      # Sonnet 5.5, $2/MTok
     ("sonnet", 0.5, 0.1),           # older Sonnet: base assumed as 5.5's

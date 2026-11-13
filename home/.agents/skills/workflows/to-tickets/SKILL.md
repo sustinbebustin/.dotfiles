@@ -47,7 +47,7 @@ Present the proposed breakdown as a numbered list. For each ticket, show:
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
-- **Model**: the model that should implement it. `sonnet` for a mechanical, well-specified change with one obvious path (a rename, copy or config change, a wide-refactor migrate batch); `opus` for everything else; `fable` only for a ticket expected to run for hours across many layers with open design questions, since a Fable ticket costs about 2.75x an Opus one
+- **Model**: the model that should implement it. `sonnet` for a mechanical, well-specified change with one obvious path (a rename, copy or config change, a wide-refactor migrate batch); `opus` for everything else; `fable` only for a ticket expected to run for hours across many layers with open design questions, since Fable costs 2x Opus per token. Invoke the `model-routing` skill for the full per-role table and its evidence
 
 Ask the user:
 

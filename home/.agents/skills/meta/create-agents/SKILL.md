@@ -123,8 +123,8 @@ For most cases, copy [`templates/basic-subagent.md`](templates/basic-subagent.md
 1. `name` (lowercase + hyphens, matches filename)
 2. `description` (front-load trigger phrases; add "use proactively" if you want eager delegation)
 3. `tools` or `disallowedTools` (least privilege)
-4. `model` and `effort`, picked per role from `~/.claude/skills/tune-harness/references/model-routing.md`
-5. System prompt body: role, when invoked, output format
+4. `model` and `effort`, picked per role with the `model-routing` skill
+5. System prompt body: role, when invoked, output format, written for the model you picked (`model-routing` has a prompting reference per model)
 
 Then drop the file in `<project>/.claude/agents/<name>.md` (project) or `~/.claude/agents/<name>.md` (personal). The watcher picks it up within seconds; restart only if that `agents` directory didn't exist when the session started.
 
@@ -148,7 +148,7 @@ Then drop the file in `<project>/.claude/agents/<name>.md` (project) or `~/.clau
 
 ## Anti-Patterns To Avoid
 
-- **Mis-sized model or effort** -> Haiku for search and extraction workers, Opus at medium for judgement work, never Sonnet at high or above (Opus at medium is cheaper per task). Per-role table in model-routing.md.
+- **Mis-sized model or effort** -> Haiku for search and extraction workers, Opus at medium for judgement work, never Sonnet at high or above (Opus at medium is cheaper per task). Per-role table in the `model-routing` skill.
 - **Using `bypassPermissions` to silence prompts** -> writes to `.git`, `.claude`, `.vscode` skip approval. Use `acceptEdits` or pre-approve in `permissions.allow` instead.
 - **Putting reusable workflow content in a subagent** when it should be a [skill](https://code.claude.com/docs/en/skills) Claude can load in the main convo.
 - **Unbounded nested spawning** -> a subagent *can* spawn its own subagents, capped at three layers below the main conversation by default (`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` changes it; `1` turns nesting off). To stop a subagent from spawning others, omit `Agent` from its `tools` or add it to `disallowedTools`. For workers that must message each other, use [agent teams](https://code.claude.com/docs/en/agent-teams).
@@ -160,9 +160,9 @@ Then drop the file in `<project>/.claude/agents/<name>.md` (project) or `~/.clau
 - [ ] Valid YAML frontmatter, `name` matches filename
 - [ ] Description says what it does and when to delegate, front-loading trigger phrases
 - [ ] Tools restricted to the minimum needed, read-only work included (allowlist or denylist)
-- [ ] `model` and `effort` match the role in model-routing.md
+- [ ] `model` and `effort` match the role in the `model-routing` skill
 - [ ] `permissionMode` set if subagent runs autonomously
-- [ ] System prompt specifies role + when invoked + output format
+- [ ] System prompt specifies role + when invoked + output format, and follows `model-routing`'s prompting reference for its model
 - [ ] No reliance on parent conversation history
 - [ ] `skills:` lists every skill the subagent needs (parent skills don't carry over)
 - [ ] `memory:` set with right scope if cross-session learning is needed
