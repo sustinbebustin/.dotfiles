@@ -22,7 +22,7 @@ Accepts zero or more repo subdirs, an optional version (e.g. `v1.8.7`), and/or a
 
 A token shaped like `v1.2.3`, `1.2.3`, or `2.0.0-rc.1` is read as the version; everything else is a repo scope. Subdir names with spaces aren't supported in the multi-scope form.
 
-Run every git command against the target's own repo root with `git -C <root> ...`, using the path from the `### Target:` block. When multiple repos are given, run the whole flow independently for each -- don't share versions, commits, or releases.
+Run every git command against the target's own repo root with `git -C <root> ...`, using the path from the `### Target:` block. Write that path out in each command, never as a shell variable (`git -C $root ...`): the guard hook blocks a push whose `-C` directory is a variable. When multiple repos are given, run the whole flow independently for each -- don't share versions, commits, or releases.
 
 If a **User note** block appears in Current State, treat it as binding guidance (version override, extra release-notes context, files to leave alone, etc.).
 
