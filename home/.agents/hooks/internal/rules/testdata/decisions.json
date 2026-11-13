@@ -449,6 +449,18 @@
     "reason": "Inside a script the command runs (bash -c, eval, trap): agent-guard-bin grant mints or revokes a session grant, which lets merges, releases, workflow dispatches or pushes to main run unprompted for its session - allow?"
   },
   {
+    "name": "gh-repo-verb-in-variable",
+    "stdin": "{\"tool_input\":{\"command\":\"gh repo \\\"$verb\\\" o/r --yes\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "gh with a shell expansion in the words that name its command - allow?"
+  },
+  {
+    "name": "gh-repo-verb-from-outer-variable-in-nested-shell",
+    "stdin": "{\"tool_input\":{\"command\":\"bash -c \\\"gh repo $verb o/r --yes\\\"\"},\"tool_name\":\"Bash\"}",
+    "decision": "ask",
+    "reason": "Inside a script the command runs (bash -c, eval, trap): gh inside a nested script whose text lost the outer shell's expansions - allow?"
+  },
+  {
     "name": "gh-pr-view",
     "stdin": "{\"tool_input\":{\"command\":\"gh pr view 3\"},\"tool_name\":\"Bash\"}",
     "decision": "allow"

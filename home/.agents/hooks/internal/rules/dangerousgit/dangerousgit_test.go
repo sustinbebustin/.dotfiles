@@ -206,6 +206,18 @@ func TestDecide(t *testing.T) {
 		{"gh pr view", `gh pr view --json number`, "allow"},
 		{"gh run view", `gh run view 1 --log`, "allow"},
 
+		// The first two words name the gh command. One that is not plain text
+		// could be any of them, a denied one included.
+		{"gh verb in a variable", `gh pr "$verb" 4`, "ask"},
+		{"gh repo verb in a variable", `gh repo "$verb" o/r --yes`, "ask"},
+		{"gh noun in a variable", `gh "$noun" delete o/r --yes`, "ask"},
+		{"gh whole command in a variable", `gh $cmd`, "ask"},
+		{"gh verb partly a variable", `gh repo del"$x" o/r`, "ask"},
+		{"gh verb from a command substitution", `gh pr $(echo merge) 4`, "ask"},
+		{"gh variable after the command's name", `gh pr view "$n" --json title`, "allow"},
+		{"gh one-word command", `gh status`, "allow"},
+		{"gh alone", `gh`, "allow"},
+
 		// The ticket workflow's gh calls run unprompted. Closing an issue is how
 		// a ticket resolves, and `gh issue reopen` undoes it.
 		{"gh issue create", `gh issue create --title t --body b --label needs-triage`, "allow"},
@@ -474,6 +486,12 @@ func TestLossyNestedGit(t *testing.T) {
 		// `bash -c "gh api graphql -f query='$Q'"` arrives with the query gone.
 		{`gh api graphql -f query=''`, "ask"},
 		{`gh api graphql -f query='{ viewer { login } }'`, "ask"},
+		// `bash -c "gh repo $verb o/r"` arrives with the verb gone, so a call
+		// that reads as unguarded may not be.
+		{`gh repo o/r --yes`, "ask"},
+		{`gh delete o/r`, "ask"},
+		{`gh pr view`, "ask"},
+		{`gh`, "allow"},
 	}
 	for _, tc := range cases {
 		req := hook.NewRequest("Bash", "", "", tc.cmd)

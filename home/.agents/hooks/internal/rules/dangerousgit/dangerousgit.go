@@ -31,6 +31,10 @@
 // that writes - by an explicit POST, PUT or PATCH, or by the payload flags that
 // make gh choose POST on its own. See checkGhAPI.
 //
+// A gh call whose command the guard cannot read asks too: one with an
+// expansion in the two words that name the command (`gh repo "$verb"`), and any
+// gh call in a nested script that lost its expansions. See checkCall.
+//
 // The exception is a session that holds a grant (see package grant): the user
 // approved a skill up front, so the steps that skill ends on run unprompted.
 // Typing /commit-push-pr with a merge flag waives gh pr merge; a skill named in
@@ -153,10 +157,26 @@ func checkCall(c *syntax.CallExpr, lossy bool, granted grant.Ops) (hook.Verdict,
 		return checkGit(args, literals, params, noopSequenceEditor(c.Assigns, wrappers), lossy,
 			granted.Has(grant.PushMain))
 	case "gh":
-		// named reports that the two words naming the gh command are the text
-		// gh receives, which is all a grant needs to know (see checkGh).
-		named := !lossy && len(literals) > 1 && literals[0] && literals[1]
-		return checkGh(args, exact, named, granted)
+		// The first two words name the gh command (`repo delete`). One that
+		// is not plain text renders as less than it is -- `gh repo "$verb"`
+		// reads as `gh repo` -- and could be any command, a denied one
+		// included.
+		if slices.Contains(literals[:min(len(literals), 2)], false) {
+			return hook.Asked("gh with a shell expansion in the words that name its command - allow?"), true
+		}
+		// named reports that those words are the text gh receives, which is
+		// all a grant needs to know (see checkGh).
+		named := !lossy && len(literals) > 1
+		if v, guarded := checkGh(args, exact, named, granted); guarded {
+			return v, true
+		}
+		// A lossy script hides the same thing differently: the expansion is
+		// gone from the text, so `bash -c "gh repo $verb o/r"` arrives as `gh
+		// repo o/r`, and a call that reads as unguarded may not be.
+		if lossy && len(args) > 0 {
+			return hook.Asked("gh inside a nested script whose text lost the outer shell's expansions - allow?"), true
+		}
+		return hook.Verdict{}, false
 	}
 	return hook.Verdict{}, false
 }
