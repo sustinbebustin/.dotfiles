@@ -8,7 +8,7 @@
  * The turn has already ended by then, so the nudge is a follow-up prompt from
  * `$.prompt.submit`, not a blocked stop.
  *
- * Every main-loop reply is reviewed by a small model. One nudge per prompt the
+ * Every main-loop reply is reviewed by a separate model call. One nudge per prompt the
  * person typed: a turn the nudge started is not reviewed, so a reply the
  * reviewer keeps misjudging cannot loop. A nudge is dropped when the person
  * has started typing or a new turn began while the review ran.
@@ -17,7 +17,8 @@
 import type { Register } from 'claude-code'
 import { Verdict } from './verdict'
 
-const MODEL = 'haiku'
+/** Haiku lifted items from the person's prompt and from drafts meant for others, whatever the wording said. */
+const MODEL = 'sonnet'
 const REVIEW_TIMEOUT_MS = 15_000
 /** The person's prompt is context for the reviewer, not the subject; a long paste is cut. */
 const PROMPT_CONTEXT_MAX = 2_000

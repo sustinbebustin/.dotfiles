@@ -78,5 +78,59 @@
     "expect": "done",
     "why": "A follow-up that can only happen after a future event.",
     "reply": "Cache Components targets the biggest measured cost. The bundle savings are real reductions in bytes, but their effect on page speed hasn't been measured. To check it, compare the saved Sentry snapshot a week after these merge."
+  },
+  {
+    "id": "own-step-after-running-work",
+    "expect": "done",
+    "why": "The agent's own next step waits on work already running, so it is running, not todo.",
+    "reply": "`origin/main` gained a PR with a changelog entry and one new test. I'll merge it into the integration branch once the test loop finishes, then run the verify suite."
+  },
+  {
+    "id": "relay-report-when-it-lands",
+    "expect": "done",
+    "why": "A promise to pass on a running job's report when it arrives.",
+    "reply": "The stalled session resumed after your login.\n\n- **Spec A:** 25 of 26 tickets resolved; the last waits on its e2e suite, then opens its PR.\n- **Spec B:** all 11 resolved; its PR is in CI (2 passed, 23 pending). The title marks a breaking change; I'll relay which from its report."
+  },
+  {
+    "id": "bare-done-after-instruction-prompt",
+    "expect": "done",
+    "why": "The prompt asks for a question, but the reply states nothing pending; items come from the reply only.",
+    "prompt": "Call the AskUserQuestion tool once with a single question 'Proceed with the plan?', options 'Proceed' and 'Abort'. After I answer, reply with the single word done.",
+    "reply": "done"
+  },
+  {
+    "id": "prompt-plan-not-reply-item",
+    "expect": "done",
+    "why": "The person's stated plan is in the prompt, not the reply; the reply leaves nothing pending.",
+    "prompt": "Actually we're going to go back to the earlier setup with worktrees and run the full wave in parallel",
+    "reply": "No response requested."
+  },
+  {
+    "id": "prompt-question-not-reply-item",
+    "expect": "done",
+    "why": "A puzzle the person raised in the prompt is not an item when the reply reports a finished result.",
+    "prompt": "Wait what do you mean \"but the partner webhook still says required for this deal despite the e-signature\"?",
+    "reply": "Customer 4410's project has been created (funding id 5120). The logs end with `Funding updated` and no errors."
+  },
+  {
+    "id": "question-inside-drafted-email",
+    "expect": "done",
+    "why": "A question addressed to the recipient of a drafted message is content, not a question for the user.",
+    "prompt": "Needs to be simpler.",
+    "reply": "Hey Sam,\n\nSince around Nov 5, the agreement's signature status stays at \"required\" even after the homeowner signs. It used to change to \"signed\", and that's what our system watches for.\n\nExample: customer 4410 e-signed on Nov 12, but your side still shows \"required\".\n\nDid something change on your end?\n\nThanks"
+  },
+  {
+    "id": "unpushed-as-flag-asked",
+    "expect": "done",
+    "why": "No push and no PR because the person's flag said so is a state they chose.",
+    "prompt": "git pull both to make sure we're up to date",
+    "reply": "Both repos are committed on new branches. Nothing is pushed and no PRs are open, as `--np` asked.\n\n**Frontend**, on `fix/stale-conflict`:\n- `98d2016 fix(db): keep updated_at on PDF stamps`\n- `9fefc80 fix(editor): track the latest row`\n\n**Backend**, on `feat/conflict-log`:\n- `d75b7c5 feat(api): log both stamps on 409s`\n\n`just verify quick` passed on the merged tree before committing."
+  },
+  {
+    "id": "report-quotes-other-sessions-items",
+    "expect": "done",
+    "why": "Items the reply reports from other sessions it reviewed are its findings, not work left in this one.",
+    "prompt": "Review last day's reviewer verdicts and fix the false ones.",
+    "reply": "Healed. The reviewer now runs on the larger model with tighter wording. All 20 labelled cases pass on every run, and validate, the plugin tests and `tsc` pass. Not committed, as the skill says.\n\n**Groups healed**\n\n| Group | Cases | Reason |\n|---|---|---|\n| A: own step waiting on running work | `own-step-after-running-work` | \"I'll merge it once the loop finishes\" is running. |\n| B: items lifted from the prompt | `prompt-plan-not-reply-item` | The prompt is context only. |\n\n**Why the larger model:** the small one scores 17/20 on the final wording. Each review now costs more; the 15s timeout is unchanged and its latency wasn't measured, so watch for \"review failed\" errors.\n\n**Heal reverted:** user-only setup steps. Both models called it open on every run.\n\n**Left as Correct**\n- 23:31 (a production row needing a reset) and 23:34 (an offer to move write tools into `ask`) are real items.\n- 23:40 (\"test kept for the merge\") is borderline and left alone.\n\n**No agent faults** among the dismissals."
   }
 ]
