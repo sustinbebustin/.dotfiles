@@ -83,11 +83,138 @@ snapshot() {
   esac
 }
 
-# Succeeds when workflow $1 may run for a PR whose head branch is $2: it
-# triggers on pull requests, or on pushes with no branch filter excluding $2.
-# A plain-text read of the YAML, so it errs toward "may run" when unsure.
+# Prints the lines indented under trigger $2 in the on: block $1 (empty for
+# a trigger with no settings); fails when the block does not name it.
+trigger_section() {
+  printf '%s\n' "$1" | awk -v ev="$2" '
+    function indent(s) { match(s, /^[ \t]*/); return RLENGTH }
+    NR == 1 && $0 !~ /:/ {
+      # Inline form: on: push, or on: [push, pull_request]
+      gsub(/[][ \t"\047]/, "")
+      n = split($0, names, ",")
+      for (i = 1; i <= n; i++) if (names[i] == ev) found = 1
+      exit
+    }
+    /^[ \t]*(#|$)/ { if (in_ev) print; next }
+    in_ev && indent($0) > ind { print; next }
+    in_ev { exit }
+    {
+      line = $0
+      sub(/^[ \t]*/, "", line)
+      key = line
+      sub(/:.*/, "", key)
+      gsub(/["\047]/, "", key)
+      if (key == ev && line ~ /:/) { found = 1; in_ev = 1; ind = indent($0) }
+    }
+    END { exit !found }
+  '
+}
+
+# Succeeds when section $1 sets filter key $2 (paths, branches, ...).
+has_key() {
+  printf '%s\n' "$1" | grep -Eq "^[[:space:]]*$2:"
+}
+
+# Prints the items of list key $2 in section $1, block or inline form, with
+# quotes and trailing comments stripped.
+list_items() {
+  printf '%s\n' "$1" | awk -v key="$2" '
+    function clean(s) {
+      sub(/[ \t]+#.*$/, "", s)
+      gsub(/^[ \t]+|[ \t]+$/, "", s)
+      gsub(/^["\047]|["\047]$/, "", s)
+      return s
+    }
+    { line = $0; sub(/^[ \t]*/, "", line) }
+    in_list && (line == "" || line ~ /^#/) { next }
+    in_list && line ~ /^-/ { sub(/^-[ \t]*/, "", line); print clean(line); next }
+    in_list { exit }
+    index(line, key ":") == 1 {
+      rest = substr(line, length(key) + 2)
+      if (match(rest, /\[.*\]/)) {
+        n = split(substr(rest, RSTART + 1, RLENGTH - 2), items, ",")
+        for (i = 1; i <= n; i++) print clean(items[i])
+        exit
+      }
+      in_list = 1
+    }
+  '
+}
+
+# Prints an anchored-ready regex for a GitHub filter glob: ** crosses
+# directories ("**/" may match none), * and ? stay within one.
+glob_regex() {
+  local g=$1 re="" c i
+  for ((i = 0; i < ${#g}; i++)); do
+    c=${g:i:1}
+    case "$c" in
+      '*')
+        if [ "${g:i+1:1}" = '*' ]; then
+          if [ "${g:i+2:1}" = '/' ]; then re+='(.*/)?'; i=$((i + 2)); else re+='.*'; i=$((i + 1)); fi
+        else
+          re+='[^/]*'
+        fi
+        ;;
+      '?') re+='[^/]' ;;
+      '.' | '(' | ')' | '{' | '}' | '|' | '^' | '$' | \\) re+="\\$c" ;;
+      *) re+=$c ;;
+    esac
+  done
+  printf '%s' "$re"
+}
+
+# Succeeds when section $1 has no paths filter, when the PR's changed files
+# are unknown, or when some changed file passes the filter. Patterns apply in
+# order and the last match wins: "!" re-excludes under paths and re-includes
+# under paths-ignore, as GitHub evaluates them.
+paths_allow() {
+  local key want pats f pat neg hit re
+  if has_key "$1" paths; then
+    key=paths want=1
+  elif has_key "$1" paths-ignore; then
+    key=paths-ignore want=0
+  else
+    return 0
+  fi
+  [ -n "$changed" ] || return 0
+  pats=$(list_items "$1" "$key")
+  while IFS= read -r f <&3; do
+    hit=0
+    while IFS= read -r pat; do
+      [ -n "$pat" ] || continue
+      neg=0
+      if [ "${pat:0:1}" = '!' ]; then neg=1; pat=${pat:1}; fi
+      re=$(glob_regex "$pat")
+      [[ $f =~ ^${re}$ ]] && hit=$((1 - neg))
+    done <<<"$pats"
+    if [ "$hit" = "$want" ]; then return 0; fi
+  done 3<<<"$changed"
+  return 1
+}
+
+# Succeeds when push section $1's branch filters admit branch $2. A
+# branches-ignore filter errs toward "may run"; tags alone exclude branches.
+push_admits_branch() {
+  local pat
+  has_key "$1" branches-ignore && return 0
+  if ! has_key "$1" branches; then
+    if has_key "$1" tags || has_key "$1" tags-ignore; then return 1; fi
+    return 0
+  fi
+  while IFS= read -r pat; do
+    # shellcheck disable=SC2053  # $pat is a glob by design
+    [[ "$2" == $pat ]] && return 0
+  done < <(list_items "$1" branches)
+  return 1
+}
+
+# Succeeds when workflow $1 may run for a PR whose head branch is $2 and whose
+# changed files are $changed: a pull_request trigger, or a push trigger that
+# admits $2, whose paths filter passes. A plain-text read of the YAML, so it
+# errs toward "may run" when unsure (a pull_request branches filter is not
+# checked).
 runs_for_pr() {
-  local triggers pat
+  local triggers section ev
   triggers=$(awk '
     /^("on"|'"'"'on'"'"'|on|true):/ {
       in_on = 1
@@ -98,24 +225,11 @@ runs_for_pr() {
     in_on && /^[^ \t#]/ { exit }
     in_on { print }
   ' "$1")
-  case "$triggers" in *pull_request*) return 0 ;; esac
-  case "$triggers" in *push*) ;; *) return 1 ;; esac
-  case "$triggers" in *branches-ignore*) return 0 ;; esac
-  case "$triggers" in *branches:*) ;; *) return 0 ;; esac
-  while IFS= read -r pat; do
-    # shellcheck disable=SC2053  # $pat is a glob by design
-    [[ "$2" == $pat ]] && return 0
-  done < <(printf '%s\n' "$triggers" | awk '
-    /branches:/ {
-      if (match($0, /\[.*\]/)) {
-        n = split(substr($0, RSTART + 1, RLENGTH - 2), items, ",")
-        for (i = 1; i <= n; i++) print items[i]
-      } else list = 1
-      next
-    }
-    list && /^[ \t]*-/ { sub(/^[ \t]*-/, ""); print; next }
-    { list = 0 }
-  ' | tr -d " \t\"'")
+  for ev in pull_request pull_request_target push; do
+    section=$(trigger_section "$triggers" "$ev") || continue
+    if [ "$ev" = push ] && ! push_admits_branch "$section" "$2"; then continue; fi
+    paths_allow "$section" && return 0
+  done
   return 1
 }
 
@@ -131,8 +245,11 @@ elif [ "${#workflows[@]}" -eq 0 ]; then
   no_ci="no workflow files under .github/workflows in $(pwd)"
 elif [ "$mode" = "pr" ]; then
   head=$(gh pr view "$ref" --json headRefName --jq .headRefName 2>/dev/null)
+  # gh lists at most 100 files; a partial list cannot rule a path filter out.
+  changed=$(gh pr view "$ref" --json files --jq '.files[].path' 2>/dev/null)
+  if [ "$(printf '%s\n' "$changed" | grep -c .)" -ge 100 ]; then changed=""; fi
   if [ -n "$head" ]; then
-    no_ci="no workflow triggers on pull requests or on pushes to $head"
+    no_ci="no workflow triggers on pull requests or on pushes to $head for the files it changes"
     for wf in "${workflows[@]}"; do
       if runs_for_pr "$wf" "$head"; then
         no_ci=""
