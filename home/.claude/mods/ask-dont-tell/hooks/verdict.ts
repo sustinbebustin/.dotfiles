@@ -1,83 +1,49 @@
 /**
- * Whether a final reply leaves something for the person to answer in prose,
- * and what to tell Claude when it does.
+ * Whether a final reply ends the turn with something still open, and the
+ * prompt that sends Claude back to it.
  *
- * Two stages: `Reply.mayAwaitUser` is a free regex screen that passes most
- * replies untouched; only a reply it flags goes to the model, whose JSON
- * answer `Verdict.parse` reads.
+ * The reviewer model reads every reply; its JSON answer is `Verdict.parse`'s
+ * input. The criteria come from mined sessions where the person had to ask
+ * "what's next?" or "use AskUserQuestion": long outcome reports whose tail
+ * ("Still to do", "Open for you", "Say the word and I'll...") was left in prose.
  */
 
-const FENCED_CODE = /```[\s\S]*?```/g
-const INLINE_CODE = /`[^`\n]*`/g
+export type Verdict = { kind: 'done' } | { kind: 'open'; items: readonly string[] }
 
-/** A question mark closing a sentence, not one inside a URL's query. */
-const QUESTION = /\?(?=[\s)"'*_]|$)/m
+const isVerdictJson = (value: unknown): value is { open: boolean; items?: unknown } =>
+  typeof value === 'object' && value !== null && 'open' in value && typeof value.open === 'boolean'
 
-const CUES = new RegExp(
-  [
-    'let me know',
-    'want me to',
-    'should i',
-    'shall i',
-    'would you like',
-    'do you want',
-    "if you'?d like",
-    'happy to',
-    'i can also',
-    'your call',
-    'up to you',
-    'next steps?',
-    'follow[- ]ups?',
-    'decide',
-    'decision',
-    'confirm',
-    'approve',
-    'prefer',
-    'options?:',
-    'which (one|option|approach)',
-  ]
-    .map((cue) => `\\b${cue}\\b`)
-    .join('|'),
-  'i',
-)
-
-export const Reply = {
-  /** Prose alone: code blocks and spans hold `?` and cue words that ask nothing. */
-  prose: (text: string): string => text.replace(FENCED_CODE, '').replace(INLINE_CODE, ''),
-
-  /** True when the reply might ask something of the person and is worth a model call. */
-  mayAwaitUser: (text: string): boolean => {
-    const prose = Reply.prose(text)
-    return QUESTION.test(prose) || CUES.test(prose)
-  },
-} as const
-
-export type Verdict = { kind: 'done' } | { kind: 'waiting'; items: readonly string[] }
-
-const isVerdictJson = (value: unknown): value is { waiting: boolean; items?: unknown } =>
-  typeof value === 'object' && value !== null && 'waiting' in value && typeof value.waiting === 'boolean'
+/** Leads every nudge, so the turn it starts is recognised and not reviewed again. */
+const NUDGE_HEADER = 'ask-dont-tell review:'
 
 export const Verdict = {
+  NUDGE_HEADER,
+
   /** The reviewer's instructions; the reply goes in the user message as data. */
   SYSTEM: [
-    'You review the final message an AI coding agent wrote before ending its turn.',
-    'Decide whether the message leaves anything waiting on the user that the agent should have asked with its AskUserQuestion tool instead of writing it in prose.',
+    'You review the final message an AI coding agent wrote before ending its turn and handing control back to the user.',
+    'Decide whether the turn ended with anything still open: work the agent could still do, or something waiting on the user that the agent should have asked with its AskUserQuestion tool instead of writing in prose.',
     '',
-    'Counts as waiting:',
-    '- A question to the user, direct or rhetorical-but-expecting-an-answer.',
-    '- A decision or choice left for the user (options, trade-offs to pick between, "your call").',
-    '- An offer of further work ("Want me to...", "I can also...", "Let me know if...").',
-    '- A "next steps" or "follow-ups" list the user is expected to approve, pick from, or act on.',
+    'Counts as open:',
+    '- A question to the user, in any form, including "Tell me which you want next".',
+    '- A decision or choice left for the user: options, trade-offs, "your call", "Decision for you", "the remaining decisions are yours".',
+    '- An offer of further work, including ones phrased as statements: "Want me to...", "I can also...", "If you want, I can run it", "Say the word and I\'ll...", "Turning it on is a one-line PR whenever you want it".',
+    '- A list of remaining or pending work: "Still to do", "Still open", "Open for you", "Waiting on you", "Next steps", "loose ends", "the next phase", even when called "none blocking" or "whenever you choose".',
+    '- Changes left unfinished: uncommitted, unpushed, unmerged or unreleased work, a branch with no PR, tickets still open.',
+    '- A recommendation the user is expected to approve ("I\'d add a header check", "I recommend doing X").',
     '',
     'Does not count:',
     '- Reporting what was done, test results, or what was not verified and why.',
-    '- An FYI caveat or limitation that needs no answer.',
-    '- Instructions the user asked for (how to run something, a command to type).',
-    '- Answering a question the user asked.',
+    '- An FYI caveat, limitation or side effect of finished work that needs no answer and implies no further work ("this file is shared by every copy").',
+    '- Something left unverified, unless the agent could verify it now (checking CI it just triggered counts as open).',
+    '- A follow-up that can only happen later or is blocked on something neither the agent nor the user can do now: a future date, a third party, measuring after a deploy.',
+    '- A state the user chose ("still unpushed, as you asked").',
+    '- Instructions or commands the user asked for, or a command only the user can run (an interactive login).',
+    '- Answering a question the user asked, when the answer leaves nothing to do.',
     '',
     'Reply with JSON only, no prose and no code fence:',
-    '{"waiting": true, "items": ["<each thing left for the user, quoted or paraphrased in under 15 words>"]}',
-    'or {"waiting": false}',
+    '{"open": true, "items": ["<each open thing, quoted or paraphrased in under 15 words>"]}',
+    'or {"open": false}',
   ].join('\n'),
 
   /** The model's reply read as a verdict; `undefined` when it is not the JSON asked for. */
@@ -89,20 +55,24 @@ export const Verdict = {
       return undefined
     }
     if (!isVerdictJson(value)) return undefined
-    if (!value.waiting) return { kind: 'done' }
+    if (!value.open) return { kind: 'done' }
     const items = Array.isArray(value.items) ? value.items.filter((item): item is string => typeof item === 'string') : []
-    return { kind: 'waiting', items }
+    return { kind: 'open', items }
   },
 
-  /** The block reason Claude reads as its next instruction. */
-  blockReason: (items: readonly string[]): string =>
+  /** Whether a turn's prompt is one of this mod's nudges. */
+  isNudge: (prompt: string): boolean => prompt.includes(NUDGE_HEADER),
+
+  /** The prompt that sends Claude back to what its reply left open. */
+  nudge: (items: readonly string[]): string =>
     [
-      'Your final message leaves something for the user to answer in prose:',
-      ...(items.length > 0 ? items.map((item) => `- ${item}`) : ['- (a question, decision or offer)']),
+      `${NUDGE_HEADER} your last reply ended the turn with work or decisions still open:`,
+      ...(items.length > 0 ? items.map((item) => `- ${item}`) : ['- (a question, decision, offer or unfinished work)']),
       '',
-      'Ask it with the AskUserQuestion tool instead: one question per decision, concrete options, your recommendation first.',
-      'An offer of more work becomes a question with yes/no options. Then act on the answer.',
+      'For each item: if it is within what the user asked, reversible, and you can do it now, do it.',
+      'Otherwise ask with the AskUserQuestion tool: a choice between approaches; anything outward-facing or irreversible (push, merge, release, deploy, deleting shared state); new scope such as a next phase.',
+      'One question per decision, concrete options, your recommendation first. An offer of more work becomes a yes/no question.',
       'Keep any summary to outcomes; do not repeat the questions in prose.',
-      'If nothing actually needs the user, end the turn without asking.',
+      'If nothing is actually open, say so in one line and stop.',
     ].join('\n'),
 } as const

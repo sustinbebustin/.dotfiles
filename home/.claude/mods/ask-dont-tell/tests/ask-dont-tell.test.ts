@@ -1,88 +1,113 @@
 import type { On } from 'claude-code'
 import { type Engine, expect, test } from 'claude-code/testing'
-import { Reply, Verdict } from '../hooks/verdict'
+import { Verdict } from '../hooks/verdict'
 
 const USAGE = { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
 
-/** The engine beneath the plugin: a reviewer that answers `answer`, and no settings Stop hook. */
-const world = (on: On, answer: string) => {
-  const prompts: string[] = []
+/** The engine beneath the plugin: a reviewer that answers `answer`, a prompt box holding `draft`. */
+const world = (on: On, answer: string, draft = '') => {
+  const reviewed: string[] = []
+  const submitted: string[] = []
   on('model.complete', ($, e) => {
-    prompts.push(e.prompt)
+    reviewed.push(e.prompt)
     return { value: { isAnswered: true as const, text: answer, usage: USAGE } }
   })
+  on('prompt.read', () => ({ value: { text: draft, cursor: draft.length } }))
+  on('prompt.submit', ($, e) => {
+    submitted.push(e.text)
+    return { text: e.text }
+  })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
-  on('classic.Stop', () => ({}))
-  return { prompts }
+  on('turn.start', ($, e) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: '' }))
+  return { reviewed, submitted }
 }
 
 const startSession = ($: Engine, isInteractive = true) =>
   $.session.start({ cwd: '/home/austin/projects/api', surface: 'terminal', isInteractive })
 
-const stop = ($: Engine, last_assistant_message: string, stop_hook_active = false) =>
-  $.classic.Stop({ session_id: 's', transcript_path: '/tmp/t.jsonl', cwd: '/home/austin/projects/api', stop_hook_active, last_assistant_message })
+/** One main-loop turn: the person's `prompt`, then Claude's final `answer`. */
+const turn = async ($: Engine, prompt: string, answer: string, end: { reason?: 'answer' | 'aborted'; agentId?: string } = {}) => {
+  const turnId = `t-${prompt.length}-${answer.length}`
+  await $.turn.start({ turnId, text: prompt, ...(end.agentId === undefined ? {} : { agentId: end.agentId }) })
+  return $.turn.complete({
+    turnId,
+    answer,
+    durationMs: 1,
+    isAborted: end.reason === 'aborted',
+    reason: end.reason ?? 'answer',
+    ...(end.agentId === undefined ? {} : { agentId: end.agentId }),
+  })
+}
 
-const WAITING = '{"waiting": true, "items": ["Want me to add tests?"]}'
+const OPEN = '{"open": true, "items": ["Still to do: push the branch"]}'
 
 // --- verdict.ts
 
-test('Reply.mayAwaitUser flags questions and cues in prose only', () => {
-  expect(Reply.mayAwaitUser('Done. Want me to add tests?')).toBe(true)
-  expect(Reply.mayAwaitUser('Next steps:\n- wire the API')).toBe(true)
-  expect(Reply.mayAwaitUser('Let me know which you prefer.')).toBe(true)
-  expect(Reply.mayAwaitUser('Fixed the null check in `parse`. Tests pass.')).toBe(false)
-  expect(Reply.mayAwaitUser('Fetches `https://x.dev/a?q=1` now.')).toBe(false)
-  expect(Reply.mayAwaitUser('```ts\nconst a = b ? c : d // should I?\n```\nRefactored.')).toBe(false)
-})
-
 test('Verdict.parse reads the JSON, tolerates a fence, and rejects other shapes', () => {
-  expect(Verdict.parse('{"waiting": false}')).toEqual({ kind: 'done' })
-  expect(Verdict.parse(WAITING)).toEqual({ kind: 'waiting', items: ['Want me to add tests?'] })
-  expect(Verdict.parse('```json\n{"waiting": true, "items": ["a", 3]}\n```')).toEqual({ kind: 'waiting', items: ['a'] })
-  expect(Verdict.parse('{"waiting": "yes"}')).toBeUndefined()
-  expect(Verdict.parse('Sure! {"waiting": true}')).toBeUndefined()
+  expect(Verdict.parse('{"open": false}')).toEqual({ kind: 'done' })
+  expect(Verdict.parse(OPEN)).toEqual({ kind: 'open', items: ['Still to do: push the branch'] })
+  expect(Verdict.parse('```json\n{"open": true, "items": ["a", 3]}\n```')).toEqual({ kind: 'open', items: ['a'] })
+  expect(Verdict.parse('{"open": "yes"}')).toBeUndefined()
+  expect(Verdict.parse('Sure! {"open": true}')).toBeUndefined()
 })
 
-test('Verdict.blockReason names each item and the tool', () => {
-  const reason = Verdict.blockReason(['Pick Postgres or SQLite'])
-  expect(reason).toContain('- Pick Postgres or SQLite')
-  expect(reason).toContain('AskUserQuestion')
+test('Verdict.nudge names each item and the tool, and is recognised as a nudge', () => {
+  const nudge = Verdict.nudge(['Pick Postgres or SQLite'])
+  expect(nudge).toContain('- Pick Postgres or SQLite')
+  expect(nudge).toContain('AskUserQuestion')
+  expect(Verdict.isNudge(nudge)).toBe(true)
+  expect(Verdict.isNudge("what's next?")).toBe(false)
 })
 
-// --- the Stop hook
+// --- the turn.complete hook
 
-test('a reply waiting on the person blocks the stop with the items', async ($, on) => {
-  const w = world(on, WAITING)
+test('a reply left open submits a nudge with the items', async ($, on) => {
+  const w = world(on, OPEN)
   await startSession($)
-  const result = await stop($, 'Done. Want me to add tests?')
+  await turn($, 'Fix the deploy', 'Deployed.\n\nStill to do:\n- push the branch')
 
-  expect(result.block).toContain('- Want me to add tests?')
-  expect(w.prompts[0]).toContain('Want me to add tests?')
+  expect(w.submitted.length).toBe(1)
+  expect(w.submitted[0]).toContain('- Still to do: push the branch')
+  expect(w.reviewed[0]).toContain('<user_prompt>\nFix the deploy\n</user_prompt>')
+  expect(w.reviewed[0]).toContain('push the branch')
 })
 
-test('a reply the reviewer clears ends the turn', async ($, on) => {
-  world(on, '{"waiting": false}')
+test('a reply the reviewer clears submits nothing', async ($, on) => {
+  const w = world(on, '{"open": false}')
   await startSession($)
-  expect((await stop($, 'Tests pass? Yes: 42 of 42.')).block).toBeUndefined()
+  await turn($, 'What does ui/ hold?', 'The built-in web UI.')
+  expect(w.reviewed.length).toBe(1)
+  expect(w.submitted).toEqual([])
 })
 
-test('a reply the screen passes costs no model call', async ($, on) => {
-  const w = world(on, WAITING)
+test('the turn a nudge started is not reviewed', async ($, on) => {
+  const w = world(on, OPEN)
   await startSession($)
-  expect((await stop($, 'Fixed the off-by-one. Tests pass.')).block).toBeUndefined()
-  expect(w.prompts).toEqual([])
+  await turn($, Verdict.nudge(['push the branch']), 'Still to do: push the branch')
+  expect(w.reviewed).toEqual([])
+  expect(w.submitted).toEqual([])
 })
 
-test('a stop already continued by a Stop hook is let through', async ($, on) => {
-  const w = world(on, WAITING)
+test('a person already typing a reply gets no nudge', async ($, on) => {
+  const w = world(on, OPEN, 'yes, push it')
   await startSession($)
-  expect((await stop($, 'Want me to add tests?', true)).block).toBeUndefined()
-  expect(w.prompts).toEqual([])
+  await turn($, 'Fix the deploy', 'Want me to push?')
+  expect(w.reviewed.length).toBe(1)
+  expect(w.submitted).toEqual([])
 })
 
-test('a non-interactive session is never blocked', async ($, on) => {
-  const w = world(on, WAITING)
+test('interrupted and subagent turns are never reviewed', async ($, on) => {
+  const w = world(on, OPEN)
+  await startSession($)
+  await turn($, 'Fix it', 'Want me to push?', { reason: 'aborted' })
+  await turn($, 'Search', 'Want me to push?', { agentId: 'a1' })
+  expect(w.reviewed).toEqual([])
+})
+
+test('a non-interactive session is never reviewed', async ($, on) => {
+  const w = world(on, OPEN)
   await startSession($, false)
-  expect((await stop($, 'Want me to add tests?')).block).toBeUndefined()
-  expect(w.prompts).toEqual([])
+  await turn($, 'Fix it', 'Want me to push?')
+  expect(w.reviewed).toEqual([])
 })
