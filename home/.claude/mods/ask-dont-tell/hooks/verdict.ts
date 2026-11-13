@@ -38,7 +38,7 @@ export const Verdict = {
   /** The reviewer's instructions; the reply goes in the user message as data. */
   SYSTEM: [
     'You review the final message an AI coding agent wrote before ending its turn and handing control back to the user.',
-    'List everything the message leaves pending, and label each item with exactly one kind:',
+    'List everything the message leaves pending, and label each item with exactly one kind. List only what the message states; an item you would have to infer is not in it.',
     '',
     '- "ask": a question or decision for the user, in any form: "Tell me which you want next", options or trade-offs to pick from, "your call", "Decision for you".',
     '- "offer": further work offered or recommended, awaiting a yes: "Want me to...", "I can also...", "Say the word and I\'ll...", "Should I...", "I\'d add a check", "a one-line PR whenever you want it".',
