@@ -2,6 +2,6 @@
   "name": "ask-dont-tell",
   "displayName": "Ask, Don't Tell",
   "version": "0.1.0",
-  "description": "Blocks a turn from ending when the final reply leaves questions, decisions or offers inline, and tells Claude to ask them with AskUserQuestion.",
+  "description": "When a turn ends on a reply that leaves questions, offers or actionable work in prose, sends Claude back to do it or ask with AskUserQuestion. Ships /ask-dont-tell:heal to tune its reviewer from transcripts.",
   "author": { "name": "sustinbebustin" }
 }

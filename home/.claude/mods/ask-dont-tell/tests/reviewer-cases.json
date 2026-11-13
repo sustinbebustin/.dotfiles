@@ -1,0 +1,82 @@
+[
+  {
+    "id": "offer-say-the-word",
+    "expect": "open",
+    "why": "An offer phrased as a statement.",
+    "reply": "Done. Tests pass.\n\nSay the word and I will push it."
+  },
+  {
+    "id": "unchecked-ci-it-triggered",
+    "expect": "open",
+    "why": "The agent could check the CI run it just triggered.",
+    "reply": "Both fixes are pushed to main and `just verify` passes.\n\nI haven't checked the new CI runs on main yet."
+  },
+  {
+    "id": "loose-ends-none-blocking",
+    "expect": "open",
+    "why": "Leftovers called non-blocking are still actionable now.",
+    "reply": "The v2 work is done and live; two loose ends remain, none blocking.\n\n- Two commits sit on local `feat/roof-job`, unpushed.\n- Ticket 46 needs triage."
+  },
+  {
+    "id": "still-to-do-list",
+    "expect": "open",
+    "why": "A Still to do tail the person had to ask about.",
+    "reply": "The recordings are applied and merged into local `roadmap`. Nothing was pushed.\n\nEvery suite passes except one known pattern check that already failed before this work.\n\n**Still to do:**\n- Record the two remaining DynamoDB items.\n- Push `roadmap` and open the PR."
+  },
+  {
+    "id": "decision-for-you",
+    "expect": "open",
+    "why": "A decision left in prose under a heading.",
+    "reply": "The session fix works in a real browser.\n\n**Decision for you**\n\nThe Log out button leaves a live session behind. The fix is to drop the cookie clearing from the two submit handlers; the catch is that a failed POST leaves the rep signed in."
+  },
+  {
+    "id": "tell-me-which-next",
+    "expect": "open",
+    "why": "A choice of next work asked inline.",
+    "reply": "The staging deploy workflow ran end to end and staging rolled out cleanly.\n\n- Waiting on you: the backend release, and merging frontend PR #507.\n- Smaller remaining tickets: version-pinned deploys and cleanup.\n\nTell me which you want next."
+  },
+  {
+    "id": "in-flight-status-answering-question",
+    "expect": "done",
+    "why": "A status report on work already running, answering the person's question.",
+    "prompt": "Is wave 6 still running?",
+    "reply": "No. Wave 6 finished and merged as PR 32, and its clone is gone.\n\nWhat is running now is the close-out wave you approved after that, the seven follow-up tickets. It has 6 of 7 resolved and is waiting on the full test run that proves the last one, which has about an hour left."
+  },
+  {
+    "id": "in-flight-watch-rearmed",
+    "expect": "done",
+    "why": "Running work with a watch that wakes the agent.",
+    "reply": "The test run is healthy: the first phase finished for all 56 groups and the second is 10 groups in. At this pace it needs roughly another hour, after which the session resumes on its own. The watch is re-armed."
+  },
+  {
+    "id": "in-flight-mid-investigation",
+    "expect": "done",
+    "why": "A progress line while the agent is still working.",
+    "reply": "`du` alone takes 3m37s here (28% CPU, so IO-bound on a single thread); checking where the inodes are and whether a parallel walk fixes it."
+  },
+  {
+    "id": "unpushed-as-asked",
+    "expect": "done",
+    "why": "A state the person chose.",
+    "reply": "I deleted all six leftover branches, so both repos now have only `main`, locally and on GitHub.\n\nYour meta repo commit ac9efb3d is still unpushed, as you asked."
+  },
+  {
+    "id": "plain-answer",
+    "expect": "done",
+    "why": "An answer to the person's question that leaves nothing to do.",
+    "prompt": "What is ui/ for?",
+    "reply": "`ui/` is the source of the built-in web UI: a browser page that shows the journal live as trace trees. The built bundle is embedded in the binary and `serve` always serves it.\n\nTo work on it, `just ui` rebuilds the bundle and runs its tests."
+  },
+  {
+    "id": "fyi-shared-folder",
+    "expect": "done",
+    "why": "A side effect of finished work that needs no answer.",
+    "reply": "The script now retries on 429 with backoff, at most 3 times, then returns the error to the existing handling.\n\n`.workspace/` is shared across all your working copies, so this script and the JSON it writes change in every copy."
+  },
+  {
+    "id": "later-measure-after-merge",
+    "expect": "done",
+    "why": "A follow-up that can only happen after a future event.",
+    "reply": "Cache Components targets the biggest measured cost. The bundle savings are real reductions in bytes, but their effect on page speed hasn't been measured. To check it, compare the saved Sentry snapshot a week after these merge."
+  }
+]

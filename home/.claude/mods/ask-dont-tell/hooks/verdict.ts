@@ -34,6 +34,7 @@ const NUDGE_HEADER = 'ask-dont-tell review:'
 
 export const Verdict = {
   NUDGE_HEADER,
+  NUDGE_KINDS,
 
   /** The reviewer's instructions; the reply goes in the user message as data. */
   SYSTEM: [
