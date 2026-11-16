@@ -132,5 +132,30 @@
     "why": "Items the reply reports from other sessions it reviewed are its findings, not work left in this one.",
     "prompt": "Review last day's reviewer verdicts and fix the false ones.",
     "reply": "Healed. The reviewer now runs on the larger model with tighter wording. All 20 labelled cases pass on every run, and validate, the plugin tests and `tsc` pass. Not committed, as the skill says.\n\n**Groups healed**\n\n| Group | Cases | Reason |\n|---|---|---|\n| A: own step waiting on running work | `own-step-after-running-work` | \"I'll merge it once the loop finishes\" is running. |\n| B: items lifted from the prompt | `prompt-plan-not-reply-item` | The prompt is context only. |\n\n**Why the larger model:** the small one scores 17/20 on the final wording. Each review now costs more; the 15s timeout is unchanged and its latency wasn't measured, so watch for \"review failed\" errors.\n\n**Heal reverted:** user-only setup steps. Both models called it open on every run.\n\n**Left as Correct**\n- 23:31 (a production row needing a reset) and 23:34 (an offer to move write tools into `ask`) are real items.\n- 23:40 (\"test kept for the merge\") is borderline and left alone.\n\n**No agent faults** among the dismissals."
+  },
+  {
+    "id": "uncommitted-status-line",
+    "expect": "done",
+    "why": "The person commits when they choose; a bare line saying changes are uncommitted is status, not leftover work.",
+    "reply": "The workspace config now carries the upgrade note in two places:\n\n- **At the version pin:** a two-line pointer to the upgrade steps.\n- **Above the patch entry:** the check itself, with both outcomes.\n\nThe file still installs cleanly and passes the formatter. It remains uncommitted with the rest."
+  },
+  {
+    "id": "unpushed-after-asked-commit",
+    "expect": "done",
+    "why": "After the commit the person asked for, the untouched files and the unpushed commit are status they control.",
+    "prompt": "commit the scanner changes",
+    "reply": "Committed the four scanner files as `e06b656 fix(skills): block only hidden content in vendor scan`. I kept it as one commit because the syntax fix and the severity change touch the same rule and tests.\n\nThe two vendored skill folders and the catalog file are still uncommitted, and nothing was pushed."
+  },
+  {
+    "id": "gap-carried-into-later-pass",
+    "expect": "done",
+    "why": "A gap the agent says it is carrying into a later pass of its own running pipeline is running work, not a leftover.",
+    "reply": "Ticket 06 is built and its squash-merge is running; ticket 10 is still being implemented.\n\nOne gap from 06 that I'm carrying into the final fix pass: a reopened quote shows the fee in the builder, but the server applies the new rule on save, so the saved price can be lower than what was shown."
+  },
+  {
+    "id": "pre-ship-notes-while-check-runs",
+    "expect": "done",
+    "why": "Notes for a ship the person has not scheduled are later, and the running check reports back by itself.",
+    "reply": "The spec is fully implemented on the feature branch, and the browser check you asked for is running in the background. I'll report its results when it finishes. The branch stays local, as you chose.\n\n- **Checks:** full `just verify` passed on the final tree.\n- **Tracker:** all 13 tickets are resolved.\n\nThings to know before this ships:\n\n- `origin/main` is 10 commits ahead, so the branch needs a rebase before shipping.\n- The event consumers now receive a new `waste_percent` field.\n- **Not done from the review:** splitting the three ~800-line calculator files.\n- **At promotion:** merge the scratch glossary into the canonical one and number the draft ADR."
   }
 ]
