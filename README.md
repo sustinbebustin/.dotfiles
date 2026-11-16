@@ -34,7 +34,7 @@ claude plugin marketplace add sustinbebustin/.dotfiles --sparse .claude-plugin
 claude plugin install meta@sustinbebustin
 ```
 
-Claude Code mods in `home/.claude/mods/` are published the same way, one folder symlink per mod into `~/.claude/mods`, because the plugin loader rejects per-file links. `settings.base.json` points `CLAUDE_CODE_PLUGIN_DIRS` at that folder, so every mod there loads in every session.
+Claude Code mods in `home/.claude/mods/` are published the same way, one folder symlink per mod into `~/.claude/mods`, because the plugin loader rejects per-file links. `settings.base.json` points `CLAUDE_CODE_PLUGIN_DIRS` at that folder, so every mod there loads in every session. Local plugins that aren't mods live there too: `tsc-lsp` replaces the official `typescript-lsp` plugin (disabled in `settings.base.json`) with a language server that runs the project's own `tsc --lsp`, since TypeScript 7 has no `tsserver.js` for `typescript-language-server` to drive.
 
 The Go hooks in `home/.agents/hooks/` (`agent-guard-bin` PreToolUse guards, `agent-quality-bin` PostToolUse format/lint) are stowed as built `*-bin` binaries only -- `dot stow` builds them first, since they are per-platform and gitignored -- and registered in each harness's `settings.base.json`, which `dot stow` merges into the gitignored `settings.json` beside it. The same module builds `agent-droids-bin`, which `dot stow` runs to turn the agents into Droid droids.
 

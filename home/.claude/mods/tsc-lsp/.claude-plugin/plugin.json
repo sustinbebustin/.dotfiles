@@ -1,0 +1,7 @@
+{
+  "name": "tsc-lsp",
+  "displayName": "TypeScript LSP (project tsc)",
+  "version": "0.1.0",
+  "description": "TypeScript/JavaScript code intelligence from the project's own compiler: TypeScript 7's native `tsc --lsp`, or typescript-language-server for older projects.",
+  "author": { "name": "sustinbebustin" }
+}
