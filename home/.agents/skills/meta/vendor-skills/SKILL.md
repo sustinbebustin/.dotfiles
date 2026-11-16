@@ -41,7 +41,7 @@ Route on the first word of the arguments:
 - `update` -> [workflows/update.md](workflows/update.md).
 - `delete` -> [workflows/delete.md](workflows/delete.md).
 - `trust <author>` / `untrust <author>` -> run `vendor.ts catalog trust|untrust <author>` and report the resulting list.
-  - A trusted author skips the review subagent and the install confirmation.
+  - A trusted author skips the install confirmation, and skips the review subagent when the scan has no `warn` findings.
   - The scanner still runs, and a scanner block still stops the install.
 - No mode given -> ask which mode.
 

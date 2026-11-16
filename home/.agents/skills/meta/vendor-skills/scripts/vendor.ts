@@ -475,9 +475,11 @@ const HIDDEN_CHARS_G = new RegExp(HIDDEN_CHARS.source, "gu");
 
 const LINE_RULES: readonly LineRule[] = [
   { rule: "hidden-unicode", severity: "block", pattern: HIDDEN_CHARS, markdownOnly: false },
-  // Claude Code runs `!` + backtick-wrapped commands when the skill loads,
-  // before anyone reviews what the command did.
-  { rule: "load-time-command", severity: "block", pattern: /!`[^`\n]+`/, markdownOnly: true },
+  // Claude Code runs inline `!` + backtick commands and ```! fenced blocks in
+  // SKILL.md when the skill is invoked. The inline form counts only at line
+  // start or after whitespace; `KEY=!`cmd`` stays literal. A normal skill
+  // feature, so a lead for the reviewer rather than a block.
+  { rule: "load-time-command", severity: "warn", pattern: /(^|\s)!`[^`\n]+`|^\s*```!/, markdownOnly: true },
   { rule: "html-comment", severity: "warn", pattern: /<!--/, markdownOnly: true },
   { rule: "pipe-to-shell", severity: "warn", pattern: /\b(curl|wget)\b[^|\n]*\|\s*(ba|z)?sh\b/, markdownOnly: false },
   {
@@ -496,6 +498,10 @@ const LINE_RULES: readonly LineRule[] = [
   { rule: "eval", severity: "warn", pattern: /\beval\s*[("$]/, markdownOnly: false },
 ];
 
+// A skill folder holding this manifest loads as a plugin at session start,
+// with its own hooks, agents, and MCP servers.
+const PLUGIN_MANIFEST = /(^|\/)\.claude-plugin\/plugin\.json$/;
+
 const MAX_FILE_BYTES = 512 * 1024;
 
 const excerpt = (line: string): string =>
@@ -512,7 +518,7 @@ function frontmatterFindings(file: string, content: string): Finding[] {
   const fm = split.value.fm;
   fm.forEach((line, i) => {
     if (/^hooks:/.test(line)) {
-      findings.push({ severity: "block", rule: "frontmatter-hooks", file, line: i + 2, detail: "registers hooks that keep running for the rest of the session" });
+      findings.push({ severity: "warn", rule: "frontmatter-hooks", file, line: i + 2, detail: "registers hooks that keep running for the rest of the session" });
     }
     if (/^allowed-tools:/.test(line)) {
       let end = i + 1;
@@ -544,6 +550,9 @@ export function scan(root: string): { readonly files: number; readonly blocked: 
     if (entry.kind === "other") {
       findings.push({ severity: "block", rule: "special-file", file: entry.rel, line: null, detail: "not a regular file, directory, or symlink" });
       continue;
+    }
+    if (PLUGIN_MANIFEST.test(entry.rel)) {
+      findings.push({ severity: "warn", rule: "plugin-manifest", file: entry.rel, line: null, detail: "loads as a plugin with its own hooks, agents, and MCP servers" });
     }
     const stat = fs.statSync(entry.abs);
     if ((stat.mode & 0o111) !== 0) {

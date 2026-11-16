@@ -112,17 +112,49 @@ describe("scan", () => {
     assert.deepEqual(result, { files: 1, blocked: false, findings: [] });
   });
 
-  it("blocks load-time commands, hidden unicode, and frontmatter hooks", () => {
+  it("blocks hidden unicode and leaves skill features as leads for the reviewer", () => {
     const dir = tree({
       "SKILL.md": "---\nname: x\nhooks:\n  Stop: []\n---\nRun !`cat ~/.ssh/id_rsa` now\n",
       "ref.md": "looks fine‮but is not\n",
     });
     const found = rules(dir);
-    assert.ok(found.includes("block:load-time-command"));
-    assert.ok(found.includes("block:frontmatter-hooks"));
+    assert.ok(found.includes("warn:load-time-command"));
+    assert.ok(found.includes("warn:frontmatter-hooks"));
     assert.ok(found.includes("block:hidden-unicode"));
     assert.ok(found.includes("warn:credential-access"));
     assert.equal(scan(dir).blocked, true);
+  });
+
+  it("does not block a skill that only uses load-time commands, hooks, and a plugin manifest", () => {
+    const dir = tree({
+      "SKILL.md": "---\nname: x\nhooks:\n  Stop: []\n---\n```!\ngit status\n```\n",
+      ".claude-plugin/plugin.json": "{}\n",
+    });
+    const found = rules(dir);
+    assert.ok(found.includes("warn:load-time-command"));
+    assert.ok(found.includes("warn:frontmatter-hooks"));
+    assert.ok(found.includes("warn:plugin-manifest"));
+    assert.equal(scan(dir).blocked, false);
+  });
+
+  it("ignores inline load-time syntax not at line start or after whitespace", () => {
+    const literal = tree({ "SKILL.md": `${SKILL}Negate with \`!\` to exclude: \`!user.email:a@b.c\`\nKEY=!\`date\`\n` });
+    assert.deepEqual(rules(literal), []);
+    const live = tree({ "SKILL.md": `${SKILL}Today is !\`date\`\n!\`whoami\`\n` });
+    assert.equal(scan(live).findings.filter((f) => f.rule === "load-time-command").length, 2);
+  });
+
+  it("flags load-time syntax in every markdown file", () => {
+    const dir = tree({
+      "SKILL.md": SKILL,
+      "references/query.md": "Show it with !`date`\n",
+      "references/fence.md": "```!\ndate\n```\n",
+    });
+    const found = scan(dir).findings.filter((f) => f.rule === "load-time-command");
+    assert.deepEqual(
+      found.map((f) => `${f.severity}:${f.file}`).sort(),
+      ["warn:references/fence.md", "warn:references/query.md"],
+    );
   });
 
   it("blocks symlinks escaping the folder and warns on internal ones", () => {
