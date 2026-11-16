@@ -9,21 +9,17 @@ Subcommands:
           what Claude did in the nudged turn (asked / acted / dismissed), and the
           person's next prompt. `dismissed` or `complained` marks a likely false
           positive.
-  misses  Prompts where the person nudged Claude themselves ("what's next",
-          "use AskUserQuestion", a bare "yes" to a prose offer) after a reply the
-          mod let through: likely misses. --controls N adds N ordinary turns.
   check   Run the reviewer over the labelled cases in tests/reviewer-cases.json,
           --runs times each; exit 1 when any run disagrees with a label.
 
---replay (fired, misses) sends each reviewed reply through the mod's current
+--replay (fired) sends each reviewed reply through the mod's current
 reviewer and records the verdict. The reviewer is the mod's own: its prompt and
 nudge kinds are read from hooks/verdict.ts with bun, and answered by
 `claude -p --model <MODEL from hooks/register.ts>`.
 
 Usage:
-    uv run mine.py fired  [--since 14d] [--replay] [--json]
-    uv run mine.py misses [--since 14d] [--kind all|ask|continue|affirm] [--controls 30] [--replay] [--json]
-    uv run mine.py check  [--runs 3] [--id <case-id>]
+    uv run mine.py fired [--since 14d] [--replay] [--json]
+    uv run mine.py check [--runs 3] [--id <case-id>]
 """
 
 from __future__ import annotations
@@ -31,7 +27,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import random
 import re
 import subprocess
 import sys
@@ -49,24 +44,6 @@ MOD_DIR = Path(__file__).resolve().parents[3]
 CASES = MOD_DIR / "tests" / "reviewer-cases.json"
 # register.ts cuts the turn's prompt to this length before review.
 PROMPT_CONTEXT_MAX = 2000
-
-NUDGES = {
-    "ask": re.compile(
-        r"ask ?user ?question|ask(ing)? me (with|using|via)|use the (ask|question) tool|ask me (instead|the question)",
-        re.IGNORECASE,
-    ),
-    "continue": re.compile(
-        r"what'?s next|what('?s| is) left|anything (else )?left|(is|was) there anything (else|left|more)"
-        r"|what else|what now|what remains|remaining (work|tasks|items)|next steps?\b|are we done|is that (it|everything|all)"
-        r"|did (you|we) (finish|complete|miss)|^\s*(continue|keep going|carry on|proceed|go on|finish( it| up)?)\W*$"
-        r"|why did you stop|you stopped|not done|still (need|left|to do)",
-        re.IGNORECASE,
-    ),
-    "affirm": re.compile(
-        r"^\s*(y|yes|yep|yeah|sure|ok(ay)?|do it|go( ahead)?|please do|sounds good|lgtm|ship it|all of (them|it|the above)|both)\W*$",
-        re.IGNORECASE,
-    ),
-}
 
 # How a nudge opens in a transcript: the $.prompt.submit frame, or the old classic.Stop block.
 # Matched at the start only, so a person quoting a nudge back is not counted as one.
@@ -375,89 +352,6 @@ def run_fired(args: argparse.Namespace, seconds: int, cutoff: str) -> None:
         )
 
 
-# --- misses
-
-
-@dataclass
-class Miss:
-    kind: str  # ask | continue | affirm | control
-    prompt: (
-        str  # the prompt after the turn: the nudge, or any other prompt for a control
-    )
-    asked: str  # the prompt that started the turn
-    final: str
-    timestamp: str
-    project: str
-    transcript: str
-    answer: str = ""
-    now: str = ""
-
-
-def scan_misses(path: Path, cutoff: str) -> list[Miss]:
-    found: list[Miss] = []
-    for turn, prompt in walk(path):
-        # A nudged turn's reply is never reviewed, so a prompt after it is no miss.
-        if prompt is None or prompt.is_nudge or turn.nudge:
-            continue
-        if prompt.timestamp >= cutoff and turn.final:
-            kind = next(
-                (k for k, rx in NUDGES.items() if rx.search(prompt.text)), "control"
-            )
-            # A nudge phrase deep inside a long prompt is usually a new instruction, not a nudge.
-            if kind in ("ask", "continue") and len(prompt.text) >= 600:
-                kind = "control"
-            found.append(
-                Miss(
-                    kind,
-                    prompt.text,
-                    turn.prompt,
-                    turn.final,
-                    prompt.timestamp,
-                    path.parent.name,
-                    str(path),
-                )
-            )
-    return found
-
-
-def run_misses(args: argparse.Namespace, seconds: int, cutoff: str) -> None:
-    files = sessions(seconds)
-    every = [h for p in files for h in scan_misses(p, cutoff)]
-    hits = [h for h in every if h.kind != "control" and args.kind in ("all", h.kind)]
-    controls = [h for h in every if h.kind == "control"]
-    hits += random.Random(args.seed).sample(controls, min(args.controls, len(controls)))
-    hits.sort(key=lambda h: h.timestamp)
-    if args.replay:
-        reviewer = Reviewer.load()
-        for h, answer in zip(
-            hits, parallel(lambda h: reviewer.review(h.asked, h.final), hits)
-        ):
-            h.answer, h.now = answer, reviewer.verdict(answer)
-    if args.json:
-        print(json.dumps([asdict(h) for h in hits], indent=1))
-    else:
-        for h in hits:
-            print(
-                f"=== [{h.kind}] {h.timestamp[:16]} {h.project}"
-                + (f" now={h.now}" if h.now else "")
-            )
-            print(
-                f"--- final:\n{clip(h.final, args.max_chars)}\n--- person next: {h.prompt[:300]}\n"
-            )
-    counts = {
-        k: sum(h.kind == k for h in hits)
-        for k in ("ask", "continue", "affirm", "control")
-    }
-    print(f"# {len(hits)} turns from {len(files)} sessions: {counts}", file=sys.stderr)
-    if args.replay:
-        for kind in counts:
-            group = [h for h in hits if h.kind == kind]
-            print(
-                f"#   {kind}: current reviewer nudges {sum(h.now == 'open' for h in group)}/{len(group)}",
-                file=sys.stderr,
-            )
-
-
 # --- check
 
 
@@ -507,35 +401,21 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     sub = ap.add_subparsers(dest="command", required=True)
-    for name in ("fired", "misses"):
-        p = sub.add_parser(name)
-        p.add_argument(
-            "--since", default="14d", help="window like 14d or 36h (default 14d)"
-        )
-        p.add_argument(
-            "--replay",
-            action="store_true",
-            help="run each reviewed reply through the current reviewer",
-        )
-        p.add_argument("--json", action="store_true")
-        p.add_argument(
-            "--max-chars",
-            type=int,
-            default=1500,
-            help="truncate each reply in text output (0 = no limit)",
-        )
-    misses = sub.choices["misses"]
-    misses.add_argument(
-        "--kind", default="all", choices=["all", "ask", "continue", "affirm"]
+    fired = sub.add_parser("fired")
+    fired.add_argument(
+        "--since", default="14d", help="window like 14d or 36h (default 14d)"
     )
-    misses.add_argument(
-        "--controls",
+    fired.add_argument(
+        "--replay",
+        action="store_true",
+        help="run each reviewed reply through the current reviewer",
+    )
+    fired.add_argument("--json", action="store_true")
+    fired.add_argument(
+        "--max-chars",
         type=int,
-        default=0,
-        help="also sample N turns followed by any other prompt",
-    )
-    misses.add_argument(
-        "--seed", type=int, default=1, help="seed for the control sample"
+        default=1500,
+        help="truncate each reply in text output (0 = no limit)",
     )
     check = sub.add_parser("check")
     check.add_argument(
@@ -557,7 +437,7 @@ def main() -> None:
         sys.exit(f"--since takes a number and d/h, like 14d or 36h; got {args.since!r}")
     seconds = int(m[1]) * (86400 if m[2] == "d" else 3600)
     cutoff = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - seconds))
-    (run_fired if args.command == "fired" else run_misses)(args, seconds, cutoff)
+    run_fired(args, seconds, cutoff)
 
 
 if __name__ == "__main__":
