@@ -9,6 +9,8 @@ metadata:
 
 Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
+Before anything else, invoke the `model-routing` skill with the Skill tool. It picks each ticket's **Model** and sets how ticket text is written.
+
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
 ## Process
@@ -47,7 +49,7 @@ Present the proposed breakdown as a numbered list. For each ticket, show:
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
-- **Model**: the model that should implement it. `sonnet` for a mechanical, well-specified change with one obvious path (a rename, copy or config change, a wide-refactor migrate batch); `opus` for everything else; `fable` only for a ticket expected to run for hours across many layers with open design questions, since Fable costs 2x Opus per token. Invoke the `model-routing` skill for the full per-role table and its evidence
+- **Model**: the model that should implement it, picked from `model-routing`'s routing defaults
 
 Ask the user:
 
@@ -79,7 +81,7 @@ Do NOT close or modify any parent issue.
 
 **Status:** ready-for-agent
 
-**Model:** sonnet | opus | fable (`/implement-with-subagents` dispatches this ticket on it)
+**Model:** haiku | sonnet | opus | fable
 
 - [ ] Acceptance criterion 1
 - [ ] Acceptance criterion 2
@@ -106,5 +108,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 - A reference to each blocking ticket, or "None (can start immediately)". Omit this section when blockers were set as native edges.
 
 </issue-template>
+
+A ticket is its implementer's brief, so write it to `model-routing`'s cross-model prompting rules: scope every absolute, and be precise enough for the most literal model. Leave out per-model prompting snippets; a ticket's model can change after it is written.
 
 In either form, avoid specific file paths or code snippets: they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.

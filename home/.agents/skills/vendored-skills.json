@@ -914,7 +914,7 @@
       "localChanges": [
         "Local-file tickets use the path from the tracker config and report created paths.",
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code.",
-        "Each ticket carries a Model (sonnet/opus/fable) proposed in the quiz and written as a **Model:** line in the local template; /implement-with-subagents dispatches the ticket on it (user decision, from tune-harness cost-per-ticket data); the model rule points at the model-routing skill.",
+        "Each ticket carries a Model (haiku/sonnet/opus/fable) proposed in the quiz and written as a **Model:** line in the local template; /implement-with-subagents dispatches the ticket on it (user decision, from tune-harness cost-per-ticket data). The skill invokes model-routing first; the Model pick defers to its routing defaults, and ticket text follows its cross-model prompting rules.",
         "Removed disable-model-invocation so an agent told to run it (by the user, a parent agent, or another skill) can invoke it with the Skill tool; skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing."
       ]
     },
