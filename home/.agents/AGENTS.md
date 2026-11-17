@@ -87,6 +87,7 @@ Never leave broken windows -- bad designs, sloppy formatting, commented-out junk
 
 ## Tooling
 - Never hand-edit file *contents* through Bash -- no `sed -i`, `tee`, heredoc redirects, or inline `python`/`node` scripts that rewrite repo files. Use Edit or Write; bash edits are invisible to checkpointing and bypass Edit deny rules. This holds in auto mode
+- Exception: bulk, mechanical changes (the same literal or pattern change across many sites or files, where no codemod fits) may use a single `sed`/`perl -pi`/script. Make sure the files have no uncommitted changes first so git can undo it
 - Bash remains correct for: formatters, linters, codemods, and code generators (`gofmt -w`, `eslint --fix`, `jscodeshift`, `sqlc generate`); file operations (`git mv`, `mkdir`, `rm`); and any file outside the repo. For repo-wide renames prefer a codemod or LSP rename over `sed`
 - Read to read; Edit and Write to modify
 - Search is the exception -- this build has no Grep or Glob tool: `rg` for file contents, `find` for filenames
