@@ -25,6 +25,9 @@ CLAUDE_SHARED_STATE=(
     "file-history:dir"
     "history.jsonl:file"
     "tasks:dir"
+    "sessions:dir"
+    "paste-cache:dir"
+    "teams:dir"
 )
 readonly CLAUDE_SHARED_STATE
 
