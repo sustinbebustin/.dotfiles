@@ -24,6 +24,7 @@ CLAUDE_SHARED_STATE=(
     "plans:dir"
     "file-history:dir"
     "history.jsonl:file"
+    "tasks:dir"
 )
 readonly CLAUDE_SHARED_STATE
 
