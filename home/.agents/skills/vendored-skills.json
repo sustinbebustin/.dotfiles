@@ -5,7 +5,6 @@
     "anthropics",
     "cursor",
     "dmmulroy",
-    "getsentry",
     "github",
     "kitlangton",
     "mattpocock",
@@ -680,26 +679,6 @@
         "state": "tracked"
       },
       "localChanges": []
-    },
-    "sentry-cli": {
-      "author": "getsentry",
-      "source": {
-        "repo": "getsentry/cli",
-        "ref": "main",
-        "path": "packages/cli/plugins/sentry-cli/skills/sentry-cli"
-      },
-      "localPath": "tools/sentry-cli",
-      "sync": {
-        "commit": "3567c3c937b5cc06667d5b023bda0b2d3f472c54",
-        "tree": "6f17d214c6bec6f9c81fd7d6f99e4ddaf432278a",
-        "at": "2026-10-13"
-      },
-      "status": {
-        "state": "tracked"
-      },
-      "localChanges": [
-        "Rewrote npx/npm commands to pnpm (dlx/exec/add): npm and npx are not installed here."
-      ]
     },
     "setup-matt-pocock-skills": {
       "author": "mattpocock",
