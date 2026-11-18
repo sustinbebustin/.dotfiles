@@ -618,6 +618,24 @@
         "Dropped agents/openai.yaml: Codex UI metadata, unused by Claude Code."
       ]
     },
+    "prune-tests": {
+      "author": "caldoai",
+      "source": {
+        "repo": "caldoai/skills",
+        "ref": "main",
+        "path": "skills/prune-tests"
+      },
+      "localPath": "engineering/prune-tests",
+      "sync": {
+        "commit": "d5b68dace378219890d821adb3685538e2c69b04",
+        "tree": "ce146c99c6d45423256d855fc17a5ec48126862a",
+        "at": "2026-11-18"
+      },
+      "status": {
+        "state": "tracked"
+      },
+      "localChanges": []
+    },
     "react-best-practices": {
       "author": "vercel-labs",
       "source": {
