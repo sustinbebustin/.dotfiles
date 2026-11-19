@@ -23,16 +23,15 @@
       },
       "localPath": "tools/agent-browser",
       "sync": {
-        "commit": "021d9255e543d2f1ab66b87f338d85c3d7a910be",
-        "tree": "82def67855a0d2aad7794207951820fa5422fdb0",
-        "at": "2026-09-21"
+        "commit": "a897b24d7e6624ed7e5d6ef1eed836f7200f4b40",
+        "tree": "d75a393c9a371295c6d6be46c34938e76ef21184",
+        "at": "2026-11-19"
       },
       "status": {
         "state": "tracked"
       },
       "localChanges": [
-        "Removed the 'npm i -g agent-browser && agent-browser install' line: installing the CLI is the user's call, not the agent's (user decision).",
-        "Dropped the Bash(npx agent-browser:*) allowed-tools entry: npx is not installed here; agent-browser is a pnpm global."
+        "Removed the 'npm i -g agent-browser && agent-browser install' line: installing the CLI is the user's call, not the agent's (user decision)."
       ]
     },
     "cli-for-agents": {
