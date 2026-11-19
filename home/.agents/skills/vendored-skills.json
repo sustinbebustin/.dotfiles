@@ -332,16 +332,15 @@
       },
       "localPath": "engineering/how",
       "sync": {
-        "commit": "1e5c90a4b6f249917bd21fe361b3a2a7deb741b8",
-        "tree": "3fd1c05ec675e7225d51e19e8ec80b92217adfbf",
-        "at": "2026-10-14"
+        "commit": "35a90942a7f02e1ebbc2443643179815f2147954",
+        "tree": "9c370cd686f570877a24997e9ccfba0f49096f00",
+        "at": "2026-11-19"
       },
       "status": {
         "state": "tracked"
       },
       "localChanges": [
-        "Rewrote Cursor Task subagent params to Claude Code Agent tool: explorers use Explore (read-only); the explainer uses general-purpose with model opus and read-only stated in its prompt, since Cursor's readonly flag has no per-spawn equivalent here.",
-        "Dropped the pstack-models.mdc model-routing paragraph and Cursor model slugs; that rule is Cursor-only, and Agent model aliases cover routing here.",
+        "Rewrote the Cursor Task subagent params to the Claude Code Agent tool: the single explainer uses general-purpose with model opus, and its brief says to make no file edits, since Cursor's readonly flag has no per-spawn equivalent here.",
         "Removed disable-model-invocation so the model can invoke it, including from why's pointer to how."
       ]
     },
@@ -1028,19 +1027,14 @@
       },
       "localPath": "productivity/why",
       "sync": {
-        "commit": "1e5c90a4b6f249917bd21fe361b3a2a7deb741b8",
-        "tree": "ba549f92c3a8dc1506b21674e8794eb980019bf3",
-        "at": "2026-10-14"
+        "commit": "35a90942a7f02e1ebbc2443643179815f2147954",
+        "tree": "2608dc2d93794dd7060b826b81b6da0be6bc673c",
+        "at": "2026-11-19"
       },
       "status": {
         "state": "tracked"
       },
       "localChanges": [
-        "Rewrote Cursor Task subagent params to Claude Code Agent tool: investigators use general-purpose with model sonnet, the synthesizer general-purpose with model opus; general-purpose because both need MCP tools, which Explore lacks.",
-        "Dropped the pstack-models.mdc model-routing paragraph and Cursor model slugs; that rule is Cursor-only, and Agent model aliases cover routing here.",
-        "MCP discovery reads the session's mcp__<server>__* tools (including deferred ones via ToolSearch) instead of Cursor's available-tools map and mcps/ directory, which Claude Code doesn't have.",
-        "Context hint says 'the IDE selection' instead of 'cursor location'; that is the Claude Code equivalent.",
-        "Removed Slack: deleted references/sources/slack.md, its source-playbook.md row (chat now says to adapt the closest playbook), and the Slack mentions in SKILL.md and incident-postmortem.md; we don't use Slack. The real-time team chat category stays for other chat MCPs.",
         "Removed disable-model-invocation so the model can invoke it, including from how's pointer to why."
       ]
     },
