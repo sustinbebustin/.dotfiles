@@ -792,9 +792,9 @@
       },
       "localPath": "engineering/statechart",
       "sync": {
-        "commit": "519d36aa98955bf680db01bcde5fdfba686dc901",
-        "tree": "a79a48c6970be3b63d6efefb0a306b7c87de88d0",
-        "at": "2026-10-27"
+        "commit": "35a90942a7f02e1ebbc2443643179815f2147954",
+        "tree": "e7f097e74b3297b2fbb2707be7d8e336e0df8b7c",
+        "at": "2026-11-19"
       },
       "status": {
         "state": "tracked"
