@@ -89,3 +89,10 @@ case ":$PATH:" in
   *":$BUN_INSTALL/bin:"*) ;;
   *) [ -d "$BUN_INSTALL/bin" ] && export PATH="$BUN_INSTALL/bin:$PATH" ;;
 esac
+
+# ===== Agent shells =====
+# Claude Code runs its Bash tool through zsh, but agents write bash by reflex:
+# an unquoted `$files` that does not split silently checks nothing, and an
+# unmatched glob aborts the command. Give those shells bash's splitting and
+# globbing. CLAUDECODE is exported, so zsh scripts Claude launches get it too.
+[[ -n $CLAUDECODE ]] && setopt SH_WORD_SPLIT NO_NOMATCH

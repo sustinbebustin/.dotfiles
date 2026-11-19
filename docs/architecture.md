@@ -61,7 +61,7 @@ XDG-compliant. `~/.zshenv` sets `ZDOTDIR=$HOME/.config/zsh` and sources `$ZDOTDI
 
 | File (in `$ZDOTDIR`) | Scope | Purpose |
 |------|-------|---------|
-| `.zshenv` | All shells | `LANG`, `EDITOR`, XDG dirs, Homebrew, Node/pnpm/bun env |
+| `.zshenv` | All shells | `LANG`, `EDITOR`, XDG dirs, Homebrew, Node/pnpm/bun env, bash-style splitting and globbing when `CLAUDECODE` is set |
 | `.zprofile` | Login | libpq |
 | `.zshrc` | Interactive | Completions, PATH extensions, aliases, plugins, starship prompt |
 
