@@ -11,7 +11,7 @@ Three-axis review of the diff between `HEAD` and a fixed point the user supplies
 - **Spec**: does the code faithfully implement the originating issue / spec?
 - **Comments**: do the comments and doc comments earn their place?
 
-Each axis runs as a **parallel sub-agent** (`standards-reviewer`, `spec-reviewer`, `doc-comment-reviewer`) so they don't pollute each other's context. Their reports arrive later, on their own; aggregation happens once they have.
+Each axis runs as a **parallel sub-agent** (`standards-reviewer`, `spec-reviewer`, `doc-comment-reviewer`) so they don't pollute each other's context. Start every sub-agent with a fresh context window. Their reports arrive later, on their own; aggregation happens once they have.
 
 The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
