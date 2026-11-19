@@ -78,9 +78,14 @@ The composed service owns the host service passed to `createClipboard()`. The re
 | `terminal-only`  | Terminal only                                                     | Terminal only                              |
 | `host-only`      | Host only                                                         | Skipped unless `allowRemoteHost` is `true` |
 | `best-available` | Host first, then the terminal if the host is unsupported or fails | Terminal only                              |
-| `all-available`  | Both concurrently                                                 | Terminal, plus host with `allowRemoteHost` |
+| `all-available`  | Host first, then the terminal when the host settles               | Terminal, plus host with `allowRemoteHost` |
 
 Skipped destinations report `{ status: "not-attempted" }` in the result.
+
+Host writes can settle out of order, for example when they time out. When operations on one selection overlap, the
+newest one wins, whatever its destination. Each settled `all-available` or `best-available` host write sends the newest
+operation's terminal write, unless the terminal already took it and no host write has taken the selection since, and
+reports that write's result. A newer `host-only` write stops the older operations' terminal writes.
 
 ### Remote sessions
 
@@ -146,6 +151,9 @@ Linux selects Wayland when `WAYLAND_DISPLAY` or `WAYLAND_SOCKET` is nonempty and
 `libwayland-client.so.0` supplies the required symbols. It selects X11 when `DISPLAY` is nonempty and `libxcb.so.1`
 supplies the required symbols. Wayland has priority. It can fall back to X11 when Wayland reports unsupported and both
 are available. OpenTUI talks to these protocols directly. It does not invoke `wl-copy`, `wl-paste`, `xclip`, or `xsel`.
+Wayland needs a data-control protocol; only WSLg reads work without one. GNOME has none, so there the clipboard uses X11
+through Xwayland. When no backend can serve an operation, the process logs once why each backend it tried failed: a
+library that does not load, a display that does not connect, or a compositor without data-control.
 
 Windows uses the Win32 clipboard API and does not invoke PowerShell. macOS uses native pasteboard and image APIs and
 does not invoke `pbcopy` or `pbpaste`.
@@ -204,8 +212,9 @@ write.
 
 ## Cancellation
 
-Every operation accepts an `AbortSignal`. Cancellation is cooperative. A synchronous platform call that is already
-in progress finishes before the service observes the abort.
+Every operation accepts an `AbortSignal`. Cancellation is cooperative. On Windows and macOS, a cancelled or timed-out
+operation settles at once. A platform call already in progress keeps running, so a timed-out write or clear can still
+take effect, and later operations wait for it.
 
 ```typescript
 import { createHostClipboard } from "@opentui/core"
