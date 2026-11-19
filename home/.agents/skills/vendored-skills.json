@@ -563,9 +563,9 @@
       },
       "localPath": "engineering/principle-boundary-discipline",
       "sync": {
-        "commit": "7022c81efb48d8b5eb15498ce6043a3bd74b694c",
-        "tree": "743b098e6874a93b11e9f4d5843c79a243580ae2",
-        "at": "2026-10-02"
+        "commit": "35a90942a7f02e1ebbc2443643179815f2147954",
+        "tree": "d7c9f885052de6177eb888c51c22285f4d225278",
+        "at": "2026-11-19"
       },
       "status": {
         "state": "tracked"
@@ -583,18 +583,17 @@
       },
       "localPath": "engineering/principle-type-system-discipline",
       "sync": {
-        "commit": "8b3326d99fd4b993cb33a24dad8af03175c642c5",
-        "tree": "32850aaddd70478a6dacb153bbcef8532bf7d626",
-        "at": "2026-10-23"
+        "commit": "35a90942a7f02e1ebbc2443643179815f2147954",
+        "tree": "5847636501d4a92dc1173a30fc09475fe22fbbca",
+        "at": "2026-11-19"
       },
       "status": {
         "state": "tracked"
       },
       "localChanges": [
-        "Pointer to principle-boundary-discipline says to call the Skill tool for it by its installed name, instead of upstream's 'the boundary-discipline principle skill'.",
-        "Dropped the pointer to the encode-lessons-in-structure principle skill; we do not vendor it.",
+        "Pointer to principle-boundary-discipline says to call the Skill tool for it by its installed name; upstream dropped the pointer, but the two principles are used together here.",
         "Removed disable-model-invocation so typescript-best-practices and the other principle skill can invoke it with the Skill tool; skillOverrides lists it \"name-only\" in settings so its description stays out of the skill listing.",
-        "Kept the illegal-states, constructions, don't-lie, exhaustive-matching and strengthen-only-where-partial bullets and 'refuse to lie to the compiler' in the description, which upstream deleted in an unrelated merge commit (199d42e era) while its description still promises them; looks accidental, and they are core to how we type (user decision)."
+        "Kept the illegal-states, constructions, don't-lie, exhaustive-matching and strengthen-only-where-partial bullets, plus the fuller brand/parse/derive wording, which upstream deleted or condensed while its description still promises them; they are core to how we type (user decision)."
       ]
     },
     "prototype": {
