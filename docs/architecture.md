@@ -80,6 +80,8 @@ Claude Code on a headless Linux host cannot see the Mac's clipboard, so Ctrl+V f
 
 The two meet through `RemoteForward 127.0.0.1:21547 127.0.0.1:21547` in the Mac's `~/.ssh/config` (untracked), so the channel exists only inside an SSH connection the Mac opened, and Remote Login stays off. Any process on the Linux host can ask for the image while a connection is up, which is acceptable on a single-user machine only.
 
+The key has to be Ctrl+V (`chat:imagePaste`), so `keybindings.json` must leave it bound. Cmd+V cannot trigger the read: the Mac terminal turns an image-only clipboard into an empty paste, and Claude Code checks the clipboard on an empty paste only on macOS and WSL.
+
 Only the first of several simultaneous connections gets the forward; the others log `remote port forwarding failed`, and paste stops if that first connection closes while they stay open. Reconnect, or share one connection with `ControlMaster`.
 
 ## Node Toolchain
