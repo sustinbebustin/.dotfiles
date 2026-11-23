@@ -115,7 +115,8 @@ accent = "#9580FF"
 # prefix bindings as two-key sequences. Keep the two in step. The app has no
 # command for worktrees, navigate/copy/resize mode, reload_config,
 # open_notification_target, rename_pane, edit_scrollback, cycle_pane,
-# last_pane, resize_pane_*, or break-pane, so those stay terminal-only.
+# last_pane, resize_pane_*, break-pane, or moving a pane to a new workspace, so
+# those stay terminal-only.
 
 [keys]
 # Prefix key used to enter prefix mode. An array accepts several prefixes.
@@ -379,6 +380,12 @@ resize_pane_right = ["prefix+]", "prefix+alt+right"]
 key = "prefix+!"
 type = "shell"
 command = "herdr pane move \"$(herdr pane list | jq -r '[.result.panes[] | select(.focused)][0].pane_id')\" --new-tab --focus"
+
+# Move the focused pane into a new workspace.
+[[keys.command]]
+key = "prefix+@"
+type = "shell"
+command = "herdr pane move \"$(herdr pane list | jq -r '[.result.panes[] | select(.focused)][0].pane_id')\" --new-workspace --focus"
 
 # Legacy indexed shortcuts are parsed for compatibility. Prefer switch_tab,
 # switch_workspace, and focus_agent in new configurations.
