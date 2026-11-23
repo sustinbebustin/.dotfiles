@@ -71,6 +71,17 @@ Key tools loaded: pnpm, bun, starship, eza, fzf, atuin, zoxide, direnv, zsh-auto
 
 compinit and the two zsh plugins load from a one-shot `zle-line-init` handler, after the first prompt is drawn. Anything a plugin would normally do in its first `precmd` has to be run by hand there. Tool init scripts (starship, fzf, atuin, zoxide) are sourced from compiled copies in `~/.cache/zsh/init`, rebuilt when a tool's binary or arguments change; delete that directory after changing a tool's own config if its init output depends on it. The prompt hooks avoid forking in the common case: direnv runs only when an environment is loaded or an `.envrc` exists up the tree, and the ssh-agent check only when the socket link is dead. Autosuggestions come from atuin (current directory first), with zsh history as the fallback; that strategy list is set after `atuin init`, which otherwise replaces it.
 
+## Clipboard Images over SSH
+
+Claude Code on a headless Linux host cannot see the Mac's clipboard, so Ctrl+V finds no image. Two scripts in `~/.local/bin` bridge it:
+
+- `xclip` (Linux side) is a stand-in ahead of the real one on `PATH`. Claude Code reads a clipboard image by running `xclip -selection clipboard -o -t TARGETS`, then `... -t image/png`; the stand-in answers exactly those two calls from the Mac and passes everything else to the real `xclip`. That call pair is undocumented Claude Code behaviour: if a release changes it, the stand-in stops matching and paste falls back to "no image".
+- `clip-image-serve` (Mac side) is run by launchd once per connection to `127.0.0.1:21547` and replies with the clipboard image. `clip-image-serve install` registers the LaunchAgent; it is not automatic, so run it once per Mac.
+
+The two meet through `RemoteForward 127.0.0.1:21547 127.0.0.1:21547` in the Mac's `~/.ssh/config` (untracked), so the channel exists only inside an SSH connection the Mac opened, and Remote Login stays off. Any process on the Linux host can ask for the image while a connection is up, which is acceptable on a single-user machine only.
+
+Only the first of several simultaneous connections gets the forward; the others log `remote port forwarding failed`, and paste stops if that first connection closes while they stay open. Reconnect, or share one connection with `ControlMaster`.
+
 ## Node Toolchain
 
 pnpm is the single source of truth, installed by `dot init` from the standalone `get.pnpm.io` installer -- deliberately not via corepack, which pnpm upstream advises against. `pnpm runtime set node <version> -g` then provides it, pinned by `NODE_VERSION` in `dot`. pnpm v12's `globalShims` makes that global `node` project-aware: inside a project that pins Node (`devEngines.runtime`, `.nvmrc`, `.node-version`) it runs the pinned version, elsewhere `NODE_VERSION`. `PNPM_SHIM_BYPASS=1` skips the dispatch for one command.

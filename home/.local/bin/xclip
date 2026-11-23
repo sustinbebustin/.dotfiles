@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# xclip stand-in: answers Claude Code's clipboard-image read from the Mac at
+# the other end of the SSH connection, and hands every other call to the real
+# xclip.
+#
+# Claude Code pastes an image (Ctrl+V) by running exactly
+#   xclip -selection clipboard -o -t TARGETS
+#   xclip -selection clipboard -o -t image/png
+# which find nothing on a headless host. Those two calls are answered by
+# clip-image-serve on the Mac, reached on a loopback port that a RemoteForward
+# in the Mac's ~/.ssh/config tunnels back here. With no tunnel the connect is
+# refused at once and the call falls through, as it does when the Mac's
+# clipboard holds no image.
+
+port=21547 # keep in step with clip-image-serve and the RemoteForward
+
+# Sends one request line to the Mac and prints its reply.
+# $1: the request (types, png); $2: seconds before giving up.
+ask_mac() {
+  {
+    printf '%s\n' "$1" >&3
+    timeout "$2" cat <&3
+  } 3<>"/dev/tcp/127.0.0.1/$port"
+} 2>/dev/null
+
+real_xclip() {
+  local candidate
+  while IFS= read -r candidate; do
+    [[ $candidate -ef $0 ]] || exec "$candidate" "$@"
+  done < <(type -aP xclip)
+  echo "xclip: only the clipboard-image stand-in ($0) is on PATH, and it answers nothing but a Claude Code image paste. Install xclip for other uses." >&2
+  exit 127
+}
+
+# The waits sit inside the 3s and 30s Claude Code allows these two calls.
+case "$*" in
+  '-selection clipboard -o -t TARGETS')
+    if [[ $(ask_mac types 2) == image/png ]]; then
+      echo image/png
+      exit 0
+    fi
+    ;;
+  '-selection clipboard -o -t image/png')
+    if image=$(mktemp); then
+      ask_mac png 25 >"$image"
+      if [[ -s $image ]]; then
+        cat "$image"
+        rm -f "$image"
+        exit 0
+      fi
+      rm -f "$image"
+    fi
+    ;;
+esac
+
+real_xclip "$@"

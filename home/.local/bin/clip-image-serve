@@ -1,0 +1,129 @@
+#!/bin/bash
+# Hand the macOS clipboard image to an SSH remote, so Ctrl+V in a Claude Code
+# running there attaches it. The remote half is the xclip stand-in beside this
+# file.
+#
+# launchd runs this once per connection to 127.0.0.1:21547, with the socket as
+# stdin and stdout (inetdCompatibility). The remote reaches that port through a
+# RemoteForward in this Mac's ~/.ssh/config, so the channel rides the outgoing
+# SSH connection: nothing listens beyond loopback and Remote Login stays off.
+#
+# Protocol: one request line in, then the reply until EOF.
+#   types -> "image/png" when the clipboard holds an image, else nothing
+#   png   -> the image as PNG bytes, else nothing
+#
+# Usage: clip-image-serve            answer one request on stdin/stdout
+#        clip-image-serve install    register the LaunchAgent (macOS)
+#        clip-image-serve uninstall  remove it
+
+set -u
+
+label=dev.dotfiles.clip-image
+port=21547 # keep in step with the xclip stand-in and the RemoteForward
+plist=$HOME/Library/LaunchAgents/$label.plist
+log=$HOME/Library/Logs/clip-image-serve.log
+image=
+
+require_macos() {
+  [ "$(uname -s)" = Darwin ] && return
+  echo "clip-image-serve $1: needs macOS (launchd, osascript); this is $(uname -s). Run it on the Mac you SSH from." >&2
+  exit 1
+}
+
+# The AppleScript below is what Claude Code runs for a paste on the Mac itself,
+# so a remote paste accepts exactly the clipboards a local one does.
+serve() {
+  local request
+  # Under launchd stderr is the socket too; keep diagnostics out of the reply.
+  exec 2>>"$log"
+  IFS= read -r -t 5 request || {
+    echo "$(date '+%F %T') no request line within 5s" >&2
+    return 1
+  }
+  case $request in
+    types)
+      # No image on the clipboard is the ordinary case, not worth a log line.
+      osascript -e 'the clipboard as «class PNGf»' >/dev/null 2>&1 && echo image/png
+      ;;
+    png)
+      image=$(mktemp "${TMPDIR:-/tmp}/clip-image.XXXXXX") || return 1
+      trap 'rm -f "$image"' EXIT
+      osascript \
+        -e 'set png_data to (the clipboard as «class PNGf»)' \
+        -e "set fp to open for access POSIX file \"$image\" with write permission" \
+        -e 'write png_data to fp' \
+        -e 'close access fp' >/dev/null && cat "$image"
+      ;;
+    *)
+      echo "$(date '+%F %T') unknown request: $request (expected types or png)" >&2
+      return 2
+      ;;
+  esac
+}
+
+install() {
+  require_macos install
+  local self
+  self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+  mkdir -p "$(dirname "$plist")" "$(dirname "$log")"
+  cat >"$plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$label</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$self</string>
+  </array>
+  <key>inetdCompatibility</key>
+  <dict>
+    <key>Wait</key>
+    <false/>
+  </dict>
+  <key>Sockets</key>
+  <dict>
+    <key>Listeners</key>
+    <dict>
+      <key>SockNodeName</key>
+      <string>127.0.0.1</string>
+      <key>SockServiceName</key>
+      <string>$port</string>
+    </dict>
+  </dict>
+</dict>
+</plist>
+EOF
+  # Replace an earlier registration; bootout fails harmlessly when there is none.
+  launchctl bootout "gui/$UID/$label" 2>/dev/null
+  if ! launchctl bootstrap "gui/$UID" "$plist"; then
+    echo "clip-image-serve install: launchctl could not load $plist; the file is written but nothing is listening. Check it with: launchctl print gui/$UID/$label" >&2
+    exit 1
+  fi
+  cat <<EOF
+Listening on 127.0.0.1:$port (LaunchAgent $label).
+
+Next, in ~/.ssh/config on this Mac, under the Host you connect to, add:
+    RemoteForward 127.0.0.1:$port 127.0.0.1:$port
+then reconnect. Copy an image and check from this Mac:
+    printf 'types\n' | nc 127.0.0.1 $port     # prints image/png
+EOF
+}
+
+uninstall() {
+  require_macos uninstall
+  launchctl bootout "gui/$UID/$label" 2>/dev/null
+  rm -f "$plist"
+  echo "Removed LaunchAgent $label. The RemoteForward line in ~/.ssh/config is yours to delete."
+}
+
+case ${1-} in
+  '') serve ;;
+  install) install ;;
+  uninstall) uninstall ;;
+  *)
+    echo "clip-image-serve: unknown command '$1'. Usage: clip-image-serve [install|uninstall]" >&2
+    exit 2
+    ;;
+esac
