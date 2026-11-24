@@ -1,5 +1,5 @@
 # Taps
-tap "sustinbebustin/tap"
+tap "sustinbebustin/tap", trusted: true
 tap "supabase/tap"
 
 # Core
@@ -37,3 +37,6 @@ brew "pspg"
 brew "supabase/tap/supabase"
 brew "sustinbebustin/tap/mws"
 brew "sustinbebustin/tap/hush"
+
+# Casks
+cask "sustinbebustin/tap/qrun"
