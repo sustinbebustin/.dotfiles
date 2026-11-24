@@ -760,8 +760,9 @@ brew_list_has() {
 
 # Upgrades only the packages declared in $BREWFILE, leaving everything else
 # installed on the machine at its current version. Entries that aren't
-# installed are reported rather than upgraded -- `brew upgrade` fails on them
-# and would abort the whole run.
+# installed are kept out of `brew upgrade`, which fails on them and would
+# abort the whole run, and installed through `brew bundle` instead so it
+# also applies the Brewfile's taps and `trusted:` options.
 update_brewfile_packages() {
     read_brewfile_packages || return 1
 
@@ -803,8 +804,8 @@ update_brewfile_packages() {
     fi
 
     if [[ ${#missing[@]} -gt 0 ]]; then
-        warn "Not installed, so not upgraded: ${missing[*]}"
-        info "Run 'dot init' to install missing Brewfile packages"
+        info "New Brewfile packages: ${missing[*]}"
+        install_brew_packages || status=1
     fi
 
     if [[ $status -eq 0 ]]; then
